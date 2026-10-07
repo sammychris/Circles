@@ -1,8 +1,10 @@
+import { registerGlobals } from '@livekit/react-native';
 import { registerRootComponent } from 'expo';
-
 import App from './App';
+import { registerForegroundService } from './src/voice/foregroundService';
 
-// registerRootComponent calls AppRegistry.registerComponent('main', () => App);
-// It also ensures that whether you load the app in Expo Go or in a native build,
-// the environment is set up appropriately
+// Both must run before anything else touches voice.
+registerGlobals();
+registerForegroundService();
+
 registerRootComponent(App);
