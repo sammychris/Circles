@@ -27,7 +27,7 @@ function geometry(seats: number): Geometry {
     avatar,
     stageW,
     stageH: ring + avatar + LABEL_SPACE,
-    labelW: big ? avatar + space[6] + space[2] : avatar + space[5] + space[3],
+    labelW: big ? avatar + space[4] : avatar + space[5] + space[3],
     centre: { x: stageW / 2, y: avatar / 2 + radius },
   };
 }

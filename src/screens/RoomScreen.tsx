@@ -415,12 +415,6 @@ export function RoomScreen({ me, request, onLeft, onMove }: Props) {
     };
   } else if (status === 'full') {
     message = { title: 'That room just filled up', body: "We'll find you another one." };
-  } else if (status === 'removed') {
-    const why = REMOVAL_REASONS.find((r) => r.id === removedFor);
-    message = {
-      title: 'You were removed from this room',
-      body: `${why ? `The host removed you for: ${why.title}. ${why.rule} ` : ''}You can't rejoin this room, but you can join others.`,
-    };
   } else if (status === 'tooMany') {
     message = { title: "You've started a few rooms already", body: 'Try again in a while, or join a room that’s open now.' };
   } else if (status === 'badTitle') {
@@ -858,7 +852,9 @@ export function RoomScreen({ me, request, onLeft, onMove }: Props) {
           ) : null}
         </View>
 
-        {table ?? (
+        {status === 'removed' ? (
+          <RemovedNotice reason={REMOVAL_REASONS.find((r) => r.id === (voice.removedReason ?? removedFor)) ?? null} />
+        ) : table ?? (
           <RoomCircle
             people={people}
             capacity={room?.capacity}
@@ -953,10 +949,12 @@ export function RoomScreen({ me, request, onLeft, onMove }: Props) {
               <Button label="Move me to another room" variant="primary" onPress={() => void moveToAnotherRoom()} />
             ) : null}
             {iAmHost && hands.length > 0 ? (
-              <View
-                accessible
-                accessibilityLabel={`${hands.length} ${hands.length === 1 ? 'hand' : 'hands'} up`}
-                style={{ flexDirection: 'row', alignItems: 'center', gap: space[3], backgroundColor: colors.surface, borderRadius: radius.card, padding: space[3] }}
+              // The whole strip is one button: "2 hands up. See hands" (room-host-view.md › Accessibility).
+              <Pressable
+                accessibilityRole="button"
+                accessibilityLabel={`${hands.length} ${hands.length === 1 ? 'hand' : 'hands'} up. See hands`}
+                onPress={() => setHandsOpen(true)}
+                style={{ flexDirection: 'row', alignItems: 'center', gap: space[3], backgroundColor: colors.surface, borderRadius: radius.card, padding: space[3], minHeight: size.buttonPrimary }}
               >
                 <Text variant="bodyStrong">{`${hands.length} ${hands.length === 1 ? 'hand' : 'hands'} up`}</Text>
                 <View style={{ flexDirection: 'row', flex: 1 }}>
@@ -966,8 +964,10 @@ export function RoomScreen({ me, request, onLeft, onMove }: Props) {
                     </View>
                   ))}
                 </View>
-                <Button label="See hands" onPress={() => setHandsOpen(true)} />
-              </View>
+                <Text variant="metaStrong" style={{ textDecorationLine: 'underline' }}>
+                  See hands
+                </Text>
+              </Pressable>
             ) : null}
             <View style={{ flexDirection: 'row', gap: space[3] }}>
               {secondAction ??
@@ -1142,7 +1142,7 @@ export function RoomScreen({ me, request, onLeft, onMove }: Props) {
           setCompose(null);
           // Everyone here, starting with you; people who arrive later join the end.
           const order = [me.id, ...people.filter((p) => !p.isMe).map((p) => p.id)];
-          void tableItem.put({ kind: 'turns', topic, minutes }, { order, index: 0, startedAt: Date.now() });
+          void tableItem.put({ kind: 'turns', topic, minutes }, { order: order.slice(0, 12), index: 0, startedAt: Date.now(), sentAt: Date.now() });
         }}
       />
       <WordsSheet
@@ -1276,5 +1276,43 @@ function RowButton({
         </View>
       ) : null}
     </Pressable>
+  );
+}
+
+// "You were removed from this room" (removed-warned-suspended.md › 1): what happened, which rule, and
+// what they can do now. Firm, calm, never shaming.
+function RemovedNotice({ reason }: { reason: { title: string; rule: string } | null }) {
+  const colors = useColors();
+  return (
+    <View style={{ gap: space[4], alignItems: 'center', paddingTop: space[5] }} accessibilityLiveRegion="polite">
+      <View
+        style={{
+          width: size.avatarRoom,
+          height: size.avatarRoom,
+          borderRadius: radius.pill,
+          backgroundColor: colors.dangerSoft,
+          alignItems: 'center',
+          justifyContent: 'center',
+        }}
+      >
+        <LogOut size={size.icon} color={colors.danger} strokeWidth={size.iconStroke} />
+      </View>
+      <Text variant="title" center accessibilityRole="header">
+        You were removed from this room
+      </Text>
+      {reason ? (
+        <>
+          <Text variant="body" color="textSoft" center>
+            {`The host removed you for: ${reason.title}.`}
+          </Text>
+          <View style={{ alignSelf: 'stretch', backgroundColor: colors.surface, borderRadius: radius.card, padding: space[4] }}>
+            <Text variant="bodyStrong">{reason.rule}</Text>
+          </View>
+        </>
+      ) : null}
+      <Text variant="body" color="textSoft" center>
+        {"You can't rejoin this room, but you can join others."}
+      </Text>
+    </View>
   );
 }

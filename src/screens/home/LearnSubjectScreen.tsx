@@ -105,7 +105,7 @@ export function LearnSubjectScreen({
           style={{ minHeight: size.minTarget, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: space[2] }}
         >
           <Plus size={size.icon} color={colors.textSoft} strokeWidth={size.iconStroke} />
-          <Text variant="bodyStrong" color="textSoft">{`Start ${subject.kind === 'language' ? `${/^[AEIOU]/.test(subject.name) ? 'an' : 'a'} ${subject.name}` : 'a'} practice group`}</Text>
+          <Text variant="bodyStrong" color="textSoft">{`Start ${subject.kind === 'language' ? `${'AEIOU'.includes(subject.name[0]) ? 'an' : 'a'} ${subject.name}` : 'a'} practice group`}</Text>
         </Pressable>
       </View>
       <Text variant="meta" color="textMeta">

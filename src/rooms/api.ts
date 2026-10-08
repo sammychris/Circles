@@ -68,8 +68,11 @@ export class BadTitleError extends Error {
 }
 
 export class RemovedError extends Error {
-  constructor() {
+  // Why the host removed them, from the room server.
+  reason: string | null;
+  constructor(reason: string | null = null) {
     super("You can't rejoin this room");
+    this.reason = reason;
   }
 }
 
@@ -84,7 +87,7 @@ async function call<T>(body: Record<string, unknown>): Promise<T> {
   if (error) {
     const context = (error as { context?: Response }).context;
     const status = context?.status;
-    let payload: { status?: string; error?: string } = {};
+    let payload: { status?: string; error?: string; reason?: string | null } = {};
     try {
       payload = (await context?.json()) ?? {};
     } catch {
@@ -93,7 +96,7 @@ async function call<T>(body: Record<string, unknown>): Promise<T> {
     if (payload.status === 'no_host') throw new NoHostError();
     if (payload.status === 'ended') throw new RoomEndedError();
     if (payload.status === 'too_many') throw new TooManyRoomsError();
-    if (payload.status === 'removed') throw new RemovedError();
+    if (payload.status === 'removed') throw new RemovedError(payload.reason ?? null);
     if (payload.status === 'bad_title') throw new BadTitleError();
     if (status === 409) throw new RoomFullError();
     if (status === 403 && payload.error === 'Your account is paused') throw new PausedError();

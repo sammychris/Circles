@@ -265,14 +265,14 @@ export function QuizSheet({
 
   const put = () => {
     const q = oneLine(question, QUESTION_MAX);
-    const list = answers.map((a) => oneLine(a, ANSWER_MAX));
-    const filled = list.filter(Boolean);
-    if (!q || filled.length < 2) {
+    // Keep each answer's place, so the right one stays right even if two answers read the same.
+    const kept = answers.map((a, i) => ({ text: oneLine(a, ANSWER_MAX), i })).filter((a) => a.text);
+    if (!q || kept.length < 2) {
       setError('Write a question and at least two answers.');
       return;
     }
-    const right = correct !== null && list[correct] ? filled.indexOf(list[correct]) : null;
-    onPut(q, filled, right);
+    const right = correct === null ? -1 : kept.findIndex((a) => a.i === correct);
+    onPut(q, kept.map((a) => a.text), right >= 0 ? right : null);
   };
 
   return (

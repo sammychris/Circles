@@ -32,6 +32,12 @@ function newId(): string {
   return `${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 10)}`;
 }
 
+// The presenter's times are turned into this phone's clock: "started 40 seconds before it was sent".
+function onLocalClock(st: TableState, receivedAt: number): TableState {
+  if (st.startedAt === undefined || st.sentAt === undefined) return st;
+  return { ...st, startedAt: receivedAt - Math.max(0, st.sentAt - st.startedAt) };
+}
+
 function putMessage(current: TableItem, st: TableState): TableMessage {
   return { k: 'put', item: itemToWire(current), state: st };
 }
@@ -110,11 +116,11 @@ export function useTable(
         if (current && current.by === me.id && current.id !== incoming.id) setBumped(true);
         const photoCount = incoming.kind === 'photos' ? incoming.photos.length : 0;
         setItem(incoming);
-        setState(cleanState(msg.state, incoming.kind, photoCount) ?? { seq: 0 });
+        setState(onLocalClock(cleanState(msg.state, incoming.kind, photoCount) ?? { seq: 0 }, now));
       } else if (msg.k === 'state') {
         if (!current || current.id !== msg.id || current.by !== from.id) return;
         const next = cleanState(msg.state, current.kind, current.kind === 'photos' ? current.photos.length : 0);
-        if (next && next.seq > stateRef.current.seq) setState(next);
+        if (next && next.seq > stateRef.current.seq) setState(onLocalClock(next, now));
       } else if (msg.k === 'answer') {
         // Only the presenter counts answers, one per person, until the reveal.
         if (!current || current.by !== me.id || current.kind !== 'quiz' || current.id !== msg.id) return;
@@ -128,7 +134,7 @@ export function useTable(
         const st = stateRef.current;
         if (!st.order || st.order[st.index ?? 0] !== from.id) return;
         const index = nextTurn(st.order, st.index ?? 0, peopleRef.current);
-        const next = { ...st, index, startedAt: Date.now(), seq: st.seq + 1 };
+        const next = { ...st, index, startedAt: Date.now(), sentAt: Date.now(), seq: st.seq + 1 };
         setState(next);
         void send({ k: 'state', id: current.id, state: next });
       } else if (msg.k === 'off') {
@@ -139,6 +145,8 @@ export function useTable(
         }
       }
     });
+    // After a reconnect the presenter tells everyone again what's on the table.
+    if (itemRef.current && itemRef.current.by === me.id) void send(putMessage(itemRef.current, stateRef.current));
     // Ask whoever has something on the table to tell us, and once or twice more in case they didn't
     // know about us yet.
     void send({ k: 'hello' });
@@ -150,8 +158,11 @@ export function useTable(
     return () => {
       stop();
       retries.forEach(clearTimeout);
-      setItem(null);
-      setState({ seq: 0 });
+      // Your own item survives a reconnect; anyone else's is asked for again.
+      if (itemRef.current?.by !== me.id) {
+        setItem(null);
+        setState({ seq: 0 });
+      }
     };
   }, [connected, door, onData, me.id, send, photoUrlStart, reconnects, setItem, setState]);
 
@@ -244,7 +255,9 @@ export function useTable(
   const reveal = useCallback(() => {
     const current = itemRef.current;
     if (!current || current.by !== me.id || current.kind !== 'quiz') return;
-    const counts = tally(quizAnswers.current, current.answers.length);
+    // Only people still in the room count.
+    const here = new Map([...quizAnswers.current].filter(([id]) => peopleRef.current.includes(id)));
+    const counts = tally(here, current.answers.length);
     const next = { ...stateRef.current, revealed: true, counts, seq: stateRef.current.seq + 1 };
     setState(next);
     void send({ k: 'state', id: current.id, state: next });
@@ -260,7 +273,7 @@ export function useTable(
     }
     const st = stateRef.current;
     if (!st.order || st.order.length === 0) return;
-    const next = { ...st, index: nextTurn(st.order, st.index ?? 0, peopleRef.current), startedAt: Date.now(), seq: st.seq + 1 };
+    const next = { ...st, index: nextTurn(st.order, st.index ?? 0, peopleRef.current), startedAt: Date.now(), sentAt: Date.now(), seq: st.seq + 1 };
     setState(next);
     void send({ k: 'state', id: current.id, state: next });
   }, [me.id, send, setState]);
@@ -273,14 +286,18 @@ export function useTable(
       const st = stateRef.current;
       const order = st.order ?? [];
       const here = peopleRef.current;
-      const joined = here.filter((id) => !order.includes(id));
-      const nextOrder = joined.length > 0 ? [...order, ...joined] : order;
-      const current = nextOrder[st.index ?? 0];
+      const speaker = order[st.index ?? 0];
       const timeUp = Date.now() - (st.startedAt ?? 0) > item.minutes * 60_000;
-      const left = current !== undefined && !here.includes(current);
-      if (!timeUp && !left && joined.length === 0) return;
-      const index = timeUp || left ? nextTurn(nextOrder, st.index ?? 0, here) : st.index ?? 0;
-      const next = { ...st, order: nextOrder, index, startedAt: timeUp || left ? Date.now() : st.startedAt, seq: st.seq + 1 };
+      const speakerLeft = speaker !== undefined && !here.includes(speaker);
+      const changed = order.some((id) => !here.includes(id)) || here.some((id) => !order.includes(id));
+      if (!timeUp && !speakerLeft && !changed) return;
+      // Whose turn is next, worked out on the old order, then people who left are dropped and people who
+      // arrived join the end (at most 12, the same on every phone).
+      const nextSpeaker = timeUp || speakerLeft ? order[nextTurn(order, st.index ?? 0, here)] : speaker;
+      const nextOrder = [...order.filter((id) => here.includes(id)), ...here.filter((id) => !order.includes(id))].slice(0, 12);
+      const index = Math.max(0, nextOrder.indexOf(nextSpeaker ?? ''));
+      const restart = timeUp || speakerLeft;
+      const next = { ...st, order: nextOrder, index, startedAt: restart ? Date.now() : st.startedAt, sentAt: Date.now(), seq: st.seq + 1 };
       setState(next);
       void send({ k: 'state', id: item.id, state: next });
     }, 1000);

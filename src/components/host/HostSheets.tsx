@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { ScrollView, TextInput, View } from 'react-native';
+import { Pressable, ScrollView, TextInput, View } from 'react-native';
 import type { RemovalReason } from '../../rooms/api';
 import { border, fonts, radius, rules, size, space, type, useColors } from '../../theme';
 import type { Person } from '../../voice/useVoiceRoom';
@@ -96,7 +96,15 @@ export function HostActionsSheet({
           <View style={{ gap: space[3] }}>
             {!person.isMuted ? <Button label="Mute" onPress={() => onMute(person)} /> : null}
             <Button label="Save, block or report" onPress={() => onMore(person)} />
-            <Button label="Remove from room" variant="quiet" onPress={() => onRemove(person)} />
+            <Pressable
+              accessibilityRole="button"
+              onPress={() => onRemove(person)}
+              style={{ minHeight: size.buttonSecondary, alignItems: 'center', justifyContent: 'center' }}
+            >
+              <Text variant="bodyStrong" color="danger">
+                Remove from room
+              </Text>
+            </Pressable>
           </View>
           <Text variant="meta" color="textMeta">
             They can unmute themselves after you mute them. Removing someone keeps them out of this room until it ends.

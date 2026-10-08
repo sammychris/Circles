@@ -283,6 +283,8 @@ Then on each phone: open Circles, close it fully (swipe it away), and open it ag
 **Choices I made (open to change)**
 - **Host tools work wherever a trained host is**, not only in support rooms. Trained hosts are people you trust.
 - **A host can't mute or remove another trained host.**
+- **A removal lasts 3 hours.** Rooms are reused, so a removal that never ended would shut someone out of support for good. 3 hours covers the room it happened in.
+- **Voice tickets now last 10 minutes** (LiveKit renews them while you stay), so a removed person can't sneak back with an old one.
 - **Removals are kept in the `room_removals` table**, with the reason and any appeal, for you to read in Supabase. The Privacy Policy now says so.
 - **Not built yet from the host design:** lock the room, pass host to someone, end the room for everyone, the host-leaving sheet, the 7-speaker limit, and the minimised room bar.
 

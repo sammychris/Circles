@@ -40,9 +40,10 @@ export function TurnsBody({ item, state, me, people, onPass }: Props) {
   return (
     <View style={{ gap: space[4] }}>
       {item.topic ? <Text variant="heading">{item.topic}</Text> : null}
-      <View accessibilityLiveRegion="polite" style={{ flexDirection: 'row', alignItems: 'center', gap: space[2] }}>
+      <View style={{ flexDirection: 'row', alignItems: 'center', gap: space[2] }}>
         <AudioLines size={size.icon} color={colors.live} strokeWidth={size.iconStroke} />
-        <Text variant="bodyStrong" style={{ flex: 1 }}>
+        {/* Only whose turn it is is announced, not every second of the timer. */}
+        <Text variant="bodyStrong" style={{ flex: 1 }} accessibilityLiveRegion="polite">
           {current ? (myTurn ? "It's your turn" : `${current.nickname}'s turn`) : 'Getting the order ready'}
         </Text>
         <Text variant="metaStrong" color="textSoft" style={{ fontVariant: ['tabular-nums'] }}>

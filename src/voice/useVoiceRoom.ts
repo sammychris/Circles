@@ -116,6 +116,8 @@ export function useVoiceRoom() {
   const [lastSummary, setLastSummary] = useState<RoomSummary | null>(null);
   // Browsers can block sound until the person taps something. Then we show "Tap to hear the room".
   const [audioBlocked, setAudioBlocked] = useState(false);
+  // Why a host removed this person, when the room server said so.
+  const [removedReason, setRemovedReason] = useState<string | null>(null);
   // Room chat lives only in memory, for as long as you're in the room.
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const chatSentAt = useRef<number[]>([]);
@@ -336,6 +338,7 @@ export function useVoiceRoom() {
         refresh();
       } catch (e) {
         if (cancelled()) return;
+        if (e instanceof RemovedError) setRemovedReason(e.reason);
         await leaveRef.current(
           e instanceof RoomFullError
             ? 'full'
@@ -506,6 +509,7 @@ export function useVoiceRoom() {
     lastSummary,
     audioBlocked,
     messages,
+    removedReason,
     sendChat,
     publishData,
     onData,

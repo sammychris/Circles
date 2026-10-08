@@ -295,7 +295,8 @@ export function cleanState(raw: unknown, kind: TableKind, photoCount: number): T
     const order = Array.isArray(r.order) ? r.order.filter((id): id is string => typeof id === 'string' && id.length <= 64).slice(0, 12) : [];
     const index = typeof r.index === 'number' ? Math.min(Math.max(Math.round(r.index), 0), Math.max(order.length - 1, 0)) : 0;
     const startedAt = typeof r.startedAt === 'number' && Number.isFinite(r.startedAt) ? r.startedAt : Date.now();
-    return { seq, order, index, startedAt };
+    const sentAt = typeof r.sentAt === 'number' && Number.isFinite(r.sentAt) ? r.sentAt : startedAt;
+    return { seq, order, index, startedAt, sentAt };
   }
   if (kind === 'quiz') {
     const revealed = r.revealed === true;

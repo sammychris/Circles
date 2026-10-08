@@ -425,6 +425,8 @@ Deno.serve(async (req) => {
     if (act === 'remove') {
       const reason = ['unkind', 'sexual', 'spam', 'off_topic', 'other'].includes(String(body.reason)) ? String(body.reason) : null;
       if (!reason) return json({ error: 'Choose a reason' }, 400);
+      // A second removal from the same room starts the 3 hours again.
+      await admin.from('room_removals').delete().eq('room_id', hostRoom.id).eq('user_id', personId);
       const { error } = await admin.from('room_removals').upsert({
         room_id: hostRoom.id,
         user_id: personId,
@@ -483,9 +485,15 @@ Deno.serve(async (req) => {
   const hosts = new Set((hostRows ?? []).map((h) => h.user_id as string));
   const isHost = hosts.has(user.id);
   const avoid = await avoidList();
-  // Rooms a host removed this person from: never again while they're open.
-  const { data: removalRows } = await admin.from('room_removals').select('room_id').eq('user_id', user.id);
+  // Rooms a host removed this person from, in the last 3 hours (rooms are reused, so a removal can't
+  // last for ever; a few hours covers the room it happened in).
+  const { data: removalRows } = await admin
+    .from('room_removals')
+    .select('room_id, reason')
+    .eq('user_id', user.id)
+    .gte('created_at', new Date(Date.now() - 3 * 60 * 60 * 1000).toISOString());
   const removedFrom = new Set((removalRows ?? []).map((r) => r.room_id as string));
+  const removedWhy = new Map((removalRows ?? []).map((r) => [r.room_id as string, r.reason as string]));
 
   type RoomRow = {
     id: string;
@@ -561,7 +569,9 @@ Deno.serve(async (req) => {
       return json({ error: 'This room has ended', status: 'ended' }, 410);
     }
     room = data as RoomRow;
-    if (removedFrom.has(room.id)) return json({ error: "You can't rejoin this room", status: 'removed' }, 403);
+    if (removedFrom.has(room.id)) {
+      return json({ error: "You can't rejoin this room", status: 'removed', reason: removedWhy.get(room.id) ?? null }, 403);
+    }
     const people = (await peopleOrNone([room.livekit_room_name])).get(room.livekit_room_name) ?? [];
     if (!livekitDown && customRoomEnded(room, people.length)) {
       await admin.from('rooms').update({ status: 'closed' }).eq('id', room.id);
@@ -658,11 +668,13 @@ Deno.serve(async (req) => {
   if (!room) return json({ error: 'Could not find a room' }, 500);
   if (room.custom) await admin.from('rooms').update({ active_at: new Date().toISOString() }).eq('id', room.id);
 
-  // The ticket only lets this person into this one room, for one hour. The nickname is the only name in it.
+  // The ticket only lets this person into this one room, for ten minutes. The nickname is the only name in it.
   const token = new AccessToken(apiKey, apiSecret, {
     identity: user.id,
     name: nickname,
-    ttl: '1h',
+    // Short: a ticket is only needed to get in (LiveKit renews it while you stay), so a removed person
+    // can't use an old one to come back.
+    ttl: '10m',
     metadata: JSON.stringify({ host: isHost }),
   });
   token.addGrant({
