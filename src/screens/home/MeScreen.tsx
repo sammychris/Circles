@@ -1,6 +1,8 @@
 import { useCallback, useEffect, useState } from 'react';
 import { View } from 'react-native';
 import { Avatar } from '../../components/Avatar';
+import { LegalModal } from '../../components/LegalModal';
+import { PRIVACY, TERMS, type LegalDoc } from '../../content/legal';
 import { Button } from '../../components/Button';
 import { DoorLayout } from '../../components/DoorLayout';
 import { Text } from '../../components/Text';
@@ -23,6 +25,7 @@ export function MeScreen({ me, hasEmail, onBack, onAddEmail, onLogOut, onDelete 
   const [blocked, setBlocked] = useState<Blocked[] | null>(null);
   const [failed, setFailed] = useState(false);
   const [toast, setToast] = useState<string | null>(null);
+  const [doc, setDoc] = useState<LegalDoc | null>(null);
 
   const load = useCallback(async () => {
     try {
@@ -55,7 +58,12 @@ export function MeScreen({ me, hasEmail, onBack, onAddEmail, onLogOut, onDelete 
       footer={
         <>
           <Toast message={toast} onDone={() => setToast(null)} />
+          <LegalModal doc={doc} onClose={() => setDoc(null)} />
           {EMAIL_ENABLED && !hasEmail ? <Button label="Add your email" variant="quiet" onPress={onAddEmail} /> : null}
+          <View style={{ flexDirection: 'row', justifyContent: 'center' }}>
+            <Button label="Privacy Policy" variant="quiet" onPress={() => setDoc(PRIVACY)} />
+            <Button label="Terms" variant="quiet" onPress={() => setDoc(TERMS)} />
+          </View>
           <Button label="Log out" variant="quiet" onPress={onLogOut} />
           <Button label="Delete my account" variant="quiet" onPress={onDelete} />
         </>
