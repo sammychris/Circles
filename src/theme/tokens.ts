@@ -95,6 +95,10 @@ export const size = {
   avatarRoom: 64,
   avatarBadge: 24,
   roomRing: 248,
+  // Rooms of 7 to 10: a wider ring with smaller avatars (design direction › The room circle).
+  roomRingLarge: 280,
+  avatarSeatSmall: 48,
+  maxSeats: 10,
   input: 56,
   tableAction: 48,
   moodTile: 104,

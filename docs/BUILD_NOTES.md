@@ -303,3 +303,11 @@ Then on each phone: open Circles, close it fully (swipe it away), and open it ag
 **Choices I made (open to change)**
 - **It needs the web version online, like every invite.** Until then the button is greyed out and says why.
 - **Not built yet:** "On now", which shows which friends are online and in what room. It needs privacy settings first ("Show friends when I'm online" and "Show which room I'm in"). I'd rather build those carefully, never showing support rooms, than rush it.
+
+---
+
+## 10. Rooms of up to 10 (support rooms)
+
+**What I built:** the seat circle now draws up to 10 seats. Rooms of 7 to 10 get a wider ring with smaller faces, as the design says. **Support rooms now hold 10**, with a trained host. Your own seat is always at the very bottom, whatever the size.
+
+**Choices I made (open to change):** free rooms stay at 6, and rooms people start can be 4, 5 or 6. The database update raises existing support rooms to 10.

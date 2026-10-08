@@ -170,3 +170,6 @@ end;
 $$;
 revoke all on function public.appeal_removal(text, text) from public, anon;
 grant execute on function public.appeal_removal(text, text) to authenticated;
+
+-- Support rooms hold up to 10 now that the room circle draws 10 seats.
+update public.rooms set capacity = 10 where door = 'support' and capacity < 10;

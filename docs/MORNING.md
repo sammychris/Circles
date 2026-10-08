@@ -140,7 +140,7 @@ Tick each one. If something is wrong, tell me what you tapped and what you saw.
 2. **Youth helpline** for the under-18 screen. It's the same idea.
 3. **Privacy Policy and Terms.** Done: see part 1 of `docs/BUILD_NOTES.md`.
 4. **Thank-yous.** People can send a private thank-you after a room. I store them, but I don't show anyone a total, because the rules say "never keep scores". Do you want people to see something, like "Someone thanked you"? Or nothing?
-5. **Support rooms hold 6 for now.** The design allows 10, but the seat circle draws 6. I can build a 10-seat circle later.
+5. **Support rooms hold 10 now.** Done: see part 10 of `docs/BUILD_NOTES.md`.
 6. **The "You joined in…" numbers** under the room circle are for testing. Tell me when to remove them.
 
 ---

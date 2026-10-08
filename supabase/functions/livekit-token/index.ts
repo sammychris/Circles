@@ -40,9 +40,9 @@ type Candidate = {
   custom?: boolean;
 };
 
-// Support rooms can hold up to 10 in the design, but the room circle draws 6 seats; until a 10-seat
-// ring is built, every room holds 6 so nobody is ever in a room without being seen.
-const CAPACITY: Record<Door, number> = { talk: 6, play: 6, support: 6 };
+// Free rooms hold 6. Support rooms, with a trained host, hold up to 10 (design direction › Rules by
+// kind of room); the room circle draws 10 seats for them.
+const CAPACITY: Record<Door, number> = { talk: 6, play: 6, support: 10 };
 
 const TITLES: Record<string, string> = {
   'talk:chat': 'Just chat',
