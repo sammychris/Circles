@@ -171,3 +171,11 @@ The full click-by-click steps are in `docs/BUILD_NOTES.md`, under "What you need
   - Save to the branch the session names (this one: `claude/dreamy-meitner-mjoykp`).
   - Keep model names out of commits.
   - Never commit keys.
+
+
+---
+
+## Done since (2026-10-08, late)
+
+- Email: Sammy set up Brevo with his Gmail as the sender, custom SMTP in Supabase, rate limit and the code templates. Privacy Policy updated (Brevo, Firebase, new data). Next check: the part 16 phone checklist (email code arrives, log out and back in).
+- Later, Sammy's decision: a domain name for Circles (about $10–20 a year) for trusted email and the web version.

@@ -41,6 +41,9 @@ export const PRIVACY: LegalDoc = {
         'Which rooms exist, their titles, and who opened each one, so we can put people into rooms.',
         'Technical records our providers keep to run the service, such as your internet address, times you connected, and the nickname and room you used for voice.',
         'If you share a room link, it carries your nickname, so your friend sees who invited them.',
+        'Rooms you schedule and weekly groups you start or join, and reminders you set. Others only ever see how many are going, never who.',
+        'Invitations between you and people you saved who saved you too. Only the person invited sees who sent it.',
+        'If you allow notifications, an address for your phone so we can send you alerts, such as an invitation. It is removed when you log out.',
       ],
     },
     {
@@ -56,7 +59,7 @@ export const PRIVACY: LegalDoc = {
     {
       heading: 'Who helps us run Circles',
       paragraphs: [
-        'Supabase keeps our accounts, database and table photos. LiveKit carries the live voice, room chat and shared screens between the people in a room. Expo builds and delivers the app. They handle data only to run Circles for us.',
+        'Supabase keeps our accounts, database and table photos. LiveKit carries the live voice, room chat and shared screens between the people in a room. Expo builds and delivers the app, and passes on alerts to your phone through Google Firebase. Brevo sends the sign-in codes to your email, if you add one. They handle data only to run Circles for us.',
         'Watch together uses the official YouTube and Vimeo players. When you tap to watch, YouTube or Vimeo can see that you are watching, under their own privacy policies.',
         'Your data may be stored on, or pass through, servers outside Nigeria.',
         'We do not sell your data, and there are no adverts in rooms.',
@@ -65,7 +68,7 @@ export const PRIVACY: LegalDoc = {
     {
       heading: 'How long we keep it',
       paragraphs: [
-        'Your account stays until you delete it. Deleting your account (Me, then Delete my account) deletes your nickname, date of birth, email, saves, blocks and thank-yous straight away.',
+        'Your account stays until you delete it. Deleting your account (Me, then Delete my account) deletes your nickname, date of birth, email, saves, blocks, thank-yous, reminders, group places, invitations and phone alert addresses straight away.',
         'Reports are kept while they help us keep people safe, then deleted. A report you sent stays after you delete your account, without your account linked, so we can still act on it. A report about you keeps the nickname you had.',
       ],
     },
