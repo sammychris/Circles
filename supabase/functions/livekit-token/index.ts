@@ -61,7 +61,8 @@ function pickRoom(
   const fits = candidates.filter((room) => {
     if (room.door !== opts.door) return false;
     if (room.id === opts.excludeRoomId) return false;
-    if (opts.mood && room.mood !== opts.mood) return false;
+    // A talk room with no mood is a "Just chat" room.
+    if (opts.mood && (room.mood ?? (room.door === 'talk' ? 'chat' : null)) !== opts.mood) return false;
     const others = room.people.filter((p) => p !== opts.me);
     if (others.length >= room.capacity) return false;
     if (others.some((p) => opts.avoid.has(p))) return false;
@@ -260,8 +261,13 @@ Deno.serve(async (req) => {
       return json({ status: 'no_host' });
     } else {
       // Reuse an empty room of the same kind before opening a new one.
+      const newMood: Mood | null = door === 'talk' ? (mood ?? 'chat') : null;
       const empty = candidates.find(
-        (c) => c.people.length === 0 && c.id !== body.excludeRoomId && (c.mood ?? null) === mood && (door !== 'support' || isHost),
+        (c) =>
+          c.people.length === 0 &&
+          c.id !== body.excludeRoomId &&
+          (c.mood ?? (door === 'talk' ? 'chat' : null)) === newMood &&
+          (door !== 'support' || isHost),
       );
       if (empty) {
         room = all.find((r) => r.id === empty.id) ?? null;
@@ -272,9 +278,9 @@ Deno.serve(async (req) => {
           .insert({
             id,
             door,
-            mood,
+            mood: newMood,
             kind: door === 'support' ? 'hosted' : 'peer',
-            title: roomTitle(door, mood),
+            title: roomTitle(door, newMood),
             capacity: CAPACITY[door],
             status: 'open',
             created_by: user.id,

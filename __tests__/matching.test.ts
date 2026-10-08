@@ -49,6 +49,11 @@ describe('pickRoom', () => {
     expect(pickRoom(rooms, { ...base, door: 'talk', mood: null })?.id).toBe('laugh');
   });
 
+  it('treats a talk room with no mood as Just chat', () => {
+    expect(pickRoom([room('old', ['1'], { mood: null })], { ...base, door: 'talk', mood: 'chat' })?.id).toBe('old');
+    expect(pickRoom([room('old', ['1'], { mood: null })], { ...base, door: 'talk', mood: 'laugh' })).toBeNull();
+  });
+
   it('keeps doors apart', () => {
     expect(pickRoom([room('p', ['1'], { door: 'play' })], { ...base, door: 'talk', mood: null })).toBeNull();
   });
