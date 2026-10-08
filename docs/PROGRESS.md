@@ -24,6 +24,8 @@ Still open from Step 1: a test with a friend in another place on their own mobil
 - Thank-yous are stored privately; no total is shown to anyone (Never list: no scores). Sammy to decide if anything should show.
 - Game mode (Sammy, 2026-10-08; built the same day): a game on the table turns the room into one full, non-scrolling game screen (`docs/design/pages/game-mode.md`): faces at the top (fold to one line), the board at full width, only the mic and Chat at the bottom, everything else in the ⋯ menu, Leave room asks first. Your own moves show straight away and slide back if the starter's phone doesn't confirm within 3 seconds. Pieces slide, tokens hop, cards fly; Reduce motion turns these into fades. Quiet game sounds (made for Circles by `scripts/make-sounds.py`, mixed in with the voices) with an on/off switch in the ⋯ menu and in Me; buzzes from `expo-haptics`. `expo-audio` and `expo-notifications` were added together, so one new build covers sounds and later reminders. Details and choices: `docs/BUILD_NOTES.md` part 14.
 - Scores for the sitting (Sammy, 2026-10-08): Ludo, Draughts, Chess and Whot keep a score while people keep playing in the room (just keep count, or first to 3 or 5 wins), with a "wins the set" moment. Play again keeps the teams. The score is gone when the game comes off the table or the room ends: never saved, never on a profile, no leaderboards (CLAUDE.md's Never list still holds). No score for Mafia or Find the Impostor. Rules in `src/games/score.ts`; details in `docs/BUILD_NOTES.md` part 15.
+- Optional email and logging back in (Sammy, 2026-10-08): an optional email box when picking a nickname (a code checks it), and "I already have an account" on Welcome. Without an email, an account can't be got back after logging out, reinstalling or changing phones.
+- Chess through a set (Sammy, 2026-10-08): teams keep their colours and swap places: the team that moved second moves first next game (they take turns having the white pieces).
 - Age: 18+ for launch. A teen or family version may come later, designed separately (teen-only rooms, parent consent, legal check). Decided 2026-10-08.
 
 ## Steps done
@@ -97,13 +99,9 @@ Setup notes:
 - Expo: project `@sammychris/circles`. The three public values (`EXPO_PUBLIC_SUPABASE_URL`, `EXPO_PUBLIC_SUPABASE_ANON_KEY`, `EXPO_PUBLIC_LIVEKIT_URL`) are stored in EAS for the `development` environment. Build with `npx eas-cli build --profile preview --platform android`.
 - The `preview` build runs on its own; the `development` build needs Sammy's computer on the same Wi-Fi, so use `preview` for phone tests.
 
-## Later: email (one of the last things, when Sammy says)
+## Email (switched back on, 2026-10-08)
 
-Email is built but switched off (`EMAIL_ENABLED = false` in `src/config.ts`). When Sammy wants it:
-1. Supabase › Authentication › Emails: in the templates "Magic Link", "Change Email Address" and "Confirm signup", put the code `{{ .Token }}` in the message (the app asks for a code, not a link).
-2. Set up a free email-sending service (custom SMTP) in Supabase. The built-in one only sends to the project team's own addresses, a few an hour.
-3. Turn `EMAIL_ENABLED` on, build, test "Add your email" and "I already have an account".
-4. Then decide when email (and later phone) becomes required.
+Sammy wants email as an optional box, and a way to log back in. `EMAIL_ENABLED` is now on: the nickname screen has "Email (optional)", Me has "Add your email", and Welcome has "I already have an account". It only works once Sammy does the Supabase email setup in `docs/BUILD_NOTES.md` part 16 (the code in two email templates, and an email-sending service). Until then, sending a code fails with "We couldn't send the code", and people can carry on without email. Later: decide when email (and then phone) becomes required.
 
 ## Notes for later steps
 

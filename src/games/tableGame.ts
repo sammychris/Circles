@@ -28,6 +28,8 @@ export interface TableGame<G> {
   // Who won, once the game is over: a team, a person, or 'draw'. Null while it's going. Only for games
   // with a score for the sitting (src/games/score.ts).
   winnerKey?(g: G): string | null;
+  // Play again in a set: the team that goes first takes turns (src/games/score.ts › firstSide).
+  firstMover?(g: G, side: Side): G;
 }
 
 export function shuffle<T>(list: T[], random: () => number): T[] {

@@ -3,7 +3,7 @@ import { utf8Decode, utf8Encode } from '../rooms/chat';
 import type { DataListener } from '../voice/useVoiceRoom';
 import { GAMES } from '../games/registry';
 import { addWin, type SetScore } from '../games/score';
-import { SIDE_NAME, type Side } from '../games/tableGame';
+import type { Side } from '../games/tableGame';
 import { gameMode } from '../theme/tokens';
 import type { GameId } from '../games/tableGame';
 import {
@@ -358,10 +358,8 @@ export function useTable(
       const names = Object.fromEntries(namesRef.current);
       let full = engine.setup(peopleRef.current.slice(0, engine.max), me.id, Math.random, names);
       if (opts.teams && full && typeof full === 'object' && 'teams' in full) full = { ...full, teams: opts.teams };
-      // Through a set, the teams take turns to go first (Draughts; in Chess, Team Sun is always white).
-      if (opts.first && full && typeof full === 'object' && 'turn' in full && typeof full.turn === 'string') {
-        full = { ...full, turn: opts.first, last: `${SIDE_NAME[opts.first]} goes first` };
-      }
+      // Through a set, the teams take turns to go first.
+      if (opts.first && engine.firstMover) full = engine.firstMover(full, opts.first);
       const ok = await put({ kind: 'game', game: gameId }, { g: engine.publicView(full), ...(opts.set ? { set: opts.set } : {}) });
       if (ok === false) return false;
       fullGame.current = full;

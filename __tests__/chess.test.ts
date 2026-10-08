@@ -47,3 +47,15 @@ describe('chess in teams', () => {
     expect(played.lastMove).toEqual({ from: 'd2', to: 'd4' });
   });
 });
+
+describe('swapping places through a set', () => {
+  it('lets Team Sky go first while each team keeps its colour', () => {
+    const g = chessGame.firstMover!(chessGame.setup(['a', 'b'], 'a', () => 0.5), 'sky');
+    const skyPlayer = g.teams.sky[0];
+    const sunPlayer = g.teams.sun[0];
+    expect(chessGame.apply(g, { type: 'suggest', from: 'e2', to: 'e4' }, sunPlayer, 0)).toBeNull();
+    const next = chessGame.apply(g, { type: 'suggest', from: 'e2', to: 'e4' }, skyPlayer, 0)!;
+    expect(next.last).toBe('Team Sky played Pawn to e4');
+    expect(turnOf(next.fen, next.white)).toBe('sun');
+  });
+});

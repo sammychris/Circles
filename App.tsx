@@ -81,7 +81,7 @@ function confirmSignOut(hasEmail: boolean) {
   }
   Alert.alert(
     'Log out?',
-    "You won't be able to get this account or nickname back after you log out.",
+    "You won't be able to get this account or nickname back after you log out. To keep it, add your email in Me first.",
     [
       { text: 'Stay', style: 'cancel' },
       { text: 'Log out', style: 'destructive', onPress: signOut },

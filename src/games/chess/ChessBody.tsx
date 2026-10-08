@@ -13,7 +13,7 @@ import { DragBoard, SlideIn, Vanish, gridSpot, useGridMove, useTurnCue, useWinCu
 import { GameOver } from '../shared/GameOver';
 import { scoreLine, setWinnerLine, type SetScore } from '../score';
 import { SIDE_NAME, sideOf } from '../tableGame';
-import { AGREE_SECONDS, chessGame, targets, turnOf, type ChessGame, type ChessMove } from './engine';
+import { AGREE_SECONDS, chessGame, colourOf, targets, teamOfPiece, turnOf, type ChessGame, type ChessMove } from './engine';
 
 // Never colour alone: Team Sun (white) has outlined chess symbols, Team Sky (black) solid ones, and the
 // label says which. The "text style" marker stops phones drawing them as emoji.
@@ -25,10 +25,8 @@ const TEAM_ICON = { sun: Sun, sky: Cloud } as const;
 // Squares are numbered 0..63 row by row from a8 (as the board is drawn for Team Sun).
 const squareName = (i: number) => `${String.fromCharCode(97 + (i % 8))}${8 - Math.floor(i / 8)}`;
 const indexOf = (square: string) => (8 - Number(square[1])) * 8 + (square.charCodeAt(0) - 97);
-const codeSide = (code: string) => (code[0] === 'w' ? 'sun' : 'sky');
 
-function Glyph({ code, cell }: { code: string; cell: number }) {
-  const team = codeSide(code);
+function Glyph({ code, cell, team }: { code: string; cell: number; team: 'sun' | 'sky' }) {
   return (
     // Pieces are sized to their square, not to the phone's text size, so they never spill over.
     <Text
@@ -95,13 +93,16 @@ export function ChessBody({
         .map((c) => (c ? `${c.color}${c.type}` : null)),
     [chess],
   );
-  const side = turnOf(g.fen);
+  const side = turnOf(g.fen, g.white);
+  // Whose a piece is: each team keeps its colour, whichever pieces it moves this game.
+  const codeSide = (code: string) => teamOfPiece(g, code);
   const mySide = sideOf(g.teams, me);
   const myTurn = !g.winner && mySide === side;
   const canAct = myTurn && !movePending;
-  const myColour = side === 'sun' ? 'w' : 'b';
+  const myColour = colourOf(g, side);
   const options = picked && canAct ? targets(g.fen, picked) : [];
-  const flip = mySide === 'sky';
+  // Your own pieces at the bottom: the board turns round for whichever team moves the black pieces.
+  const flip = !!mySide && colourOf(g, mySide) === 'b';
   const pending = g.pending;
   const suggester = pending ? (pending.by === me ? 'You' : (people.find((p) => p.id === pending.by)?.nickname ?? 'Someone')) : null;
   const left = pending ? Math.max(0, AGREE_SECONDS - Math.floor((now - pendingLocal.current) / 1000)) : 0;
@@ -161,7 +162,7 @@ export function ChessBody({
                 setPicked(null);
               }
             }}
-            renderDragged={(i) => (board[i] ? <Glyph code={board[i] as string} cell={cell} /> : null)}
+            renderDragged={(i) => (board[i] ? <Glyph code={board[i] as string} cell={cell} team={codeSide(board[i] as string)} /> : null)}
           >
             {(dragging) => (
               <>
@@ -232,17 +233,17 @@ export function ChessBody({
                         {gone && (!code || codeSide(code) !== codeSide(gone.code)) ? (
                           <View style={{ position: 'absolute' }}>
                             <Vanish key={`v${lastMove?.key}`}>
-                              <Glyph code={gone.code} cell={cell} />
+                              <Glyph code={gone.code} cell={cell} team={codeSide(gone.code)} />
                             </Vanish>
                           </View>
                         ) : null}
                         {code && dragging === i ? null : code ? (
                           slide && was ? (
                             <SlideIn key={`s${lastMove?.key}`} dx={(was.col - here.col) * cell} dy={(was.row - here.row) * cell}>
-                              <Glyph code={code} cell={cell} />
+                              <Glyph code={code} cell={cell} team={codeSide(code)} />
                             </SlideIn>
                           ) : (
-                            <Glyph code={code} cell={cell} />
+                            <Glyph code={code} cell={cell} team={codeSide(code)} />
                           )
                         ) : isTarget ? (
                           <View

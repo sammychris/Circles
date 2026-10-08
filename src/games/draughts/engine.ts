@@ -134,6 +134,7 @@ export const draughts: TableGame<DraughtsGame> = {
   },
   publicView: (g) => g,
   winnerKey: (g) => g.winner,
+  firstMover: (g, side) => ({ ...g, turn: side, last: `${SIDE_NAME[side]} goes first` }),
   leave(g, person) {
     const teams = { sun: g.teams.sun.filter((p) => p !== person), sky: g.teams.sky.filter((p) => p !== person) };
     // A team with nobody left loses, so the game never gets stuck.

@@ -486,6 +486,36 @@ Your idea (2026-10-08): keep the score while people keep playing, and celebrate 
 - [ ] Tap **New teams**: teams are mixed and the score starts from 0.
 - [ ] Take the game off the table, then start it again: the score has gone.
 
+## 16. Optional email and logging back in
+
+**Why:** without an email, an account can't be logged back into. Logging out, reinstalling the app, clearing its data or changing phones means starting a new account.
+
+**What changed**
+- **Pick a nickname** now has a second box, **Email (optional)**. Fill it in and we send a code to check it's yours, then you're in. Leave it empty and you go straight in.
+- **Welcome** shows **I already have an account** again: type your email, get a code, and you're back in with your nickname.
+- **Me** shows **Add your email** for anyone who skipped it.
+- **Log out** without an email warns you first, and now says to add your email in Me to keep the account.
+- The app also renews your sign-in as soon as you come back to it, so it should stay signed in between visits.
+- **Chess through a set:** teams keep their colours and swap places. The team that moved second moves first next game (it gets the white pieces), and the board turns round so your pieces are always at the bottom.
+
+**What you need to do** (until you do, sending a code fails and people carry on without email)
+1. **Put the code in two emails.** In Supabase, open **Authentication**, then **Emails** (Templates).
+   1. Open **Magic Link**. Replace the message with:
+      `Your Circles code is {{ .Token }}. It works for 1 hour. If you didn't ask for it, ignore this email.`
+      Click **Save**.
+   2. Open **Change Email Address**. Replace the message with:
+      `Your Circles code is {{ .Token }}. Type it in the app to add this email to your account.`
+      Click **Save**.
+   This is because the app asks for a code, not a link.
+2. **An email-sending service.** Supabase's own email only sends to your team's addresses, a few an hour, so other people's codes would never arrive. This needs a free account with an email service, so I'll walk you through it step by step once you say yes.
+
+**Phone checklist**
+- [ ] On a fresh install, tap **Get started**, answer the 18+ question, type a nickname and your email. A code arrives by email; type it and you're in.
+- [ ] Me no longer shows "Add your email".
+- [ ] Log out (Me, then Log out). On Welcome tap **I already have an account**, type your email, then the code. You're back with the same nickname.
+- [ ] Close the app completely and open it again an hour later: you're still signed in.
+- [ ] Chess with a score: after the first game, the other team moves first.
+
 ---
 
 ## What you need to do now (for parts 6 to 12)

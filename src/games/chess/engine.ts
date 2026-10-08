@@ -1,5 +1,6 @@
 // Chess in teams (play.md › Chess in teams). The rules come from chess.js (BSD-2-Clause licence,
-// proven and widely used). Team Sun plays white, Team Sky black. On your team's turn, anyone suggests a
+// proven and widely used). Each team keeps its colour and name; which one has the first move (chess's
+// "white") takes turns through a set (Sammy, 2026-10-08: swap places, not colours). On your team's turn, anyone suggests a
 // move; it's played when most of the team agrees, or after 60 seconds with the latest suggestion.
 
 import { Chess } from 'chess.js';
@@ -20,13 +21,19 @@ export type ChessGame = {
   startedBy: string;
   // The starter's clock when this was sent, so each phone can count down on its own clock.
   sentAt: number;
+  // The team with the first move (chess's white pieces). Team Sun when not set.
+  white?: Side;
 };
 
 export type ChessMove = { type: 'suggest'; from: string; to: string; promotion?: string } | { type: 'agree' };
 
 const SQUARE = /^[a-h][1-8]$/;
 
-export const turnOf = (fen: string): Side => (fen.split(' ')[1] === 'b' ? 'sky' : 'sun');
+// Whose turn it is: the team with white when it's white to move.
+export const turnOf = (fen: string, white: Side = 'sun'): Side => (fen.split(' ')[1] === 'b' ? otherSide(white) : white);
+// Which pieces a team moves ('w' or 'b'), and whose a piece is ('wq' → the team with white).
+export const colourOf = (g: Pick<ChessGame, 'white'>, side: Side): 'w' | 'b' => (side === (g.white ?? 'sun') ? 'w' : 'b');
+export const teamOfPiece = (g: Pick<ChessGame, 'white'>, code: string): Side => (code[0] === 'w' ? (g.white ?? 'sun') : otherSide(g.white ?? 'sun'));
 
 const PIECE_NAME: Record<string, string> = { p: 'Pawn', n: 'Knight', b: 'Bishop', r: 'Rook', q: 'Queen', k: 'King' };
 
@@ -54,7 +61,7 @@ export function targets(fen: string, from: string): string[] {
 
 function play(g: ChessGame, s: Suggestion): ChessGame {
   const chess = new Chess(g.fen);
-  const side = turnOf(g.fen);
+  const side = turnOf(g.fen, g.white);
   try {
     chess.move({ from: s.from, to: s.to, promotion: s.promotion ?? undefined });
   } catch {
@@ -76,11 +83,11 @@ export const chessGame: TableGame<ChessGame> = {
   min: 2,
   max: 6,
   setup(players, startedBy, random) {
-    return { teams: splitTeams(players, random), fen: new Chess().fen(), pending: null, winner: null, last: 'Team Sun plays white and goes first', lastMove: null, startedBy, sentAt: 0 };
+    return { teams: splitTeams(players, random), fen: new Chess().fen(), pending: null, winner: null, last: 'Team Sun goes first', lastMove: null, startedBy, sentAt: 0 };
   },
   apply(g, raw, by, now) {
     if (g.winner) return null;
-    const side = turnOf(g.fen);
+    const side = turnOf(g.fen, g.white);
     if (sideOf(g.teams, by) !== side) return null;
     const m = raw as Partial<ChessMove> & Record<string, unknown>;
     if (m?.type === 'suggest') {
@@ -103,6 +110,7 @@ export const chessGame: TableGame<ChessGame> = {
   },
   publicView: (g) => ({ ...g, sentAt: Date.now() }),
   winnerKey: (g) => g.winner,
+  firstMover: (g, side) => ({ ...g, white: side, last: `${SIDE_NAME[side]} goes first` }),
   tick(g, now) {
     if (g.winner || !g.pending) return null;
     return now - g.pending.at >= AGREE_SECONDS * 1000 ? play(g, g.pending) : null;
