@@ -1,7 +1,7 @@
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState, type ReactNode } from 'react';
 import { Alert, AppState, Linking, Platform, Pressable, ScrollView, Share, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { Eye, EyeOff, Flag, Hand, Hash, Heart, SquarePlus, LogOut, MessageCircle, Share2, Shield, X } from 'lucide-react-native';
+import { Flag, Hand, Hash, Heart, SquarePlus, LogOut, MessageCircle, Share2, Shield, X } from 'lucide-react-native';
 import { Avatar } from '../components/Avatar';
 import { BlockSheet } from '../components/BlockSheet';
 import { Button } from '../components/Button';
@@ -17,11 +17,14 @@ import { RoomCircle } from '../components/RoomCircle';
 import { Sheet } from '../components/Sheet';
 import { Text } from '../components/Text';
 import { Toast } from '../components/Toast';
-import { BASE } from '../games/ludo/engine';
+import { BASE, teamOf } from '../games/ludo/engine';
+import { BackFromGame, GameModeProvider, GameStage, type GameModeEnv } from '../games/mode/GameMode';
+import { GAME_TITLE } from '../games/mode/howToPlay';
+import { TableAction } from '../components/TableAction';
 import { LudoTable } from '../games/ludo/LudoTable';
 import { useLudo } from '../games/ludo/useLudo';
 import { ImpostorTable } from '../games/impostor/ImpostorTable';
-import { MIN_PLAYERS as IMPOSTOR_MIN, ROUNDS_PER_GAME, phaseAt as impostorPhase } from '../games/impostor/logic';
+import { MIN_PLAYERS as IMPOSTOR_MIN, ROUNDS_PER_GAME } from '../games/impostor/logic';
 import { useImpostor } from '../games/impostor/useImpostor';
 import { NoteSheet, QuizSheet, TurnsSheet, VideoSheet, WordsSheet } from '../components/table/ComposeSheets';
 import { WordsBody } from '../components/table/WordsBody';
@@ -62,7 +65,7 @@ import { topicLabel } from '../rooms/start';
 import { roomPhase, secondsLeft } from '../rooms/phase';
 import { micPermissionGranted, requestMicPermission } from '../voice/foregroundService';
 import { useVoiceRoom, type RoomSummary } from '../voice/useVoiceRoom';
-import { border, motion, opacity, radius, size, space, useColors } from '../theme';
+import { border, gameMode, motion, opacity, radius, size, space, useColors } from '../theme';
 
 const QUALITY_WORDS = {
   excellent: 'excellent',
@@ -502,46 +505,6 @@ export function RoomScreen({ me, request, onLeft, onMove }: Props) {
     else setProfile({ id: p.id, nickname: p.nickname, isHost: p.isHost });
   };
   let table = null;
-  if (connected && isPlay && phase === 'live' && game) {
-    table = (
-      <LudoTable
-        state={game}
-        me={me.id}
-        people={people}
-        onPerson={openProfile}
-        onRoll={ludo.roll}
-        onMove={ludo.move}
-        onBringOut={() => {
-          const team = game.turn;
-          const first = game.tokens[team].findIndex((pos) => pos === BASE);
-          if (first >= 0) ludo.move(first);
-        }}
-        onPlayAgain={() => ludo.start(everyone)}
-        onBackToTalking={ludo.endGame}
-      />
-    );
-  } else if (connected && isPlay && phase === 'live' && round) {
-    table = (
-      <ImpostorTable
-        round={round}
-        now={impostor.now}
-        me={me.id}
-        people={people}
-        playing={impostor.playing}
-        card={impostor.card}
-        hidden={wordHidden}
-        onShowWord={() => setWordHidden(false)}
-        myVote={impostor.myVote}
-        outcome={impostor.outcome}
-        onVote={(id) => void impostor.castVote(id)}
-        onPerson={openProfile}
-        onNextRound={() => (people.length < IMPOSTOR_MIN ? impostorTooFew() : impostor.nextRound(everyone))}
-        onPlayAgain={() => (people.length < IMPOSTOR_MIN ? impostorTooFew() : impostor.startGame(everyone))}
-        onBackToTalking={impostor.endGame}
-        busy={impostor.busy}
-      />
-    );
-  }
 
   // --- trained hosts: hands, mute, remove (room-host-view.md) ---
   const iAmHost = people.some((p) => p.isMe && p.isHost);
@@ -679,59 +642,14 @@ export function RoomScreen({ me, request, onLeft, onMove }: Props) {
     });
   }
 
-  if (!table && connected && phase === 'live' && tableItem.item) {
+  // Games on the table take the whole screen instead (game mode, below).
+  if (!table && connected && phase === 'live' && tableItem.item && tableItem.item.kind !== 'game') {
     const item = tableItem.item;
     table = (
       <View style={{ gap: space[4] }}>
         <SeatRow people={people} onPerson={onSeat} />
         <TableCard item={item} me={me.id} onOptions={() => setTableOptionsOpen(true)}>
           {item.kind === 'note' ? <NoteBody item={item} /> : null}
-          {item.kind === 'game' && item.game === 'draughts' && tableItem.state.g ? (
-            <DraughtsBody
-              g={tableItem.state.g as DraughtsGame}
-              me={me.id}
-              people={people}
-              starter={tableItem.mine}
-              onMove={tableItem.sendMove}
-              onPlayAgain={() => playTableGame('draughts')}
-              onBackToTalking={tableItem.mine ? tableItem.takeOff : tableItem.hideItem}
-            />
-          ) : null}
-          {item.kind === 'game' && item.game === 'chess' && tableItem.state.g ? (
-            <ChessBody
-              g={tableItem.state.g as ChessGame}
-              me={me.id}
-              people={people}
-              starter={tableItem.mine}
-              onMove={tableItem.sendMove}
-              onPlayAgain={() => playTableGame('chess')}
-              onBackToTalking={tableItem.mine ? tableItem.takeOff : tableItem.hideItem}
-            />
-          ) : null}
-          {item.kind === 'game' && item.game === 'whot' && tableItem.state.g ? (
-            <WhotBody
-              g={tableItem.state.g as WhotPublic}
-              hand={Array.isArray(tableItem.mySecret) ? (tableItem.mySecret as string[]) : null}
-              me={me.id}
-              people={people}
-              starter={tableItem.mine}
-              onMove={tableItem.sendMove}
-              onPlayAgain={() => playTableGame('whot')}
-              onBackToTalking={tableItem.mine ? tableItem.takeOff : tableItem.hideItem}
-            />
-          ) : null}
-          {item.kind === 'game' && item.game === 'mafia' && tableItem.state.g ? (
-            <MafiaBody
-              g={tableItem.state.g as MafiaPublic}
-              secret={(tableItem.mySecret as MafiaSecret | null) ?? null}
-              me={me.id}
-              people={people}
-              starter={tableItem.mine}
-              onMove={tableItem.sendMove}
-              onPlayAgain={() => playTableGame('mafia')}
-              onBackToTalking={tableItem.mine ? tableItem.takeOff : tableItem.hideItem}
-            />
-          ) : null}
           {item.kind === 'words' ? (
             <WordsBody key={item.id} item={item} state={tableItem.state} mine={tableItem.mine} onPresent={tableItem.present} />
           ) : null}
@@ -810,39 +728,8 @@ export function RoomScreen({ me, request, onLeft, onMove }: Props) {
     else if ('error' in result) setToast(result.error);
   }
 
-  // One game on the table at a time. Whoever started it can end it; if they've left, anyone can.
-  const inGame = !!game && (game.teams.sun.includes(me.id) || game.teams.sky.includes(me.id));
-  const starterHere = !!game && people.some((p) => p.id === game.startedBy);
-  const roundStarterHere = !!round && people.some((p) => p.id === round.startedBy);
-  const speakingNow = !!round && !impostor.outcome && impostorPhase(round, impostor.now).kind === 'speaking';
+  // Games have their own Leave game, End game and Stop watching, in game mode's ⋯ menu.
   let tableAction = null;
-  let secondAction = null;
-  if (isPlay && phase === 'live') {
-    if (game) {
-      if (game.startedBy === me.id || !starterHere) tableAction = <RowButton Icon={X} label="End game" onPress={ludo.endGame} />;
-      else if (inGame) tableAction = <RowButton Icon={X} label="Leave game" onPress={ludo.leaveGame} />;
-    } else if (round) {
-      if (impostor.playing && speakingNow) {
-        secondAction = wordHidden ? (
-          <RowButton Icon={Eye} label="Show word" onPress={() => setWordHidden(false)} />
-        ) : (
-          <RowButton Icon={EyeOff} label="Hide word" onPress={() => setWordHidden(true)} />
-        );
-      }
-      if (round.startedBy === me.id || !roundStarterHere) tableAction = <RowButton Icon={X} label="End game" onPress={impostor.endGame} />;
-    }
-  }
-  // A game on the table: whoever started it can end it (play.md › Ludo on the table).
-  if (!tableAction && connected && tableItem.item?.kind === 'game' && tableItem.canTakeOff) {
-    tableAction = <RowButton Icon={X} label="End game" onPress={tableItem.takeOff} />;
-  } else if (!tableAction && connected && tableItem.item?.kind === 'game') {
-    // Anyone else can leave the game and stay in the room (activities.md rule 4). Someone only watching
-    // can close it on their phone. Once it's over, the card has its own "Back to talking".
-    const where = tableGameStatus(tableItem.item.game, tableItem.state.g, me.id);
-    if (where === 'playing') tableAction = <RowButton Icon={X} label="Leave game" onPress={tableItem.leaveGame} />;
-    else if (where === 'watching') tableAction = <RowButton Icon={X} label="Stop watching" onPress={tableItem.hideItem} />;
-    else tableAction = <RowButton Icon={X} label="Close" onPress={tableItem.hideItem} />;
-  }
   if (!tableAction && connected) tableAction = <RowButton Icon={SquarePlus} label="Table" onPress={openTable} />;
 
   // Your screen is shared only while it's your item on the table. If sharing stops from the phone's own
@@ -875,7 +762,6 @@ export function RoomScreen({ me, request, onLeft, onMove }: Props) {
   }, [bumped, clearBumped]);
 
   // Raise hand, except during a game: game seats don't show hands.
-  const inAnyGame = !!ludo.game || !!impostor.round || tableItem.item?.kind === 'game';
   const handButton = (
     <RowButton
       Icon={Hand}
@@ -918,6 +804,368 @@ export function RoomScreen({ me, request, onLeft, onMove }: Props) {
     if (Platform.OS === 'web') setToast('Your room is ready. Tap Invite to send the link.');
     else void invite();
   });
+
+  // --- game mode: a game takes the whole screen (docs/design/pages/game-mode.md) ---
+  // A Ludo or Find the Impostor game this phone stepped out of (Leave game, Stop watching).
+  const [steppedOut, setSteppedOut] = useState<string | null>(null);
+  const ludoGame = connected && isPlay && phase === 'live' && game && steppedOut !== game.id ? game : null;
+  const impostorRound = connected && isPlay && phase === 'live' && !ludoGame && round && steppedOut !== round.gameId ? round : null;
+  const tableGame = connected && phase === 'live' && !ludoGame && !impostorRound && tableItem.item?.kind === 'game' ? tableItem.item : null;
+  // "That move didn't go through. Try again." under the board, for a few seconds.
+  const failedAt = Math.max(tableItem.moveFailedAt, ludo.failedAt);
+  const [failNote, setFailNote] = useState(false);
+  useEffect(() => {
+    if (!failedAt) return;
+    setFailNote(true);
+    const t = setTimeout(() => setFailNote(false), gameMode.moveTimeoutMs);
+    return () => clearTimeout(t);
+  }, [failedAt]);
+
+  let gameView: ReactNode = null;
+  let exit: GameModeEnv['exit'] = null;
+  if (ludoGame) {
+    const playing = !!teamOf(ludoGame, me.id);
+    const starterHere = people.some((p) => p.id === ludoGame.startedBy);
+    exit =
+      ludoGame.startedBy === me.id || !starterHere
+        ? { label: 'End game', onPress: ludo.endGame }
+        : playing
+          ? { label: 'Leave game', onPress: () => { ludo.leaveGame(); setSteppedOut(ludoGame.id); } }
+          : { label: 'Stop watching', onPress: () => setSteppedOut(ludoGame.id) };
+    gameView = (
+      <LudoTable
+        state={ludoGame}
+        me={me.id}
+        pending={ludo.pending}
+        rollingSince={ludo.rollingSince}
+        onRolled={ludo.rolled}
+        onRoll={ludo.roll}
+        onMove={ludo.move}
+        onBringOut={() => {
+          const first = ludoGame.tokens[ludoGame.turn].findIndex((pos) => pos === BASE);
+          if (first >= 0) ludo.move(first);
+        }}
+        onPlayAgain={() => ludo.start(everyone)}
+        onBackToTalking={ludo.endGame}
+      />
+    );
+  } else if (impostorRound) {
+    const starterHere = people.some((p) => p.id === impostorRound.startedBy);
+    exit =
+      impostorRound.startedBy === me.id || !starterHere
+        ? { label: 'End game', onPress: impostor.endGame }
+        : { label: impostor.playing ? 'Leave game' : 'Stop watching', onPress: () => setSteppedOut(impostorRound.gameId) };
+    gameView = (
+      <ImpostorTable
+        round={impostorRound}
+        now={impostor.now}
+        me={me.id}
+        people={people}
+        playing={impostor.playing}
+        card={impostor.card}
+        hidden={wordHidden}
+        onShowWord={() => setWordHidden(false)}
+        onHideWord={() => setWordHidden(true)}
+        myVote={impostor.myVote}
+        outcome={impostor.outcome}
+        onVote={(id) => void impostor.castVote(id)}
+        onNextRound={() => (people.length < IMPOSTOR_MIN ? impostorTooFew() : impostor.nextRound(everyone))}
+        onPlayAgain={() => (people.length < IMPOSTOR_MIN ? impostorTooFew() : impostor.startGame(everyone))}
+        onBackToTalking={impostorRound.startedBy === me.id || !starterHere ? impostor.endGame : () => setSteppedOut(impostorRound.gameId)}
+        busy={impostor.busy}
+      />
+    );
+  } else if (tableGame) {
+    const where = tableGameStatus(tableGame.game, tableItem.state.g, me.id);
+    exit = tableItem.canTakeOff
+      ? { label: 'End game', onPress: tableItem.takeOff }
+      : where === 'playing'
+        ? { label: 'Leave game', onPress: tableItem.leaveGame }
+        : { label: where === 'watching' ? 'Stop watching' : 'Close', onPress: tableItem.hideItem };
+    const g = tableItem.state.g;
+    const common = {
+      gameKey: tableGame.id,
+      me: me.id,
+      people,
+      starter: tableItem.mine,
+      onPlayAgain: () => playTableGame(tableGame.game),
+      onBackToTalking: tableItem.mine ? tableItem.takeOff : tableItem.hideItem,
+    };
+    gameView = !g ? (
+      // After a reconnect, until the starter's phone sends the game again.
+      <GameStage kind={tableGame.game} gameKey={tableGame.id} turn={{ text: GAME_TITLE[tableGame.game] }} board={() => null} note="Getting the game back…" />
+    ) : tableGame.game === 'draughts' ? (
+      <DraughtsBody g={g as DraughtsGame} pending={tableItem.movePending} onMove={tableItem.sendMove} {...common} />
+    ) : tableGame.game === 'chess' ? (
+      <ChessBody g={g as ChessGame} pending={tableItem.movePending} onMove={tableItem.sendMove} {...common} />
+    ) : tableGame.game === 'whot' ? (
+      <WhotBody
+        g={g as WhotPublic}
+        hand={Array.isArray(tableItem.mySecret) ? (tableItem.mySecret as string[]) : null}
+        pending={tableItem.movePending}
+        onMove={tableItem.sendMove}
+        {...common}
+      />
+    ) : (
+      <MafiaBody g={g as MafiaPublic} secret={(tableItem.mySecret as MafiaSecret | null) ?? null} onMove={tableItem.sendMove} {...common} />
+    );
+  } else if (connected && phase === 'live' && tableItem.endedBy) {
+    const ended = tableItem.endedBy;
+    gameView = (
+      <GameStage
+        kind={ended.game}
+        gameKey={`ended-${ended.game}`}
+        turn={{ text: 'Game over' }}
+        board={({ width }) => (
+          <View style={{ width, gap: space[4] }} accessibilityLiveRegion="polite">
+            <Text variant="title" center>{`The game ended because ${ended.name} left.`}</Text>
+            <TableAction label="Back to the room" onPress={tableItem.clearEnded} />
+          </View>
+        )}
+      />
+    );
+  }
+  const gameEnv: GameModeEnv = {
+    people,
+    mic: <MicControl state={micState} pausedReason={pausedReason} onPress={() => void onMicPress()} />,
+    unread,
+    onChat: () => setChatOpen(true),
+    onReport: () => {
+      setReportPerson(null);
+      setReportOpen(true);
+    },
+    exit,
+    onLeaveRoom: () => void leaveRoom(),
+    reconnecting: status === 'reconnecting',
+    note: failNote ? "That move didn't go through. Try again." : null,
+    above: (
+      <>
+        <Toast message={toast} onDone={clearToast} />
+        {voice.audioBlocked ? <Button label="Tap to hear the room" onPress={() => void voice.unblockAudio()} /> : null}
+      </>
+    ),
+  };
+  // When a game ends on this phone, the room circle eases back in.
+  const inGameMode = !!gameView;
+  const wasInGameMode = useRef(inGameMode);
+  const [backFromGame, setBackFromGame] = useState(0);
+  useEffect(() => {
+    if (wasInGameMode.current && !inGameMode) setBackFromGame((n) => n + 1);
+    wasInGameMode.current = inGameMode;
+  }, [inGameMode]);
+
+  // A game still going that this phone stepped out of: a quiet way back in.
+  const backToGame =
+    connected && phase === 'live' && !gameView
+      ? game && !game.winner && steppedOut === game.id
+        ? () => setSteppedOut(null)
+        : round && !impostor.outcome && steppedOut === round.gameId
+          ? () => setSteppedOut(null)
+          : tableItem.hiddenGame
+            ? tableItem.unhide
+            : null
+      : null;
+
+  // Sheets and dialogs, the same in the room and in game mode.
+  const sheets = (
+    <>
+        <MicAskSheet visible={askOpen} onAllow={() => void onAllow()} onListen={onListen} />
+        <MicBlockedSheet
+          visible={blockedOpen}
+          onOpenSettings={() => {
+            setBlockedOpen(false);
+            if (Platform.OS !== 'web') void Linking.openSettings();
+          }}
+          onClose={() => setBlockedOpen(false)}
+        />
+        <MiniProfileSheet
+          person={profile}
+          saved={!!profile && saved.has(profile.id)}
+          onClose={() => {
+            setProfile(null);
+            if (profileFromChat) {
+              setProfileFromChat(false);
+              setTimeout(() => setChatOpen(true), motion.slow);
+            }
+          }}
+          onToggleSave={(p) => void toggleSave(p)}
+          onBlock={(p) => {
+            setProfile(null);
+            setProfileFromChat(false);
+            setToBlock({ id: p.id, nickname: p.nickname });
+          }}
+          onReport={(p) => {
+            setProfile(null);
+            setProfileFromChat(false);
+            setReportPerson(p);
+            setReportOpen(true);
+          }}
+        />
+        <BlockSheet me={me.id} person={toBlock} onClose={() => setToBlock(null)} onBlocked={onBlocked} />
+        <ReportSheet
+          visible={reportOpen}
+          roomId={room?.id ?? null}
+          people={others.map((p) => ({ id: p.id, nickname: p.nickname }))}
+          startWith={reportPerson}
+          evidence={reportEvidence}
+          onClose={() => setReportOpen(false)}
+          onAlsoBlock={(p) => setToBlock(p)}
+          onSeeHelp={() => {
+            setReportOpen(false);
+            onOpenHelp();
+          }}
+        />
+        {room ? (
+          <PutOnTableSheet
+            visible={putOpen}
+            door={room.door}
+            gamesReady={ludo.ready && impostor.ready}
+            peopleCount={people.length}
+            onClose={() => setPutOpen(false)}
+            onPick={onTablePick}
+          />
+        ) : null}
+        <NoteSheet
+          visible={compose === 'note'}
+          onClose={() => setCompose(null)}
+          onPut={(text) => {
+            setCompose(null);
+            void tableItem.put({ kind: 'note', text, link: findLink(text) });
+          }}
+        />
+        <VideoSheet
+          visible={compose === 'video'}
+          onClose={() => setCompose(null)}
+          onPut={(video, title) => {
+            setCompose(null);
+            void tableItem.put({ kind: 'video', video, title }, { playing: false, position: 0, sentAt: Date.now() });
+          }}
+        />
+        <HandsSheet
+          visible={handsOpen}
+          hands={hands}
+          onClose={() => setHandsOpen(false)}
+          onLetIn={(p) => void doHost(p, 'letin')}
+          onNotNow={(p) => void doHost(p, 'notnow')}
+        />
+        <HostActionsSheet
+          person={hostPerson}
+          onClose={() => setHostPerson(null)}
+          onMute={(p) => {
+            setHostPerson(null);
+            void doHost(p, 'mute');
+          }}
+          onRemove={(p) => {
+            setHostPerson(null);
+            setTimeout(() => setRemovePerson(p), motion.slow);
+          }}
+          onMore={(p) => {
+            setHostPerson(null);
+            setTimeout(() => setProfile({ id: p.id, nickname: p.nickname }), motion.slow);
+          }}
+        />
+        <RemoveSheet
+          person={removePerson}
+          onClose={() => setRemovePerson(null)}
+          onRemove={(p, reason, alsoReport) => {
+            setRemovePerson(null);
+            void doHost(p, 'remove', reason, alsoReport);
+          }}
+        />
+        <AppealSheet
+          visible={appealOpen}
+          onClose={() => setAppealOpen(false)}
+          onSend={(text) => {
+            setAppealOpen(false);
+            if (room)
+              void appealRemoval(room.id, text)
+                .then(() => setToast('Sent to the Circles team. Thank you.'))
+                .catch(() => setToast("That didn't send. Check your connection."));
+          }}
+        />
+        <TurnsSheet
+          visible={compose === 'turns'}
+          onClose={() => setCompose(null)}
+          onPut={(topic, minutes) => {
+            setCompose(null);
+            // Everyone here, starting with you; people who arrive later join the end.
+            const order = [me.id, ...people.filter((p) => !p.isMe).map((p) => p.id)];
+            void tableItem.put({ kind: 'turns', topic, minutes }, { order: order.slice(0, 12), index: 0, startedAt: Date.now(), sentAt: Date.now() });
+          }}
+        />
+        <WordsSheet
+          visible={compose === 'words'}
+          onClose={() => setCompose(null)}
+          onPut={(words) => {
+            setCompose(null);
+            void tableItem.put({ kind: 'words', words }, { index: 0 });
+          }}
+        />
+        <QuizSheet
+          visible={compose === 'quiz'}
+          onClose={() => setCompose(null)}
+          onPut={(question, answers, correct) => {
+            setCompose(null);
+            void tableItem.put({ kind: 'quiz', question, answers, correct }, { revealed: false });
+          }}
+        />
+        <TableOptionsSheet
+          visible={tableOptionsOpen}
+          canTakeOff={tableItem.canTakeOff}
+          onClose={() => setTableOptionsOpen(false)}
+          onTakeOff={() => {
+            setTableOptionsOpen(false);
+            tableItem.takeOff();
+          }}
+          onReport={() => {
+            setTableOptionsOpen(false);
+            const item = tableItem.item;
+            setReportPerson(item && !tableItem.mine ? { id: item.by, nickname: item.byName } : null);
+            setTimeout(() => setReportOpen(true), motion.slow);
+          }}
+        />
+        <ChatSheet
+          visible={chatOpen && connected}
+          messages={chat}
+          onClose={() => setChatOpen(false)}
+          pausedReason={chatPaused}
+          onSend={voice.sendChat}
+          onPerson={(p) => {
+            setChatOpen(false);
+            setProfileFromChat(true);
+            // Let the chat slide away first: two sheets can't swap in the same moment on every phone.
+            setTimeout(() => openProfile(p), motion.slow);
+          }}
+        />
+        <HelpModal visible={helpOpen} onClose={() => setHelpOpen(false)} inRoom={connected} />
+        <Sheet visible={!!afterBlock} onClose={() => setAfterBlock(null)}>
+          <Text variant="title">{`You're both still in this room`}</Text>
+          <Text variant="body" color="textSoft">
+            {`You won't hear ${afterBlock?.nickname ?? 'them'} any more. You can also move to another room.`}
+          </Text>
+          <View style={{ gap: space[3] }}>
+            <Button
+              label="Move me to another room"
+              variant="primary"
+              onPress={() => {
+                setAfterBlock(null);
+                void moveToAnotherRoom();
+              }}
+            />
+            <Button label="Stay for now" variant="quiet" onPress={() => setAfterBlock(null)} />
+          </View>
+        </Sheet>
+    </>
+  );
+
+  if (gameView) {
+    return (
+      <SafeAreaView style={{ flex: 1, backgroundColor: colors.bg }}>
+        <GameModeProvider value={gameEnv}>{gameView}</GameModeProvider>
+        {sheets}
+      </SafeAreaView>
+    );
+  }
 
   return (
     <SafeAreaView style={{ flex: 1, backgroundColor: colors.bg }}>
@@ -992,19 +1240,25 @@ export function RoomScreen({ me, request, onLeft, onMove }: Props) {
 
         {status === 'removed' ? (
           <RemovedNotice reason={REMOVAL_REASONS.find((r) => r.id === (voice.removedReason ?? removedFor)) ?? null} />
-        ) : table ?? (
-          <RoomCircle
-            people={people}
-            capacity={room?.capacity}
-            emptyHint={status === 'connecting' ? 'Finding your room' : undefined}
-            centre={countdown !== null ? <CountdownRing seconds={countdown} /> : undefined}
-            onSeatPress={onSeat}
-          />
+        ) : (
+          <BackFromGame back={backFromGame}>
+            {table ?? (
+              <RoomCircle
+                people={people}
+                capacity={room?.capacity}
+                emptyHint={status === 'connecting' ? 'Finding your room' : undefined}
+                centre={countdown !== null ? <CountdownRing seconds={countdown} /> : undefined}
+                onSeatPress={onSeat}
+              />
+            )}
+          </BackFromGame>
         )}
 
         {connected && voice.audioBlocked ? (
           <Button label="Tap to hear the room" onPress={() => void voice.unblockAudio()} />
         ) : null}
+
+        {backToGame ? <Button label="Back to the game" onPress={backToGame} /> : null}
 
         {connected && tabNoteOpen ? (
           <View style={{ flexDirection: 'row', alignItems: 'center', gap: space[3], backgroundColor: colors.surface, borderRadius: radius.small, padding: space[3] }}>
@@ -1108,12 +1362,11 @@ export function RoomScreen({ me, request, onLeft, onMove }: Props) {
               </Pressable>
             ) : null}
             <View style={{ flexDirection: 'row', gap: space[3] }}>
-              {secondAction ??
-                (iAmHost ? (
+              {iAmHost ? (
                   <RowButton Icon={Hand} label="Hands" badge={hands.length} onPress={() => setHandsOpen(true)} />
-                ) : inAnyGame ? null : (
+                ) : (
                   handButton
-                ))}
+                )}
               <RowButton
                 Icon={MessageCircle}
                 label="Chat"
@@ -1160,192 +1413,7 @@ export function RoomScreen({ me, request, onLeft, onMove }: Props) {
         )}
       </View>
 
-      <MicAskSheet visible={askOpen} onAllow={() => void onAllow()} onListen={onListen} />
-      <MicBlockedSheet
-        visible={blockedOpen}
-        onOpenSettings={() => {
-          setBlockedOpen(false);
-          if (Platform.OS !== 'web') void Linking.openSettings();
-        }}
-        onClose={() => setBlockedOpen(false)}
-      />
-      <MiniProfileSheet
-        person={profile}
-        saved={!!profile && saved.has(profile.id)}
-        onClose={() => {
-          setProfile(null);
-          if (profileFromChat) {
-            setProfileFromChat(false);
-            setTimeout(() => setChatOpen(true), motion.slow);
-          }
-        }}
-        onToggleSave={(p) => void toggleSave(p)}
-        onBlock={(p) => {
-          setProfile(null);
-          setProfileFromChat(false);
-          setToBlock({ id: p.id, nickname: p.nickname });
-        }}
-        onReport={(p) => {
-          setProfile(null);
-          setProfileFromChat(false);
-          setReportPerson(p);
-          setReportOpen(true);
-        }}
-      />
-      <BlockSheet me={me.id} person={toBlock} onClose={() => setToBlock(null)} onBlocked={onBlocked} />
-      <ReportSheet
-        visible={reportOpen}
-        roomId={room?.id ?? null}
-        people={others.map((p) => ({ id: p.id, nickname: p.nickname }))}
-        startWith={reportPerson}
-        evidence={reportEvidence}
-        onClose={() => setReportOpen(false)}
-        onAlsoBlock={(p) => setToBlock(p)}
-        onSeeHelp={() => {
-          setReportOpen(false);
-          onOpenHelp();
-        }}
-      />
-      {room ? (
-        <PutOnTableSheet
-          visible={putOpen}
-          door={room.door}
-          gamesReady={ludo.ready && impostor.ready}
-          peopleCount={people.length}
-          onClose={() => setPutOpen(false)}
-          onPick={onTablePick}
-        />
-      ) : null}
-      <NoteSheet
-        visible={compose === 'note'}
-        onClose={() => setCompose(null)}
-        onPut={(text) => {
-          setCompose(null);
-          void tableItem.put({ kind: 'note', text, link: findLink(text) });
-        }}
-      />
-      <VideoSheet
-        visible={compose === 'video'}
-        onClose={() => setCompose(null)}
-        onPut={(video, title) => {
-          setCompose(null);
-          void tableItem.put({ kind: 'video', video, title }, { playing: false, position: 0, sentAt: Date.now() });
-        }}
-      />
-      <HandsSheet
-        visible={handsOpen}
-        hands={hands}
-        onClose={() => setHandsOpen(false)}
-        onLetIn={(p) => void doHost(p, 'letin')}
-        onNotNow={(p) => void doHost(p, 'notnow')}
-      />
-      <HostActionsSheet
-        person={hostPerson}
-        onClose={() => setHostPerson(null)}
-        onMute={(p) => {
-          setHostPerson(null);
-          void doHost(p, 'mute');
-        }}
-        onRemove={(p) => {
-          setHostPerson(null);
-          setTimeout(() => setRemovePerson(p), motion.slow);
-        }}
-        onMore={(p) => {
-          setHostPerson(null);
-          setTimeout(() => setProfile({ id: p.id, nickname: p.nickname }), motion.slow);
-        }}
-      />
-      <RemoveSheet
-        person={removePerson}
-        onClose={() => setRemovePerson(null)}
-        onRemove={(p, reason, alsoReport) => {
-          setRemovePerson(null);
-          void doHost(p, 'remove', reason, alsoReport);
-        }}
-      />
-      <AppealSheet
-        visible={appealOpen}
-        onClose={() => setAppealOpen(false)}
-        onSend={(text) => {
-          setAppealOpen(false);
-          if (room)
-            void appealRemoval(room.id, text)
-              .then(() => setToast('Sent to the Circles team. Thank you.'))
-              .catch(() => setToast("That didn't send. Check your connection."));
-        }}
-      />
-      <TurnsSheet
-        visible={compose === 'turns'}
-        onClose={() => setCompose(null)}
-        onPut={(topic, minutes) => {
-          setCompose(null);
-          // Everyone here, starting with you; people who arrive later join the end.
-          const order = [me.id, ...people.filter((p) => !p.isMe).map((p) => p.id)];
-          void tableItem.put({ kind: 'turns', topic, minutes }, { order: order.slice(0, 12), index: 0, startedAt: Date.now(), sentAt: Date.now() });
-        }}
-      />
-      <WordsSheet
-        visible={compose === 'words'}
-        onClose={() => setCompose(null)}
-        onPut={(words) => {
-          setCompose(null);
-          void tableItem.put({ kind: 'words', words }, { index: 0 });
-        }}
-      />
-      <QuizSheet
-        visible={compose === 'quiz'}
-        onClose={() => setCompose(null)}
-        onPut={(question, answers, correct) => {
-          setCompose(null);
-          void tableItem.put({ kind: 'quiz', question, answers, correct }, { revealed: false });
-        }}
-      />
-      <TableOptionsSheet
-        visible={tableOptionsOpen}
-        canTakeOff={tableItem.canTakeOff}
-        onClose={() => setTableOptionsOpen(false)}
-        onTakeOff={() => {
-          setTableOptionsOpen(false);
-          tableItem.takeOff();
-        }}
-        onReport={() => {
-          setTableOptionsOpen(false);
-          const item = tableItem.item;
-          setReportPerson(item && !tableItem.mine ? { id: item.by, nickname: item.byName } : null);
-          setTimeout(() => setReportOpen(true), motion.slow);
-        }}
-      />
-      <ChatSheet
-        visible={chatOpen && connected}
-        messages={chat}
-        onClose={() => setChatOpen(false)}
-        pausedReason={chatPaused}
-        onSend={voice.sendChat}
-        onPerson={(p) => {
-          setChatOpen(false);
-          setProfileFromChat(true);
-          // Let the chat slide away first: two sheets can't swap in the same moment on every phone.
-          setTimeout(() => openProfile(p), motion.slow);
-        }}
-      />
-      <HelpModal visible={helpOpen} onClose={() => setHelpOpen(false)} inRoom={connected} />
-      <Sheet visible={!!afterBlock} onClose={() => setAfterBlock(null)}>
-        <Text variant="title">{`You're both still in this room`}</Text>
-        <Text variant="body" color="textSoft">
-          {`You won't hear ${afterBlock?.nickname ?? 'them'} any more. You can also move to another room.`}
-        </Text>
-        <View style={{ gap: space[3] }}>
-          <Button
-            label="Move me to another room"
-            variant="primary"
-            onPress={() => {
-              setAfterBlock(null);
-              void moveToAnotherRoom();
-            }}
-          />
-          <Button label="Stay for now" variant="quiet" onPress={() => setAfterBlock(null)} />
-        </View>
-      </Sheet>
+      {sheets}
     </SafeAreaView>
   );
 }

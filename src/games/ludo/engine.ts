@@ -226,3 +226,14 @@ export function cellOf(team: Team, token: number, progress: number): [number, nu
   if (progress > LAST_TRACK) return HOME_COLUMN[team][progress - LAST_TRACK - 1];
   return TRACK_CELLS[trackSquare(team, progress) as number];
 }
+
+// The squares a token hops through on its way from one place to another, for the movement on screen.
+// Empty when it was sent back to base (it just appears there).
+export function hopPath(team: Team, token: number, from: number, to: number): [number, number][] {
+  if (to === from || to === BASE) return [];
+  if (from === BASE) return [cellOf(team, token, 0)];
+  if (to < from) return [];
+  const cells: [number, number][] = [];
+  for (let p = from + 1; p <= to; p += 1) cells.push(cellOf(team, token, p));
+  return cells;
+}

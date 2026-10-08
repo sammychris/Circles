@@ -406,6 +406,54 @@ All four are under Table, then Games, in game rooms, next to Ludo and Find the I
 - [ ] In a game room with 2, tap the Table: Ludo works; Find the Impostor says "Needs at least 3 people".
 - [ ] One phone leaves. The other sees the 2-minute countdown ("Waiting for someone to join"). Joining again brings the room back.
 
+## 14. Game mode (a full screen for games)
+
+Built from `docs/design/pages/game-mode.md`. When a game goes on the table, every phone switches to one full screen that never scrolls:
+- **Faces at the top.** Small avatars, with team rings and icons in team games, the speaking glow, and "You". Tap the strip to fold it to one line ("5 here. Ada is speaking"). The speaker's name always stays.
+- **Whose turn it is**, in one line, under the faces.
+- **A bigger board.** It fills the screen width (about 41-point squares on the smallest phones, 44 or more on most).
+- **The game's own buttons** under the board.
+- **At the bottom: only the mic and Chat.** Muting is always one tap away.
+- **Everything else is in the ⋯ menu:** How to play, Hide faces, Sound on/off, Report someone, Leave game (or Stop watching, or End game), and Leave room. Leave room always asks first.
+
+**How it feels**
+- **Your own move shows straight away.** It's checked on your phone first, so wrong moves never start. If the starter's phone doesn't confirm it within 3 seconds, the piece slides back and it says "That move didn't go through. Try again." Dice and dealing still come only from one phone, so nobody can cheat.
+- **Movement:** pieces slide, Ludo tokens hop square by square, taken pieces fade, a new king flips, Whot cards fly to the pile and slide in from market, the dice tumbles. With the phone's Reduce motion setting on, these become quick fades.
+- **Draughts and Chess:** tap a piece then a square, or drag the piece.
+- **Sounds:** quiet sounds for your turn, dice, moves, captures, cards, market, Mafia night and day, and a win. They're mixed in with the voices, never pausing or lowering them, and follow the phone's silent switch. Sound on/off is in the ⋯ menu and in Me.
+- **Buzz:** a light buzz when you pick a piece or card, a firmer one on a capture or a "Pick two", and a buzz when it becomes your turn.
+- **Mafia's night** dims the screen around a moon and a countdown ring.
+- **When the starter leaves,** the game ends for everyone with "The game ended because Tolu left." and Back to the room.
+- **Stepped out of a game** (Leave game or Stop watching)? The room shows "Back to the game" while it's still going.
+
+**Choices I made (open to change)**
+- **The sounds are made for Circles** by a small script (`scripts/make-sounds.py`), not taken from a sound pack, so there's no licence to follow. If you'd rather have Kenney's sounds, I can swap them.
+- **Sound is on by default.** Games only run in play rooms, so Learn rooms never play game sounds.
+- **Each phone plays its own game sounds**, and the "your turn" chime only on the phones whose turn it is. The phone's echo cancelling should keep them out of your mic; the echo check below makes sure.
+- **"Leave game" in Find the Impostor** takes you out of the screen on your phone only; your turn passes in silence.
+
+**What you need to do**
+1. **One new app build.** Sounds (`expo-audio`) and the later reminders (`expo-notifications`) are new phone features, so an over-the-air update isn't enough this time. On your computer, in PowerShell, in your `Circles_app` folder:
+   ```
+   git stash
+   git pull origin claude/dreamy-meitner-mjoykp
+   npm install
+   npx eas-cli build --profile preview --platform android
+   ```
+   When it's finished, open the link Expo gives you on each phone and install it.
+2. Nothing new in Supabase.
+
+**Phone checklist (3 phones)**
+- [ ] In a game room, start Ludo. Every phone switches to the full game screen, with the faces at the top and only the mic and Chat at the bottom.
+- [ ] Tap **Roll the dice**: it rattles and tumbles, then settles. Tap a token with a white ring: it hops square by square straight away.
+- [ ] Tap the faces: they fold to "3 here". Tap again to open them.
+- [ ] Tap **⋯**: How to play shows the rules. Turn Sound off: no more sounds. Turn it back on.
+- [ ] Tap **⋯**, then **Leave room**: it asks first. Tap **Stay**.
+- [ ] Start Draughts from the Table. Drag a piece to a square: it slides there. Take a piece: it fades with a firmer click.
+- [ ] Start Whot: tap a card to lift it, tap again to play it. It flies to the pile.
+- [ ] **Echo check:** with game sounds on, ask the others if they can hear your phone's game sounds through your mic. If they can, tell me and I'll lower them.
+- [ ] Lock the screen during a game: voice keeps going.
+
 ---
 
 ## What you need to do now (for parts 6 to 12)

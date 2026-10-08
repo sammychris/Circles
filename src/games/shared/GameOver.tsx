@@ -17,7 +17,7 @@ export function GameOver({ result, canRestart, onPlayAgain, onBackToTalking }: {
       {/* Everyone can close it: for the starter it comes off the table, for others just on their phone. */}
       <Pressable accessibilityRole="button" onPress={onBackToTalking} style={{ minHeight: size.minTarget, alignItems: 'center', justifyContent: 'center' }}>
         <Text variant="bodyStrong" color="textSoft">
-          Back to talking
+          Back to the room
         </Text>
       </Pressable>
     </View>

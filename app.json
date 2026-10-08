@@ -57,7 +57,15 @@
           "photosPermission": "Circles lets you pick photos to show on the Table in a room.",
           "cameraPermission": false
         }
-      ]
+      ],
+      [
+        "expo-audio",
+        {
+          "microphonePermission": "Circles uses the microphone so you can talk in rooms.",
+          "enableBackgroundPlayback": false
+        }
+      ],
+      "expo-notifications"
     ],
     "scheme": "circles",
     "runtimeVersion": {

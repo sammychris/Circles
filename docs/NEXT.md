@@ -74,8 +74,8 @@ Short version:
 
 ### Order of work
 1. ~~Room sizes (section 1).~~ Done.
-2. Game mode (A). **Next.** **Add `expo-audio` and `expo-notifications` to the app in the same change,** so Sammy needs only **one** new build for sounds and later reminders.
-3. Bottom bar and the Home, Explore, Groups and Me pages (B).
+2. ~~Game mode (A).~~ Done (2026-10-08), with `expo-audio` and `expo-notifications` added, so one new build covers sounds and later reminders. See `docs/BUILD_NOTES.md` part 14.
+3. Bottom bar and the Home, Explore, Groups and Me pages (B). **Next.**
 4. Scheduled and weekly rooms, reminders and invitations (C).
 
 After each part: tests, the `circles-reviewer` agent, then update BUILD_NOTES, PROGRESS and this file.
@@ -92,7 +92,7 @@ The full click-by-click steps are in `docs/BUILD_NOTES.md`, under "What you need
 2. **Room server:**
    1. Paste `supabase/functions/livekit-token/index.ts` into the `livekit-token` Edge Function.
    2. Click Deploy.
-3. **One new app build,** because new phone features were added: the video viewer, the photo picker, and screen sharing. After that, most changes arrive by over-the-air update.
+3. **One new app build,** because new phone features were added: the video viewer, the photo picker, screen sharing, and now game sounds and (for later) reminders. Build from the branch `claude/dreamy-meitner-mjoykp` (steps in `docs/BUILD_NOTES.md` part 14). After that, most changes arrive by over-the-air update.
    - Build: `npx eas-cli build --profile preview --platform android`
    - Update: `npx eas-cli update --channel preview --environment development --message "..."`
 4. **Phone test** with 3 to 5 phones, using the checklists in `docs/BUILD_NOTES.md`, parts 6 to 12.
@@ -102,7 +102,6 @@ The full click-by-click steps are in `docs/BUILD_NOTES.md`, under "What you need
 
 ## 3. Questions for Sammy
 
-- **Game boards:** they are 280 points wide, as in the design, so squares are 35 points, under the 44-point tap minimum. Should the board fill the screen width (about 42-point squares)?
 - **Help screens:** a verified Nigerian crisis line and emergency number. Never guess these. No placeholder text may go into a build for real users.
 - **Privacy Policy:** a contact email, before a wide launch.
 - **Choices in `docs/BUILD_NOTES.md`:** all marked "open to change". Examples:

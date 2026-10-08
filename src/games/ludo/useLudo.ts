@@ -1,7 +1,8 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import type { RealtimeChannel } from '@supabase/supabase-js';
 import { supabase } from '../../lib/supabase';
-import { newGame, type LudoAction, type LudoState } from './engine';
+import { gameMode } from '../../theme/tokens';
+import { apply, newGame, type LudoAction, type LudoState } from './engine';
 import { absentPlayers, preferGame, receiveAction } from './sync';
 
 type Message =
@@ -23,6 +24,33 @@ export function useLudo(roomId: string | null, me: string, enabled: boolean, inR
   const channelRef = useRef<RealtimeChannel | null>(null);
   const gameRef = useRef<LudoState | null>(null);
   gameRef.current = game;
+  // Your own move, shown straight away (game-mode.md › Instant moves). Every phone applies the same
+  // moves in the order the room's channel delivers them, so this is only a guess on top: the next real
+  // update replaces it, and if none comes in 3 seconds the token slides back.
+  const [guess, setGuess] = useState<LudoState | null>(null);
+  const guessTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const [failedAt, setFailedAt] = useState(0);
+  // Rolling: from the tap until the room's answer arrives. Dice are never guessed, so nobody can cheat.
+  const [rollingSince, setRollingSince] = useState<number | null>(null);
+  const seqKey = game ? `${game.id}:${game.seq}` : '';
+  useEffect(() => {
+    setGuess(null);
+    if (guessTimer.current) clearTimeout(guessTimer.current);
+  }, [seqKey]);
+  useEffect(
+    () => () => {
+      if (guessTimer.current) clearTimeout(guessTimer.current);
+    },
+    [],
+  );
+  const waitForAnswer = useCallback(() => {
+    if (guessTimer.current) clearTimeout(guessTimer.current);
+    guessTimer.current = setTimeout(() => {
+      setGuess(null);
+      setRollingSince(null);
+      setFailedAt(Date.now());
+    }, gameMode.moveTimeoutMs);
+  }, []);
 
   const send = useCallback((msg: Message) => {
     void channelRef.current?.send({ type: 'broadcast', event: 'ludo', payload: msg });
@@ -93,17 +121,25 @@ export function useLudo(roomId: string | null, me: string, enabled: boolean, inR
   const roll = useCallback(() => {
     const g = gameRef.current;
     if (!g) return;
+    setRollingSince(Date.now());
+    waitForAnswer();
     send({ kind: 'action', gameId: g.id, action: { type: 'roll', by: me, value: 1 + Math.floor(Math.random() * 6), seq: g.seq } });
-  }, [send, me]);
+  }, [send, me, waitForAnswer]);
 
   const move = useCallback(
     (token: number) => {
       const g = gameRef.current;
       if (!g) return;
-      send({ kind: 'action', gameId: g.id, action: { type: 'move', by: me, token, seq: g.seq } });
+      const action: LudoAction = { type: 'move', by: me, token, seq: g.seq };
+      const next = apply(g, action);
+      if (next !== g) setGuess(next);
+      waitForAnswer();
+      send({ kind: 'action', gameId: g.id, action });
     },
-    [send, me],
+    [send, me, waitForAnswer],
   );
+  // The roll's answer arrived (or the game moved on): the dice can settle.
+  const rolled = useCallback(() => setRollingSince(null), []);
 
   const leaveGame = useCallback(() => {
     const g = gameRef.current;
@@ -116,5 +152,6 @@ export function useLudo(roomId: string | null, me: string, enabled: boolean, inR
     if (g) send({ kind: 'end', gameId: g.id });
   }, [send]);
 
-  return { game, ready, start, roll, move, leaveGame, endGame };
+  const shown = guess && game && guess.id === game.id && guess.seq > game.seq ? guess : game;
+  return { game: shown, ready, start, roll, move, leaveGame, endGame, pending: !!guess, rollingSince, rolled, failedAt };
 }

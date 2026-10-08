@@ -5,7 +5,8 @@ import { rules, size, useColors } from '../theme';
 import { Text } from './Text';
 
 // The "1:42 left to wait" ring in the middle of the room (docs/screens/06-room-drops-to-2.png).
-export function CountdownRing({ seconds, total = rules.roomDropWaitSeconds }: { seconds: number; total?: number }) {
+// `caption` says what the time is for: "left to wait" in the room, "until morning" in Mafia's night.
+export function CountdownRing({ seconds, total = rules.roomDropWaitSeconds, caption = 'left to wait' }: { seconds: number; total?: number; caption?: string }) {
   const colors = useColors();
   const d = size.countdownRing;
   const stroke = size.countdownStroke;
@@ -15,7 +16,7 @@ export function CountdownRing({ seconds, total = rules.roomDropWaitSeconds }: { 
   return (
     <View
       accessible
-      accessibilityLabel={`${clock(seconds)} left to wait`}
+      accessibilityLabel={`${clock(seconds)} ${caption}`}
       style={{ width: d, height: d, alignItems: 'center', justifyContent: 'center' }}
     >
       <Svg width={d} height={d} style={{ position: 'absolute' }}>
@@ -37,7 +38,7 @@ export function CountdownRing({ seconds, total = rules.roomDropWaitSeconds }: { 
         {clock(seconds)}
       </Text>
       <Text variant="tiny" color="textSoft">
-        left to wait
+        {caption}
       </Text>
     </View>
   );

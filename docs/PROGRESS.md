@@ -4,7 +4,7 @@ Claude Code updates this file at the end of every build step. Newest entries at 
 
 ## Current step
 
-**Room sizes (NEXT.md item 1) are built: support rooms need 3, every other room goes live at 2. Next is game mode (NEXT.md item 1b, part A). Everything still waits for Sammy's Supabase updates, one new app build, and the phone test. The to-do list is in `docs/NEXT.md`. Read it next.**
+**Room sizes and game mode (NEXT.md items 1 and 1b part A) are built and reviewed, not yet tested on phones. Game mode needs one new app build (sounds and, later, reminders). Next is the bottom bar with Home, Explore, Groups and Me (NEXT.md 1b part B). Everything still waits for Sammy's Supabase updates, the new build, and the phone test. The to-do list is in `docs/NEXT.md`. Read it next.**
 
 Every choice made so far, and Sammy's click-by-click steps, are in `docs/BUILD_NOTES.md`.
 
@@ -22,6 +22,7 @@ Still open from Step 1: a test with a friend in another place on their own mobil
 - Support rooms only ever run with a trained host. Hosts are rows in the `hosts` table that Sammy adds.
 - Ludo is our own code (no outside licence), for two teams (Sun and Sky). Nothing about a game is saved.
 - Thank-yous are stored privately; no total is shown to anyone (Never list: no scores). Sammy to decide if anything should show.
+- Game mode (Sammy, 2026-10-08; built the same day): a game on the table turns the room into one full, non-scrolling game screen (`docs/design/pages/game-mode.md`): faces at the top (fold to one line), the board at full width, only the mic and Chat at the bottom, everything else in the ⋯ menu, Leave room asks first. Your own moves show straight away and slide back if the starter's phone doesn't confirm within 3 seconds. Pieces slide, tokens hop, cards fly; Reduce motion turns these into fades. Quiet game sounds (made for Circles by `scripts/make-sounds.py`, mixed in with the voices) with an on/off switch in the ⋯ menu and in Me; buzzes from `expo-haptics`. `expo-audio` and `expo-notifications` were added together, so one new build covers sounds and later reminders. Details and choices: `docs/BUILD_NOTES.md` part 14.
 - Age: 18+ for launch. A teen or family version may come later, designed separately (teen-only rooms, parent consent, legal check). Decided 2026-10-08.
 
 ## Steps done

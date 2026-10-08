@@ -2,6 +2,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { utf8Decode, utf8Encode } from '../rooms/chat';
 import type { DataListener } from '../voice/useVoiceRoom';
 import { GAMES } from '../games/registry';
+import { gameMode } from '../theme/tokens';
 import type { GameId } from '../games/tableGame';
 import {
   TABLE_TOPIC,
@@ -34,6 +35,11 @@ const LEAVE_GRACE_MS = 30_000;
 const HELLO_RETRY_MS = [3000, 8000];
 // The presenter answers each person's "what's on the table?" at most this often.
 const ANSWER_EVERY_MS = 4000;
+// A move the starter's phone hasn't confirmed by then slides back (game-mode.md › Instant moves).
+const MOVE_TIMEOUT_MS = gameMode.moveTimeoutMs;
+
+// What this phone expects a move to do, shown straight away while the starter's phone checks it.
+export type MoveGuess = { g?: unknown; secret?: unknown };
 
 function newId(): string {
   return `${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 10)}`;
@@ -95,10 +101,31 @@ export function useTable(
   // Games: the whole game, on the starter's phone only; and this person's own hand or role.
   const fullGame = useRef<unknown>(null);
   // Kept with the id of the game it belongs to, so it can arrive in the same moment as the game itself.
-  const [secretFor, setMySecret] = useState<{ id: string; data: unknown } | null>(null);
+  const [secretFor, setMySecretState] = useState<{ id: string; data: unknown } | null>(null);
+  const secretRef = useRef<{ id: string; data: unknown } | null>(null);
+  const setMySecret = useCallback((next: { id: string; data: unknown } | null) => {
+    secretRef.current = next;
+    setMySecretState(next);
+  }, []);
   // Items this phone closed for itself (left the game, or done with a finished one).
-  const [hiddenId, setHiddenId] = useState<string | null>(null);
+  const [hiddenId, setHiddenIdState] = useState<string | null>(null);
+  const hiddenIdRef = useRef<string | null>(null);
+  const setHiddenId = useCallback((id: string | null) => {
+    hiddenIdRef.current = id;
+    setHiddenIdState(id);
+  }, []);
   const answered = useRef(new Map<string, number>());
+  // Your own move, shown before the starter's phone confirms it. Cleared by the next update.
+  const [guess, setGuessState] = useState<({ id: string; seq: number } & MoveGuess) | null>(null);
+  const guessRef = useRef<typeof guess>(null);
+  const setGuess = useCallback((next: ({ id: string; seq: number } & MoveGuess) | null) => {
+    guessRef.current = next;
+    setGuessState(next);
+  }, []);
+  // When a move last didn't go through, for "That move didn't go through. Try again."
+  const [moveFailedAt, setMoveFailedAt] = useState(0);
+  // The game on the table ended because the person who started it left the room.
+  const [endedBy, setEndedBy] = useState<{ name: string; game: GameId } | null>(null);
 
   const send = useCallback(
     (msg: TableMessage, to?: string[]) => publishData(TABLE_TOPIC, utf8Encode(JSON.stringify(msg)), to),
@@ -141,7 +168,11 @@ export function useTable(
       } else if (msg.k === 'state') {
         if (!current || current.id !== msg.id || current.by !== from.id) return;
         const next = cleanState(msg.state, current.kind, current.kind === 'photos' ? current.photos.length : 0);
-        if (next && next.seq > stateRef.current.seq) setState(onLocalClock(next, now));
+        if (next && next.seq > stateRef.current.seq) {
+          setState(onLocalClock(next, now));
+          // The starter's phone answered: its game replaces whatever this phone guessed.
+          if (guessRef.current) setGuess(null);
+        }
       } else if (msg.k === 'answer') {
         // Only the presenter counts answers, one per person, until the reveal.
         if (!current || current.by !== me.id || current.kind !== 'quiz' || current.id !== msg.id) return;
@@ -199,6 +230,8 @@ export function useTable(
   useEffect(() => {
     const current = itemRef.current;
     if (current && people.length > 0 && !people.some((p) => p.id === current.by)) {
+      if (current.kind === 'game' && current.id !== hiddenIdRef.current) setEndedBy({ name: current.byName, game: current.game });
+      setGuess(null);
       setItem(null);
       setState({ seq: 0 });
     }
@@ -222,6 +255,7 @@ export function useTable(
       const nextState = { ...firstState, seq: 1 };
       quizAnswers.current = new Map();
       setAnsweredCount(0);
+      setEndedBy(null);
       setMyAnswer(null);
       setBumped(false);
       setItem(next);
@@ -269,9 +303,8 @@ export function useTable(
       const engine = GAMES[gameId];
       if (!current || current.kind !== 'game' || !engine) return;
       fullGame.current = full;
-      const next = { ...stateRef.current, g: engine.publicView(full), seq: stateRef.current.seq + 1 };
-      setState(next);
-      void send({ k: 'state', id: current.id, state: next });
+      // Hands and roles go first, so a player's own card never flickers back into their hand when the
+      // new game arrives a moment before their new hand.
       if (engine.secretFor) {
         setMySecret({ id: current.id, data: engine.secretFor(full, me.id) });
         for (const person of peopleRef.current) {
@@ -280,6 +313,9 @@ export function useTable(
           if (secret !== null && secret !== undefined) void send({ k: 'secret', id: current.id, data: secret }, [person]);
         }
       }
+      const next = { ...stateRef.current, g: engine.publicView(full), seq: stateRef.current.seq + 1 };
+      setState(next);
+      void send({ k: 'state', id: current.id, state: next });
     },
     [me.id, send, setState],
   );
@@ -315,17 +351,40 @@ export function useTable(
     [me.id, put],
   );
 
-  // A move: played straight away on the starter's phone, otherwise sent to it.
+  // A move: played straight away on the starter's phone, otherwise sent to it. Elsewhere, `guess` says
+  // what the move should do, so it shows at once; if the starter's phone says no, or doesn't answer in
+  // 3 seconds, it slides back. Anything random (dice, dealing) is never guessed: it waits for the starter.
+  const guessTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const sendMove = useCallback(
-    (move: unknown) => {
+    (move: unknown, predict?: (g: unknown, secret: unknown) => MoveGuess | null) => {
       const current = itemRef.current;
       if (!current || current.kind !== 'game') return;
-      if (current.by === me.id) playMove(current.game, move, me.id);
-      else void send({ k: 'move', id: current.id, move }, [current.by]);
+      if (current.by === me.id) {
+        playMove(current.game, move, me.id);
+        return;
+      }
+      const secret = secretRef.current && secretRef.current.id === current.id ? secretRef.current.data : null;
+      const guessed = predict ? predict(stateRef.current.g, secret) : null;
+      const mine = { id: current.id, seq: stateRef.current.seq, ...(guessed ?? {}) };
+      setGuess(mine);
+      if (guessTimer.current) clearTimeout(guessTimer.current);
+      guessTimer.current = setTimeout(() => {
+        if (guessRef.current === mine) {
+          setGuess(null);
+          setMoveFailedAt(Date.now());
+        }
+      }, MOVE_TIMEOUT_MS);
+      void send({ k: 'move', id: current.id, move }, [current.by]);
     },
     // playMove only uses refs.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [me.id, send],
+    [me.id, send, setGuess],
+  );
+  useEffect(
+    () => () => {
+      if (guessTimer.current) clearTimeout(guessTimer.current);
+    },
+    [],
   );
 
   // Leaves the game on the table, staying in the room. The card closes on this phone.
@@ -457,9 +516,23 @@ export function useTable(
   const shown = item && item.id !== hiddenId ? item : null;
   const mine = !!shown && shown.by === me.id;
   const clearBumped = useCallback(() => setBumped(false), []);
+  const clearEnded = useCallback(() => setEndedBy(null), []);
+  // Back to a game you stepped out of (Stop watching, or a game that's over).
+  const unhide = useCallback(() => setHiddenId(null), [setHiddenId]);
+  const myGuess = guess && item && guess.id === item.id ? guess : null;
+  const realSecret = secretFor && item && secretFor.id === item.id ? secretFor.data : null;
   return {
     item: shown,
-    state,
+    // A guessed move shows on top of the last confirmed game.
+    state: myGuess && myGuess.g !== undefined ? { ...state, g: myGuess.g } : state,
+    // Your move is on its way to the starter's phone: nothing else can be played until it answers.
+    movePending: !!myGuess,
+    moveFailedAt,
+    endedBy,
+    clearEnded,
+    // A game still on the table that this phone stepped out of.
+    hiddenGame: item && item.id === hiddenId && item.kind === 'game' ? item : null,
+    unhide,
     mine,
     canTakeOff: mine || iAmHost,
     bumped,
@@ -473,7 +546,7 @@ export function useTable(
     answer,
     reveal,
     passTurn,
-    mySecret: secretFor && item && secretFor.id === item.id ? secretFor.data : null,
+    mySecret: myGuess && myGuess.secret !== undefined ? myGuess.secret : realSecret,
     startGame,
     sendMove,
     leaveGame,

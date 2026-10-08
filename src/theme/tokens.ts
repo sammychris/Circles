@@ -175,6 +175,32 @@ export const teamColors = {
 
 export const ludo = { board: 280, token: 14, baseToken: 20, die: 56, pip: 10 } as const;
 
+// Game mode: the full game screen (docs/design/pages/game-mode.md, tokens.json › gameMode).
+export const gameMode = {
+  faceStrip: 56,
+  faceStripFolded: 32,
+  faceAvatar: 32,
+  faceOverlap: 8,
+  turnLine: 40,
+  boardInset: 16,
+  controlsMax: 140,
+  chatButton: 56,
+  die: 72,
+  card: { w: 56, h: 80 },
+  legalDot: 12,
+  // The faint tint on the last move's two squares (an opacity over the warm white).
+  lastMoveTint: 0.12,
+  // A move not confirmed by the starter's phone in this time slides back.
+  moveTimeoutMs: 3000,
+  diceMinMs: 600,
+  hopMs: 120,
+  hopMaxMs: 1000,
+  cardStaggerMs: 60,
+  wonGlowMs: 1200,
+  // At this text size the face strip starts folded (game-mode.md › Accessibility).
+  foldFontScale: 1.2,
+} as const;
+
 // shadow.roomGlow as gradient stops (radial: 20% → 6% at 45% → 0 at 70%).
 export const glowStops = Object.assign(
   [

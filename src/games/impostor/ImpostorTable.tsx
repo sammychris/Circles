@@ -1,41 +1,16 @@
 import { Pressable, ScrollView, View } from 'react-native';
-import { Check, Lock } from 'lucide-react-native';
+import { Check, Eye, EyeOff, Lock } from 'lucide-react-native';
 import { Avatar } from '../../components/Avatar';
 import { RadioRow } from '../../components/Choice';
 import { TableAction } from '../../components/TableAction';
 import { Text } from '../../components/Text';
 import { clock } from '../../rooms/phase';
-import { border, fonts, opacity, radius, size, space, tableCard, type as typeScale, useColors } from '../../theme';
-import { ROUNDS_PER_GAME, caught, phaseAt, seatState, type ImpostorRound, type Result, type SeatState } from './logic';
+import { radius, size, space, tableCard, type as typeScale, useColors } from '../../theme';
+import { GameStage } from '../mode/GameMode';
+import { useTurnCue, useWinCue } from '../mode/motion';
+import { ROUNDS_PER_GAME, caught, phaseAt, seatState, type ImpostorRound, type Result } from './logic';
 
 type Person = { id: string; nickname: string; isMe: boolean; isSpeaking: boolean; isMuted: boolean };
-
-const SEAT_WORD: Record<SeatState, string | null> = { done: 'Done', talking: 'Talking', next: 'Next', waiting: null };
-
-function OrderSeat({ person, state, onPress }: { person: Person | undefined; state: SeatState; onPress: () => void }) {
-  const colors = useColors();
-  const name = person ? (person.isMe ? 'You' : person.nickname) : 'Someone';
-  const ring = state === 'talking' ? colors.live : state === 'next' ? colors.emberText : 'transparent';
-  const label =
-    state === 'next' && person?.isMe ? 'You next' : state === 'waiting' || !SEAT_WORD[state] ? name : SEAT_WORD[state];
-  const labelColor = state === 'talking' ? 'live' : state === 'next' ? 'emberText' : state === 'done' ? 'textMeta' : 'textSoft';
-  return (
-    <Pressable
-      accessibilityRole={person && !person.isMe ? 'button' : undefined}
-      accessibilityLabel={`${name}, ${state === 'waiting' ? 'waiting to talk' : state === 'next' ? 'next' : state}`}
-      disabled={!person || person.isMe}
-      onPress={onPress}
-      style={{ alignItems: 'center', gap: space[1], width: size.avatarList + space[4], opacity: state === 'done' ? opacity.disabled : 1 }}
-    >
-      <View style={{ borderRadius: radius.pill, borderWidth: border.selected, borderColor: ring, padding: border.selected }}>
-        <Avatar userId={person?.id ?? '?'} nickname={person?.nickname ?? '?'} diameter={size.avatarList} />
-      </View>
-      <Text variant="tiny" color={labelColor} numberOfLines={1}>
-        {label}
-      </Text>
-    </Pressable>
-  );
-}
 
 type Props = {
   round: ImpostorRound;
@@ -46,17 +21,18 @@ type Props = {
   card: string | null; // null while loading, '' for the impostor
   hidden: boolean;
   onShowWord: () => void;
+  onHideWord: () => void;
   myVote: string | null;
   outcome: Result | null;
   onVote: (target: string) => void;
-  onPerson: (p: Person) => void;
   onNextRound: () => void;
   onPlayAgain: () => void;
   onBackToTalking: () => void;
   busy: boolean;
 };
 
-// Find the Impostor on the table (docs/screens/12-find-the-impostor.png, play.md).
+// Find the Impostor in game mode (docs/screens/12-find-the-impostor.png, play.md): the word card large in
+// the middle, and the speaking order in the face strip (done, talking, you're next).
 export function ImpostorTable({
   round,
   now,
@@ -66,10 +42,10 @@ export function ImpostorTable({
   card,
   hidden,
   onShowWord,
+  onHideWord,
   myVote,
   outcome,
   onVote,
-  onPerson,
   onNextRound,
   onPlayAgain,
   onBackToTalking,
@@ -88,20 +64,23 @@ export function ImpostorTable({
     elevation: tableCard.elevation,
   } as const;
   const byId = new Map(people.map((p) => [p.id, p]));
-  const nameOf = (id: string) => (id === me ? 'You' : byId.get(id)?.nickname ?? 'Someone who left');
-  const speakerName = phase.kind === 'speaking' ? nameOf(phase.speaker) : '';
+  const nameOf = (id: string) => (id === me ? 'You' : (byId.get(id)?.nickname ?? 'Someone who left'));
+  const speaking = !outcome && phase.kind === 'speaking';
+  useTurnCue(speaking && phase.kind === 'speaking' && phase.speaker === me);
+  const gameDone = !!outcome && round.number >= ROUNDS_PER_GAME;
+  useWinCue(gameDone);
 
-  let footer: { left: string; right: string };
-  if (outcome) footer = { left: 'Round over', right: '' };
-  else if (phase.kind === 'speaking') {
-    footer = { left: phase.speaker === me ? "You're talking" : `${speakerName} is talking`, right: clock(phase.secondsLeft) };
-  } else footer = { left: 'Time to vote', right: clock(phase.secondsLeft) };
+  const turnText = outcome
+    ? `Round ${round.number} of ${ROUNDS_PER_GAME} is over`
+    : phase.kind === 'speaking'
+      ? `${phase.speaker === me ? "You're talking" : `${nameOf(phase.speaker)} is talking`}. ${clock(phase.secondsLeft)}`
+      : `Time to vote. ${clock(phase.secondsLeft)}`;
 
   const wordBlock = () => {
     if (!playing) {
       return (
         <Text variant="title" center>
-          You're watching this round
+          {"You're watching this round"}
         </Text>
       );
     }
@@ -124,12 +103,17 @@ export function ImpostorTable({
     if (card === '') {
       return (
         <Text style={{ ...typeScale.title, color: colors.emberText, textAlign: 'center' }} accessibilityRole="header">
-          You're the impostor.
+          {"You're the impostor."}
         </Text>
       );
     }
     return (
-      <Text style={{ ...typeScale.giant, color: colors.text, textAlign: 'center' }} accessibilityRole="header">
+      <Text
+        style={{ ...typeScale.giant, color: colors.text, textAlign: 'center' }}
+        accessibilityRole="header"
+        adjustsFontSizeToFit
+        numberOfLines={1}
+      >
         {card}
       </Text>
     );
@@ -138,57 +122,28 @@ export function ImpostorTable({
   const counts = new Map((outcome?.counts ?? []).map((c) => [c.target, c.votes]));
 
   return (
-    <View style={{ gap: space[5] }}>
-      <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: space[1], paddingHorizontal: space[1] }}>
-        {round.order.map((id) => (
-          <OrderSeat
-            key={id}
-            person={byId.get(id)}
-            state={seatState(round, phase, id)}
-            onPress={() => {
-              const p = byId.get(id);
-              if (p) onPerson(p);
-            }}
-          />
-        ))}
-      </ScrollView>
-
-      {people.some((p) => !round.order.includes(p.id)) ? (
-        <View style={{ flexDirection: 'row', alignItems: 'center', gap: space[2], flexWrap: 'wrap' }}>
-          <Text variant="meta" color="textMeta">
-            Also here:
-          </Text>
-          {people
-            .filter((p) => !round.order.includes(p.id))
-            .map((p) => (
-              <Pressable
-                key={p.id}
-                accessibilityRole={p.isMe ? undefined : 'button'}
-                accessibilityLabel={`${p.isMe ? 'You' : p.nickname}, watching${p.isSpeaking ? ', speaking' : ''}`}
-                disabled={p.isMe}
-                onPress={() => onPerson(p)}
-                style={{ minHeight: size.minTarget, flexDirection: 'row', alignItems: 'center', gap: space[1] }}
-              >
-                <View style={{ borderRadius: radius.pill, borderWidth: border.selected, borderColor: p.isSpeaking ? colors.live : 'transparent' }}>
-                  <Avatar userId={p.id} nickname={p.nickname} diameter={size.avatarList - space[3]} />
-                </View>
-                <Text variant="metaStrong" color={p.isSpeaking ? 'live' : 'textSoft'}>
-                  {p.isMe ? 'You' : p.nickname}
-                </Text>
-              </Pressable>
-            ))}
-        </View>
-      ) : null}
-
-      {outcome ? (
-        <View style={{ ...cardStyle, gap: space[3] }} accessibilityLiveRegion="polite">
-          <Text variant="title" center>
-            {`${nameOf(outcome.impostor)} ${outcome.impostor === me ? 'were' : 'was'} the impostor`}
-          </Text>
-          <Text variant="body" color="textSoft" center>
-            {`The word was ${outcome.word}. ${caught(outcome) ? 'The room found them.' : 'They blended in.'}`}
-          </Text>
-          <View style={{ gap: space[2], paddingTop: space[2] }}>
+    <GameStage
+      kind="impostor"
+      gameKey={round.gameId}
+      turn={{ text: turnText, mine: speaking && phase.kind === 'speaking' && phase.speaker === me }}
+      faces={(id) => {
+        if (!round.order.includes(id)) return { dim: true };
+        if (outcome || phase.kind === 'voting') return {};
+        const state = seatState(round, phase, id);
+        return { order: state === 'waiting' ? null : state };
+      }}
+      won={gameDone}
+      board={({ width, height }) =>
+        outcome ? (
+          <ScrollView style={{ width, maxHeight: height }} contentContainerStyle={{ ...cardStyle, gap: space[3] }}>
+            <View accessibilityLiveRegion="polite" style={{ gap: space[2] }}>
+              <Text variant="title" center>
+                {`${nameOf(outcome.impostor)} ${outcome.impostor === me ? 'were' : 'was'} the impostor`}
+              </Text>
+              <Text variant="body" color="textSoft" center>
+                {`The word was ${outcome.word}. ${caught(outcome) ? 'The room found them.' : 'They blended in.'}`}
+              </Text>
+            </View>
             {round.order.map((id) => (
               <View key={id} style={{ flexDirection: 'row', alignItems: 'center', gap: space[3] }}>
                 <Avatar userId={id} nickname={byId.get(id)?.nickname ?? '?'} diameter={size.avatarList - space[3]} />
@@ -200,14 +155,65 @@ export function ImpostorTable({
                 </Text>
               </View>
             ))}
+            <Text variant="meta" color="textMeta" center>
+              Votes only count for the game. Nobody leaves the room, and nothing is kept.
+            </Text>
+          </ScrollView>
+        ) : phase.kind === 'voting' && playing ? (
+          <ScrollView style={{ width, maxHeight: height }} contentContainerStyle={{ gap: space[2] }}>
+            <Text variant="heading" accessibilityRole="header">
+              {"Who's faking it?"}
+            </Text>
+            {round.order
+              .filter((id) => id !== me)
+              .map((id) => (
+                <RadioRow
+                  key={id}
+                  title={nameOf(id)}
+                  selected={myVote === id}
+                  onPress={() => onVote(id)}
+                  leading={<Avatar userId={id} nickname={byId.get(id)?.nickname ?? '?'} diameter={size.avatarList} />}
+                />
+              ))}
+            {myVote ? (
+              <View style={{ flexDirection: 'row', gap: space[2], alignItems: 'center' }}>
+                <Check size={size.iconMeta} color={colors.textSoft} strokeWidth={size.iconStroke} />
+                <Text variant="meta" color="textSoft">
+                  Vote sent. You can change it until everyone has voted.
+                </Text>
+              </View>
+            ) : null}
+          </ScrollView>
+        ) : (
+          <View style={{ ...cardStyle, width, gap: space[4] }}>
+            {playing ? (
+              <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: space[2] }}>
+                <Lock size={size.iconMeta} color={colors.textSoft} strokeWidth={size.iconStroke} />
+                <Text variant="metaStrong" color="textSoft">
+                  {/* The same words for everyone while hidden, so nobody nearby can tell who the impostor is. */}
+                  {hidden || card !== '' ? 'Your word, only you see it' : 'Your card, only you see it'}
+                </Text>
+              </View>
+            ) : null}
+            {wordBlock()}
+            <Text variant="body" color="textSoft" center>
+              {!playing
+                ? 'You can still talk. You can play from the next game.'
+                : hidden
+                  ? 'Tap above when nobody can see your screen.'
+                  : card === ''
+                    ? 'Listen and blend in.'
+                    : "Describe it without saying it. One of you doesn't know it."}
+            </Text>
           </View>
-          <Text variant="meta" color="textMeta" center>
-            Votes only count for the game. Nobody leaves the room, and nothing is kept.
-          </Text>
-          {round.number < ROUNDS_PER_GAME ? (
+        )
+      }
+      controls={
+        outcome ? (
+          round.number < ROUNDS_PER_GAME ? (
             <TableAction label={busy ? 'Dealing…' : 'Next round'} disabled={busy} onPress={onNextRound} />
           ) : (
-            <>
+            <View style={{ gap: space[2] }}>
               <Text variant="heading" center>
                 Good game.
               </Text>
@@ -218,77 +224,35 @@ export function ImpostorTable({
                 style={{ minHeight: size.minTarget, alignItems: 'center', justifyContent: 'center' }}
               >
                 <Text variant="bodyStrong" color="textSoft">
-                  Back to talking
+                  Back to the room
                 </Text>
               </Pressable>
-            </>
-          )}
-        </View>
-      ) : (
-        <View style={{ ...cardStyle, gap: space[4] }}>
-          {playing ? (
-            <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: space[2] }}>
-              <Lock size={size.iconMeta} color={colors.textSoft} strokeWidth={size.iconStroke} />
-              <Text variant="metaStrong" color="textSoft">
-                {/* The same words for everyone while hidden, so nobody nearby can tell who the impostor is. */}
-                {hidden || card !== '' ? 'Your word, only you see it' : 'Your card, only you see it'}
-              </Text>
             </View>
-          ) : null}
-          {wordBlock()}
-          <Text variant="body" color="textSoft" center>
-            {!playing
-              ? 'You can still talk. You can play from the next game.'
-              : hidden
-                ? 'Tap above when nobody can see your screen.'
-                : card === ''
-                  ? 'Listen and blend in.'
-                  : "Describe it without saying it. One of you doesn't know it."}
-          </Text>
-          <View style={{ height: border.hairline, backgroundColor: colors.line }} />
-          <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }} accessibilityLiveRegion="polite">
-            <Text variant="body" color="textSoft">
-              {footer.left}
+          )
+        ) : speaking ? (
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: space[3] }}>
+            <Text variant="meta" color="textMeta" style={{ flex: 1 }}>
+              Voting starts when everyone has spoken
             </Text>
-            <Text style={{ fontFamily: fonts.extraBold, fontSize: typeScale.heading.fontSize, color: colors.text, fontVariant: ['tabular-nums'] }}>
-              {footer.right}
-            </Text>
+            {playing && card !== null ? (
+              <Pressable
+                accessibilityRole="button"
+                onPress={hidden ? onShowWord : onHideWord}
+                style={{ minHeight: size.minTarget, flexDirection: 'row', alignItems: 'center', gap: space[2] }}
+              >
+                {hidden ? (
+                  <Eye size={size.icon} color={colors.textSoft} strokeWidth={size.iconStroke} />
+                ) : (
+                  <EyeOff size={size.icon} color={colors.textSoft} strokeWidth={size.iconStroke} />
+                )}
+                <Text variant="bodyStrong" color="textSoft">
+                  {hidden ? 'Show word' : 'Hide word'}
+                </Text>
+              </Pressable>
+            ) : null}
           </View>
-        </View>
-      )}
-
-      {!outcome && phase.kind === 'speaking' ? (
-        <Text variant="meta" color="textMeta" center>
-          Voting starts when everyone has spoken
-        </Text>
-      ) : null}
-
-      {!outcome && phase.kind === 'voting' && playing ? (
-        <View style={{ gap: space[2] }}>
-          <Text variant="heading" accessibilityRole="header" accessibilityLiveRegion="polite">
-            Who's faking it?
-          </Text>
-          {round.order
-            .filter((id) => id !== me)
-            .map((id) => (
-              <RadioRow
-                key={id}
-                title={nameOf(id)}
-                selected={myVote === id}
-                onPress={() => onVote(id)}
-                leading={<Avatar userId={id} nickname={byId.get(id)?.nickname ?? '?'} diameter={size.avatarList} />}
-              />
-            ))}
-          {myVote ? (
-            <View style={{ flexDirection: 'row', gap: space[2], alignItems: 'center' }}>
-              <Check size={size.iconMeta} color={colors.textSoft} strokeWidth={size.iconStroke} />
-              <Text variant="meta" color="textSoft">
-                Vote sent. You can change it until everyone has voted.
-              </Text>
-            </View>
-          ) : null}
-        </View>
-      ) : null}
-    </View>
+        ) : null
+      }
+    />
   );
 }

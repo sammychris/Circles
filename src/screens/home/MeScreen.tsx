@@ -4,12 +4,14 @@ import { Avatar } from '../../components/Avatar';
 import { LegalModal } from '../../components/LegalModal';
 import { PRIVACY, TERMS, type LegalDoc } from '../../content/legal';
 import { Button } from '../../components/Button';
+import { SwitchRow } from '../../components/Choice';
 import { DoorLayout } from '../../components/DoorLayout';
 import { Text } from '../../components/Text';
 import { Toast } from '../../components/Toast';
 import { EMAIL_ENABLED } from '../../config';
 import { appVersionLine } from '../../lib/appVersion';
 import { listBlocked, unblockPerson, type Blocked } from '../../lib/safety';
+import { useSoundSetting } from '../../lib/sounds';
 import { border, size, space, useColors } from '../../theme';
 
 type Props = {
@@ -27,6 +29,7 @@ export function MeScreen({ me, hasEmail, onBack, onAddEmail, onLogOut, onDelete 
   const [failed, setFailed] = useState(false);
   const [toast, setToast] = useState<string | null>(null);
   const [doc, setDoc] = useState<LegalDoc | null>(null);
+  const [soundOn, setSoundOn] = useSoundSetting();
 
   const load = useCallback(async () => {
     try {
@@ -76,6 +79,11 @@ export function MeScreen({ me, hasEmail, onBack, onAddEmail, onLogOut, onDelete 
       <Text variant="body" color="textSoft">
         Your nickname is the only thing people in Circles see about you.
       </Text>
+
+      <View style={{ gap: space[2] }}>
+        <Text variant="heading">Settings</Text>
+        <SwitchRow title="Game sounds" line="Quiet sounds for dice, moves and your turn" value={soundOn} onChange={setSoundOn} />
+      </View>
 
       <View style={{ gap: space[2] }}>
         <Text variant="heading">Blocked people</Text>
