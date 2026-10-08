@@ -8,7 +8,6 @@ import { RadioRow } from '../components/Choice';
 import { RoomRulesSheet } from '../components/RoomRulesSheet';
 import { Text } from '../components/Text';
 import { TextField } from '../components/TextField';
-import { WEB_URL } from '../config';
 import { allowReminders, reminderNote } from '../lib/reminders';
 import { WEEKDAYS_SHORT, WEEK_ORDER, clockWords, dayAndTime, weeklyWords } from '../lib/when';
 import { BadTitleError, TooManyRoomsError, scheduleRoom, type RoomRequest } from '../rooms/api';
@@ -131,8 +130,6 @@ export function StartScreen({ door: firstDoor, subject, draft, onBack, onStart, 
   const [whoError, setWhoError] = useState<string | null>(null);
   const [rulesOpen, setRulesOpen] = useState(false);
   const talk = door === 'talk';
-  // Invite-only rooms are opened by a link, and links need the web version to be online.
-  const canInvite = !!WEB_URL;
   const [when, setWhen] = useState<StartWhen>(draft ? 'now' : (firstWhen ?? 'now'));
   // Later: how many days from today (0 = today), and the time as minutes after midnight.
   const [dayOffset, setDayOffset] = useState(0);
@@ -172,12 +169,13 @@ export function StartScreen({ door: firstDoor, subject, draft, onBack, onStart, 
         title: cleanTitle,
         topic: talk ? topic : null,
         capacity,
+        private: !!inviteOnly,
         ...(door === 'learn' && learnSubject && level ? { language: learnSubject.id, level } : {}),
         ...(when === 'later'
           ? { startsAt: laterAt.toISOString() }
           : { weekly: { days: weekDays, time, timeZone: Intl.DateTimeFormat().resolvedOptions().timeZone || 'Africa/Lagos' } }),
       });
-      const note = reminderNote(await allowReminders());
+      const note = `${reminderNote(await allowReminders())}${inviteOnly ? ' Invite your people from Groups.' : ''}`.trim();
       onScheduled(
         (when === 'later'
           ? `${cleanTitle} is set for ${dayAndTime(laterAt).replace(/^(Today|Tonight|Tomorrow)/, (w) => w.toLowerCase())}. ${note}`
@@ -203,22 +201,19 @@ export function StartScreen({ door: firstDoor, subject, draft, onBack, onStart, 
     if (problem) setError(TITLE_PROBLEM_TEXT[problem]);
     const needsLevel = door === 'learn' && !level;
     if (needsLevel) setLevelError('Choose a level.');
-    // Scheduled rooms and groups are listed for anyone during the open test (invitations come next).
-    if (when !== 'now') {
-      setWhoError(null);
-      if (problem || needsLevel || busy) return;
-      void schedule(title.replace(/\s+/g, ' ').trim());
-      return;
-    }
     if (inviteOnly === null) setWhoError('Choose who can join.');
     if (problem || inviteOnly === null || needsLevel) return;
+    if (when !== 'now') {
+      if (!busy) void schedule(title.replace(/\s+/g, ' ').trim());
+      return;
+    }
     onStart({
       kind: 'create',
       door,
       title: title.replace(/\s+/g, ' ').trim(),
       topic: talk ? topic : null,
       capacity,
-      private: !!inviteOnly && canInvite,
+      private: !!inviteOnly,
       ...(door === 'learn' && learnSubject && level ? { language: learnSubject.id, level } : {}),
     });
   };
@@ -432,22 +427,20 @@ export function StartScreen({ door: firstDoor, subject, draft, onBack, onStart, 
         </View>
       </View>
 
-      {when !== 'now' ? (
-        <Text variant="meta" color="textSoft">
-          Listed in Explore, so anyone can see it and set a reminder.
-        </Text>
-      ) : (
+      {
         <View style={{ gap: space[3] }}>
           <Text variant="bodyStrong">Who can join?</Text>
           <View accessibilityRole="radiogroup" style={{ gap: space[2] }}>
             <RadioRow
               title="Anyone"
               line={
-                learnSubject
-                  ? `Listed on the ${learnSubject.name} page for anyone to join.`
-                  : talk
-                    ? 'Listed under "I want to talk" for anyone to join.'
-                    : 'Listed under "Let\'s play" for anyone to join.'
+                when !== 'now'
+                  ? 'Listed in Explore, so anyone can see it and set a reminder.'
+                  : learnSubject
+                    ? `Listed on the ${learnSubject.name} page for anyone to join.`
+                    : talk
+                      ? 'Listed under "I want to talk" for anyone to join.'
+                      : 'Listed under "Let\'s play" for anyone to join.'
               }
               selected={inviteOnly === false}
               onPress={() => {
@@ -457,13 +450,8 @@ export function StartScreen({ door: firstDoor, subject, draft, onBack, onStart, 
             />
             <RadioRow
               title="Invite only"
-              line={
-                canInvite
-                  ? 'Not listed. Only people you send the link to can join.'
-                  : 'Comes once the web version of Circles is online, so links work.'
-              }
-              selected={inviteOnly === true && canInvite}
-              disabled={!canInvite}
+              line="Not listed. Only people you invite can join."
+              selected={inviteOnly === true}
               onPress={() => {
                 setInviteOnly(true);
                 setWhoError(null);
@@ -472,7 +460,7 @@ export function StartScreen({ door: firstDoor, subject, draft, onBack, onStart, 
           </View>
           {whoError ? <ErrorLine message={whoError} /> : null}
         </View>
-      )}
+      }
       <RoomRulesSheet visible={rulesOpen} onClose={() => setRulesOpen(false)} />
     </AuthLayout>
   );

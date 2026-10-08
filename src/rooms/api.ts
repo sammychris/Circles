@@ -154,6 +154,8 @@ export type ScheduleRequest = {
   title: string;
   topic: Topic | null;
   capacity: number;
+  // Invite only: not listed; people you invite can see it and come.
+  private?: boolean;
   language?: string;
   level?: LearnLevel;
 } & ({ startsAt: string } | { weekly: { days: number[]; time: string; timeZone: string } });
@@ -224,4 +226,11 @@ export type RoomPreview = { status: 'open'; room: RoomInfo; here: number } | { s
 export async function previewRoom(roomId: string): Promise<RoomPreview> {
   const data = await call<RoomPreview>({ action: 'preview', roomId });
   return data.status === 'open' ? data : { status: 'ended' };
+}
+
+// Invite people who saved each other with you to the room you're in, a scheduled room, or a group.
+// Anyone who isn't a mutual save is skipped without saying, so nobody learns who saved whom.
+export type InviteTarget = { roomId: string } | { scheduledId: string } | { groupId: string };
+export async function sendInvitations(to: string[], target: InviteTarget): Promise<void> {
+  await call<{ status: string; sent: number }>({ action: 'invite', to, ...target });
 }

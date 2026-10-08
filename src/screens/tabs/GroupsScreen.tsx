@@ -4,23 +4,25 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { Bell, CalendarClock, Lock } from 'lucide-react-native';
 import { Avatar } from '../../components/Avatar';
 import { Button } from '../../components/Button';
+import { InviteSheet } from '../../components/InviteSheet';
 import { GroupCard, LoadError, SkeletonRows } from '../../components/Scheduled';
 import { Text } from '../../components/Text';
 import { Toast } from '../../components/Toast';
-import { WEB_URL } from '../../config';
 import { myConnections, type PersonRef } from '../../lib/people';
 import { clockWords, dayAndTime, inWords } from '../../lib/when';
 import { useScreenEdges, useTabScroll } from '../../navigation/TabBar';
-import type { RoomRequest } from '../../rooms/api';
-import { canGoIn, cancelScheduled, type Group, type ScheduledRoom } from '../../rooms/schedule';
+import type { InviteTarget, RoomRequest } from '../../rooms/api';
+import { dismissInvitation, markInvitationsSeen, myInvitations, type Invitation } from '../../rooms/invitations';
+import { canGoIn, cancelScheduled, setReminder, type Group, type ScheduledRoom } from '../../rooms/schedule';
+import { allowReminders, reminderNote } from '../../lib/reminders';
 import { useSchedule } from '../../rooms/useSchedule';
 import { opacity, radius, size, space, useColors } from '../../theme';
 
 // How many faces show in the My people row before "and 4 more".
 const FACES = 6;
 
-// Groups: what's yours (docs/design/pages/tabs.md › Groups): Next up, your groups, My people and
-// your reminders. Invitations come next.
+// Groups: what's yours (docs/design/pages/tabs.md › Groups): Next up, invitations, your groups, My
+// people, rooms you scheduled and your reminders.
 export function GroupsScreen({
   me,
   nickname,
@@ -30,6 +32,7 @@ export function GroupsScreen({
   onOpenPeople,
   onStartGroup,
   onOpenGroup,
+  onSeenInvitations,
 }: {
   me: { id: string };
   nickname: string;
@@ -40,7 +43,9 @@ export function GroupsScreen({
   // The full My people list.
   onOpenPeople: () => void;
   onStartGroup: () => void;
-  onOpenGroup: (group: Group) => void;
+  onOpenGroup: (groupId: string, first?: Group) => void;
+  // Opening Groups clears the dot on its tab.
+  onSeenInvitations?: () => void;
 }) {
   const colors = useColors();
   const edges = useScreenEdges();
@@ -73,6 +78,57 @@ export function GroupsScreen({
             .catch(() => setToast("That didn't work. Check that you're online.")),
       },
     ]);
+  const [invites, setInvites] = useState<Invitation[]>([]);
+  const [inviting, setInviting] = useState<{ target: InviteTarget; title: string } | null>(null);
+  const loadInvites = useCallback(async () => {
+    try {
+      setInvites(await myInvitations());
+    } catch {
+      // Shown next time; the rest of the page still works.
+    }
+  }, []);
+  useEffect(() => {
+    void loadInvites();
+    void markInvitationsSeen(me.id).then(() => onSeenInvitations?.());
+    const timer = setInterval(() => void loadInvites(), 60_000);
+    return () => clearInterval(timer);
+  }, [loadInvites, me.id, onSeenInvitations]);
+
+  const notNow = (inv: Invitation) => {
+    setInvites((list) => list.filter((i) => i.id !== inv.id));
+    void dismissInvitation(inv.id).catch(() => {});
+  };
+  // Join: a live room opens; a scheduled room opens if it's time, otherwise it's added to your
+  // reminders; a group opens its page, where you can join it.
+  const accept = async (inv: Invitation) => {
+    if (inv.kind === 'group' && inv.groupId) {
+      onOpenGroup(inv.groupId);
+      return;
+    }
+    if (inv.kind === 'room' && inv.roomId) {
+      notNow(inv);
+      onEnter({ kind: 'join', roomId: inv.roomId, ...(inv.door === 'learn' ? {} : { door: inv.door }) });
+      return;
+    }
+    if (inv.scheduledId) {
+      if (inv.startsAt && canGoIn(inv.startsAt)) {
+        notNow(inv);
+        onEnter({ kind: 'scheduled', scheduledId: inv.scheduledId });
+        return;
+      }
+      try {
+        await setReminder(inv.scheduledId, true);
+        notNow(inv);
+        setToast(`${inv.title} is in your reminders. ${reminderNote(await allowReminders())}`.trim());
+        void schedule.load();
+      } catch {
+        setToast("That didn't work. Check that you're online.");
+      }
+    }
+  };
+  const inviteWhen = (inv: Invitation) =>
+    inv.kind === 'room' ? 'Going on now' : inv.kind === 'group' ? 'A weekly group' : inv.startsAt ? dayAndTime(inv.startsAt) : '';
+
   const toggle = async (room: ScheduledRoom) => {
     setToast(await schedule.toggleReminder(room));
   };
@@ -100,7 +156,7 @@ export function GroupsScreen({
             tintColor={colors.textMeta}
             onRefresh={async () => {
               setRefreshing(true);
-              await Promise.all([load(), schedule.load()]);
+              await Promise.all([load(), schedule.load(), loadInvites()]);
               setRefreshing(false);
             }}
           />
@@ -140,13 +196,35 @@ export function GroupsScreen({
           </View>
         ) : null}
 
+        {invites.length > 0 ? (
+          <View style={{ gap: space[1] }}>
+            <Text variant="heading" accessibilityRole="header">
+              Invitations
+            </Text>
+            {invites.map((inv) => (
+              <View key={inv.id} style={{ gap: space[2], paddingVertical: space[3] }}>
+                <View accessible style={{ gap: space[1] }}>
+                  <Text variant="bodyStrong">{`${inv.fromNickname} invited you to ${inv.title}`}</Text>
+                  <Text variant="meta" color="textMeta">
+                    {inviteWhen(inv)}
+                  </Text>
+                </View>
+                <View style={{ flexDirection: 'row', gap: space[3] }}>
+                  <Button label="Join" onPress={() => void accept(inv)} style={{ flex: 1 }} />
+                  <Button label="Not now" variant="quiet" onPress={() => notNow(inv)} style={{ flex: 1 }} />
+                </View>
+              </View>
+            ))}
+          </View>
+        ) : null}
+
         {myGroups.length > 0 ? (
           <View style={{ gap: space[3] }}>
             <Text variant="heading" accessibilityRole="header">
               Your groups
             </Text>
             {myGroups.map((g) => (
-              <GroupCard key={g.id} group={g} onPress={() => onOpenGroup(g)} />
+              <GroupCard key={g.id} group={g} onPress={() => onOpenGroup(g.id, g)} />
             ))}
           </View>
         ) : null}
@@ -208,15 +286,12 @@ export function GroupsScreen({
           ) : null}
           <Button
             label="Start a room with friends"
-            disabled={!WEB_URL}
             onPress={() =>
               onEnter({ kind: 'create', door: 'talk', title: `${nickname} and friends`, topic: null, capacity: 6, private: true })
             }
           />
           <Text variant="meta" color="textMeta">
-            {WEB_URL
-              ? 'Only people you send the link to can join. It opens now, with you in it.'
-              : 'Comes once the web version of Circles is online, so invite links work.'}
+            Only people you invite can join. It opens now, with you in it.
           </Text>
           <View style={{ flexDirection: 'row', alignItems: 'center', gap: space[3] }}>
             <Lock size={size.icon} color={colors.textMeta} strokeWidth={size.iconStroke} />
@@ -232,16 +307,23 @@ export function GroupsScreen({
               Rooms you scheduled
             </Text>
             {made.map((r) => (
-              <View key={r.id} style={{ flexDirection: 'row', alignItems: 'center', gap: space[3], minHeight: size.minTarget + space[2] }}>
-                <View style={{ flex: 1, gap: space[1] }}>
+              <View key={r.id} style={{ gap: space[2], paddingVertical: space[3] }}>
+                <View style={{ gap: space[1] }}>
                   <Text variant="bodyStrong" numberOfLines={1}>
                     {r.title}
                   </Text>
                   <Text variant="meta" color="textMeta">
-                    {`${dayAndTime(r.startsAt)}. ${r.going} going`}
+                    {`${dayAndTime(r.startsAt)}. ${r.going} going${r.private ? '. Invite only' : ''}`}
                   </Text>
                 </View>
-                <Button label="Cancel" variant="quiet" onPress={() => cancel(r)} style={{ width: size.rowAction }} />
+                <View style={{ flexDirection: 'row', gap: space[3] }}>
+                  <Button
+                    label="Invite"
+                    onPress={() => setInviting({ target: { scheduledId: r.id }, title: r.title })}
+                    style={{ flex: 1 }}
+                  />
+                  <Button label="Cancel" variant="quiet" onPress={() => cancel(r)} style={{ flex: 1 }} />
+                </View>
               </View>
             ))}
           </View>
@@ -281,7 +363,13 @@ export function GroupsScreen({
           </View>
         ) : null}
 
-        {schedule.rooms && schedule.groups && myGroups.length === 0 && reminders.length === 0 && made.length === 0 && !nextUp ? (
+        {schedule.rooms &&
+        schedule.groups &&
+        myGroups.length === 0 &&
+        reminders.length === 0 &&
+        made.length === 0 &&
+        invites.length === 0 &&
+        !nextUp ? (
           <View style={{ gap: space[3] }}>
             <View style={{ flexDirection: 'row', alignItems: 'center', gap: space[3] }}>
               <CalendarClock size={size.icon} color={colors.textSoft} strokeWidth={size.iconStroke} />
@@ -296,6 +384,16 @@ export function GroupsScreen({
       <View style={{ position: 'absolute', left: 0, right: 0, bottom: space[4] }} pointerEvents="none">
         <Toast message={toast} onDone={() => setToast(null)} />
       </View>
+      <InviteSheet
+        visible={!!inviting}
+        target={inviting?.target ?? null}
+        title={inviting?.title ?? ''}
+        onClose={() => setInviting(null)}
+        onSent={(note) => {
+          setInviting(null);
+          setToast(note);
+        }}
+      />
     </SafeAreaView>
   );
 }

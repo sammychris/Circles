@@ -4,6 +4,7 @@ import { CalendarClock, Users } from 'lucide-react-native';
 import { Button } from '../components/Button';
 import { DoorLayout } from '../components/DoorLayout';
 import { ErrorLine } from '../components/ErrorLine';
+import { InviteSheet } from '../components/InviteSheet';
 import { LoadError, SkeletonRows } from '../components/Scheduled';
 import { Text } from '../components/Text';
 import { Toast } from '../components/Toast';
@@ -46,6 +47,7 @@ export function GroupScreen({ me, groupId, first, backLabel, onBack, onEnter }: 
   const [toast, setToast] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [, setTick] = useState(0);
+  const [inviteOpen, setInviteOpen] = useState(false);
 
   const load = useCallback(async () => {
     try {
@@ -134,7 +136,13 @@ export function GroupScreen({ me, groupId, first, backLabel, onBack, onEnter }: 
   );
 
   return (
-    <DoorLayout title={group.name} line={about} onBack={onBack} backLabel={backLabel} footer={footer}>
+    <DoorLayout
+      title={group.name}
+      line={group.private ? `${about}. Invite only` : about}
+      onBack={onBack}
+      backLabel={backLabel}
+      footer={footer}
+    >
       <View style={{ gap: space[2] }}>
         <View style={{ flexDirection: 'row', alignItems: 'center', gap: space[3] }}>
           <CalendarClock size={size.icon} color={colors.textSoft} strokeWidth={size.iconStroke} />
@@ -189,6 +197,8 @@ export function GroupScreen({ me, groupId, first, backLabel, onBack, onEnter }: 
 
       {error ? <ErrorLine message={error} /> : null}
 
+      {joined ? <Button label="Invite your people" onPress={() => setInviteOpen(true)} /> : null}
+
       {group.mine ? (
         <Button
           label="End this group"
@@ -211,6 +221,16 @@ export function GroupScreen({ me, groupId, first, backLabel, onBack, onEnter }: 
       ) : null}
 
       <Toast message={toast} onDone={() => setToast(null)} />
+      <InviteSheet
+        visible={inviteOpen}
+        target={{ groupId: group.id }}
+        title={group.name}
+        onClose={() => setInviteOpen(false)}
+        onSent={(note) => {
+          setInviteOpen(false);
+          setToast(note);
+        }}
+      />
     </DoorLayout>
   );
 }

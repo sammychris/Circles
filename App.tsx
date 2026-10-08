@@ -44,6 +44,7 @@ import { TabBar, TabsProvider, type Tab } from './src/navigation/TabBar';
 import { ExploreScreen } from './src/screens/tabs/ExploreScreen';
 import { GroupsScreen } from './src/screens/tabs/GroupsScreen';
 import { forgetVisits, rememberVisit } from './src/lib/roomHistory';
+import { forgetInvitationsSeen, hasNewInvitations, myInvitations } from './src/rooms/invitations';
 import { UnderAgeScreen } from './src/screens/UnderAgeScreen';
 import { space, useColors } from './src/theme';
 
@@ -64,6 +65,7 @@ function signOut() {
     .getSession()
     .then(async ({ data }) => {
       if (data.session) await forgetVisits(data.session.user.id);
+      if (data.session) await forgetInvitationsSeen(data.session.user.id);
       await clearReminders(data.session?.user.id ?? null);
     })
     .finally(() => void supabase.auth.signOut());
@@ -191,6 +193,22 @@ function SignedIn({
     setScreen({ name: 'room', request: pendingRequest, visit: Date.now() });
     onPendingUsed();
   }, [ready, busy, pendingRequest, onPendingUsed]);
+  // The dot on the Groups tab: a new invitation since Groups was last opened. Checked every minute.
+  const [groupsDot, setGroupsDot] = useState(false);
+  const clearGroupsDot = useCallback(() => setGroupsDot(false), []);
+  const onGroups = screen.name === 'groups';
+  useEffect(() => {
+    if (!ready || onGroups) return;
+    const check = () =>
+      void myInvitations()
+        .then((list) => hasNewInvitations(session.user.id, list))
+        .then(setGroupsDot)
+        .catch(() => {});
+    check();
+    const timer = setInterval(check, 60_000);
+    return () => clearInterval(timer);
+  }, [ready, onGroups, session.user.id]);
+
   useEffect(() => {
     if (!ready || busy || !reminderRequest) return;
     setScreen({ name: 'room', request: reminderRequest, visit: Date.now() });
@@ -258,6 +276,7 @@ function SignedIn({
         <TabBar
           current={tab}
           me={me}
+          groupsDot={groupsDot}
           onSelect={(t) => setScreen({ name: t } as Screen)}
           onReselect={(t) => {
             // Tapping Home again from a door page goes back to Home itself.
@@ -395,7 +414,8 @@ function SignedIn({
             nickname={me.nickname}
             notice={screen.notice}
             onStartGroup={() => setScreen({ name: 'start', door: 'talk', from: 'groups', when: 'weekly' })}
-            onOpenGroup={(g) => setScreen({ name: 'group', groupId: g.id, first: g, from: 'groups' })}
+            onOpenGroup={(groupId, first) => setScreen({ name: 'group', groupId, first, from: 'groups' })}
+            onSeenInvitations={clearGroupsDot}
             onEnter={enter}
             onExplore={() => setScreen({ name: 'explore' })}
             onOpenPeople={() => setScreen({ name: 'door', door: 'people' })}

@@ -4,6 +4,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { Flag, Hand, Hash, Heart, SquarePlus, LogOut, MessageCircle, Share2, Shield, X } from 'lucide-react-native';
 import { Avatar } from '../components/Avatar';
 import { BlockSheet } from '../components/BlockSheet';
+import { InviteSheet } from '../components/InviteSheet';
 import { Button } from '../components/Button';
 import { ChatSheet } from '../components/ChatSheet';
 import { Chip } from '../components/Chip';
@@ -812,11 +813,13 @@ export function RoomScreen({ me, request, onLeft, onMove }: Props) {
     />
   );
 
-  // Invite: share this room's link. Never for support rooms (CLAUDE.md, Never list), and only once the
-  // web version is online, so the link works for people without the app.
-  const canInvite = connected && !!room && room.door !== 'support' && !!WEB_URL;
-  const invite = async () => {
-    if (!room) return;
+  // Invite: your people (mutual saves) get an invitation in Groups; once the web version is online, a
+  // link can be shared too. Never in support rooms (CLAUDE.md, Never list).
+  const canInvite = connected && !!room && room.door !== 'support';
+  const [inviteOpen, setInviteOpen] = useState(false);
+  const invite = () => setInviteOpen(true);
+  const shareLink = async () => {
+    if (!room || !WEB_URL) return;
     const link = roomLink(WEB_URL, room.id, me.nickname);
     const message = `${room.door === 'play' ? 'Come and play' : 'Come and talk'} with me on Circles: ${link}`;
     try {
@@ -835,14 +838,12 @@ export function RoomScreen({ me, request, onLeft, onMove }: Props) {
     }
   };
 
-  // You just started an invite-only room: the share menu opens once, so you can send the link.
+  // You just started an invite-only room: the invite sheet opens once, so you can ask your people in.
   const autoInvited = useRef(false);
   useEffect(() => {
     if (!canInvite || autoInvited.current || request.kind !== 'create' || !request.private) return;
     autoInvited.current = true;
-    // Browsers only share after a tap, so on the web we point at the Invite button instead.
-    if (Platform.OS === 'web') setToast('Your room is ready. Tap Invite to send the link.');
-    else void invite();
+    invite();
   });
 
   // --- game mode: a game takes the whole screen (docs/design/pages/game-mode.md) ---
@@ -1051,6 +1052,26 @@ export function RoomScreen({ me, request, onLeft, onMove }: Props) {
         }}
       />
       <BlockSheet me={me.id} person={toBlock} onClose={() => setToBlock(null)} onBlocked={onBlocked} />
+      {canInvite && room ? (
+        <InviteSheet
+          visible={inviteOpen}
+          target={{ roomId: room.id }}
+          title={room.title}
+          onClose={() => setInviteOpen(false)}
+          onSent={(note) => {
+            setInviteOpen(false);
+            setToast(note);
+          }}
+          onShareLink={
+            WEB_URL
+              ? () => {
+                  setInviteOpen(false);
+                  void shareLink();
+                }
+              : undefined
+          }
+        />
+      ) : null}
       <ReportSheet
         visible={reportOpen}
         roomId={room?.id ?? null}
@@ -1231,7 +1252,7 @@ export function RoomScreen({ me, request, onLeft, onMove }: Props) {
           <Pressable
             accessibilityRole="button"
             accessibilityLabel="Invite someone to this room"
-            onPress={() => void invite()}
+            onPress={invite}
             style={{ minHeight: size.minTarget, minWidth: size.minTarget, flexDirection: 'row', alignItems: 'center', gap: space[2] }}
           >
             <Share2 size={size.iconMeta} color={colors.textMeta} strokeWidth={size.iconStroke} />

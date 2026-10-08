@@ -5,10 +5,10 @@ module.exports = async ({ as, fails, check, assert, db }) => {
   for (const name of ['ada', 'bayo', 'chi', 'dami']) {
     users[name] = (await db.query('select gen_random_uuid() as id')).rows[0].id;
     await db.query('insert into auth.users (id) values ($1)', [users[name]]);
-    await db.query('insert into public.profiles (id, nickname) values ($1, $2) on conflict (id) do update set nickname = excluded.nickname', [
-      users[name],
-      `Inv_${name}`,
-    ]);
+    await db.query(
+      'insert into public.profiles (id, nickname) values ($1, $2) on conflict (id) do update set nickname = excluded.nickname',
+      [users[name], `Inv_${name}`],
+    );
   }
   const save = (a, b) => db.query('insert into public.saves (saver_id, saved_id) values ($1, $2) on conflict do nothing', [a, b]);
   // Ada and Bayo saved each other; Ada saved Chi but Chi didn't save her back.
@@ -26,7 +26,10 @@ module.exports = async ({ as, fails, check, assert, db }) => {
 
   await check('the app itself can neither read invitations nor send them', async () => {
     await fails(as(users.bayo, 'select * from public.invitations'), 'permission denied');
-    await fails(as(users.ada, 'select public.send_invitations($1, array[$2]::uuid[], $3, null, null)', [users.ada, users.bayo, room]), 'permission denied');
+    await fails(
+      as(users.ada, 'select public.send_invitations($1, array[$2]::uuid[], $3, null, null)', [users.ada, users.bayo, room]),
+      'permission denied',
+    );
   });
 
   await check('only people who saved each other get an invitation', async () => {
@@ -78,7 +81,8 @@ module.exports = async ({ as, fails, check, assert, db }) => {
     assert.strictEqual(inv.length, 1);
     assert.strictEqual(inv[0].title, 'Friends Ludo');
     assert.strictEqual((await as(users.bayo, 'select id from public.list_groups() where id = $1', [g])).rows.length, 1);
-    const meetings = (await as(users.bayo, "select id from public.upcoming_rooms(now() + interval '8 days') where group_id = $1", [g])).rows;
+    const meetings = (await as(users.bayo, "select id from public.upcoming_rooms(now() + interval '8 days') where group_id = $1", [g]))
+      .rows;
     assert(meetings.length > 0, 'the meetings are visible too');
     await as(users.bayo, 'select public.join_group($1)', [g]);
     // Joined: the invitation has done its job.
@@ -92,7 +96,10 @@ module.exports = async ({ as, fails, check, assert, db }) => {
     await db.query(`insert into public.rooms (id, door, title, livekit_room_name) values ($1, 'talk', 'Chat', $1)`, [other]);
     await send(users.ada, [users.bayo], other);
     assert.strictEqual((await as(users.bayo, 'select * from public.my_invitations() where room_id = $1', [other])).rows.length, 1);
-    await as(users.bayo, "insert into public.blocks (blocker_id, blocked_id, blocked_nickname) values ($1, $2, 'Inv_ada')", [users.bayo, users.ada]);
+    await as(users.bayo, "insert into public.blocks (blocker_id, blocked_id, blocked_nickname) values ($1, $2, 'Inv_ada')", [
+      users.bayo,
+      users.ada,
+    ]);
     assert.strictEqual((await as(users.bayo, 'select * from public.my_invitations() where room_id = $1', [other])).rows.length, 0);
     // And the saves are gone, so no new ones either.
     assert.strictEqual((await send(users.ada, [users.bayo], other)).rows[0].n, 0);
