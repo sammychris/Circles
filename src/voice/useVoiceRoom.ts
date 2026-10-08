@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import {
   ConnectionQuality,
+  DisconnectReason,
   Room,
   RoomEvent,
   ScreenSharePresets,
@@ -12,7 +13,7 @@ import {
 } from 'livekit-client';
 import { playRemoteAudio, startAudio, stopAudio, stopRemoteAudio } from './audio';
 import { CHAT_KEEP, CHAT_TOPIC, cleanChat, decodeChat, encodeChat, tooFast, tooFastFrom, type ChatMessage } from '../rooms/chat';
-import { BadTitleError, NoHostError, PausedError, RoomEndedError, RoomFullError, TooManyRoomsError, getTicket, setHandUp, type RoomInfo, type RoomRequest } from '../rooms/api';
+import { BadTitleError, NoHostError, PausedError, RemovedError, RoomEndedError, RoomFullError, TooManyRoomsError, getTicket, setHandUp, type RoomInfo, type RoomRequest } from '../rooms/api';
 import {
   micPermissionGranted,
   requestNotificationPermission,
@@ -46,6 +47,7 @@ export type RoomStatus =
   | 'ended'
   | 'tooMany'
   | 'badTitle'
+  | 'removed'
   | 'error'
   | 'dropped';
 
@@ -273,8 +275,9 @@ export function useVoiceRoom() {
             setStatus('connected');
             refresh();
           })
-          .on(RoomEvent.Disconnected, () => {
-            if (roomRef.current === lkRoom) void leaveRef.current('dropped');
+          .on(RoomEvent.Disconnected, (reason) => {
+            // A trained host removed this person: say so, instead of "you were disconnected".
+            if (roomRef.current === lkRoom) void leaveRef.current(reason === DisconnectReason.PARTICIPANT_REMOVED ? 'removed' : 'dropped');
           })
           .on(RoomEvent.AudioPlaybackStatusChanged, () => setAudioBlocked(!lkRoom.canPlaybackAudio))
           .on(RoomEvent.DataReceived, (payload, participant, _kind, topic) => {
@@ -346,7 +349,9 @@ export function useVoiceRoom() {
                     ? 'tooMany'
                     : e instanceof BadTitleError
                       ? 'badTitle'
-                      : 'error',
+                      : e instanceof RemovedError
+                        ? 'removed'
+                        : 'error',
         );
       }
     },

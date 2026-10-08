@@ -72,4 +72,14 @@ module.exports = async ({ users, as, fails, check, assert, db }) => {
     assert(!rows.includes(`${users.ada}/r2/new-0.jpg`), 'new photos are kept');
     await fails(as(users.ada, 'select * from public.expired_table_photos(50)'), 'permission denied');
   });
+
+  await check('removals are private, and only the removed person can appeal, once', async () => {
+    await db.query("insert into public.room_removals (room_id, user_id, by_host, reason) values ('r5', $1, $2, 'unkind')", [users.bayo, users.ada]);
+    assert.strictEqual((await as(users.bayo, 'select * from public.room_removals')).rows.length, 0);
+    await as(users.bayo, "select public.appeal_removal('r5', 'I was only joking')");
+    await as(users.bayo, "select public.appeal_removal('r5', 'second try')");
+    await as(users.chi, "select public.appeal_removal('r5', 'not mine')");
+    const row = (await db.query("select appeal from public.room_removals where room_id = 'r5'")).rows[0];
+    assert.strictEqual(row.appeal, 'I was only joking');
+  });
 };

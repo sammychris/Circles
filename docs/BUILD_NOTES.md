@@ -262,3 +262,34 @@ Then on each phone: open Circles, close it fully (swipe it away), and open it ag
 **Phone checklist**
 - [ ] Table, then **Take turns**, 1 minute. All phones see the order. After a minute it moves on by itself. The person whose turn it is taps **Pass**, and it moves on.
 - [ ] Table, then **Quiz**: ask "Best jollof?" with Lagos, Accra and Abuja, and mark Lagos. Others answer. Tap **Reveal**: everyone sees the counts, and nobody's name.
+
+---
+
+## 8. Host tools (trained hosts)
+
+**What I built** (from `docs/design/pages/room-host-view.md`)
+- A trained host sees **"You're the host"** under the room's title.
+- **Hands:** for the host, the Raise hand button becomes **Hands**, with a count. When hands are up, a strip above the buttons says "2 hands up", with faces and **See hands**. The list is oldest first, with "Waiting 2 min":
+  - **Let in:** the person sees "You can talk now. Unmute when you're ready." Nobody is ever unmuted for them.
+  - **Not now:** their hand comes down, and they see "The host lowered your hand. You can raise it again later." No reason is shown.
+- **Tapping a person** gives the host **Mute**, **Save, block or report**, and **Remove from room**. A muted person can unmute themselves.
+- **Remove from room:**
+  - The host must pick a reason: Unkind or insulting, Sexual or creepy, Spam or selling, Off-topic after a warning, or Other.
+  - There's a switch for "Also report to the Circles team", which turns on by itself for "Sexual or creepy". The confirm can't be closed by tapping outside it.
+  - The removed person sees **"You were removed from this room"**, the reason, the matching rule, and "You can't rejoin this room, but you can join others". They also get **This wasn't fair**, to send you a short note.
+  - The room server keeps them out of that room while it's open, by link, by list or by matching.
+- Only the room server can do these things, and only for people in your `hosts` table.
+
+**Choices I made (open to change)**
+- **Host tools work wherever a trained host is**, not only in support rooms. Trained hosts are people you trust.
+- **A host can't mute or remove another trained host.**
+- **Removals are kept in the `room_removals` table**, with the reason and any appeal, for you to read in Supabase. The Privacy Policy now says so.
+- **Not built yet from the host design:** lock the room, pass host to someone, end the room for everyone, the host-leaving sheet, the 7-speaker limit, and the minimised room bar.
+
+**What you need to do:** run the database update and update the room server again.
+
+**Phone checklist** (your phone as the trained host, plus 2 others, in a support room)
+- [ ] You see "You're the host". Another phone raises a hand: you see "1 hand up" and **See hands**. Tap **Let in**: they see "You can talk now".
+- [ ] Raise again, then **Not now**: their hand comes down with the message.
+- [ ] Tap their seat, then **Mute**: they're muted and told. They can unmute.
+- [ ] Tap their seat, then **Remove from room**, then **Unkind or insulting**, then **Remove**. They see the removed screen and can't get back in with **Come in**.

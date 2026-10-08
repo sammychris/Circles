@@ -2,6 +2,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { Alert, AppState, Linking, Platform, Pressable, ScrollView, Share, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Eye, EyeOff, Flag, Hand, Hash, Heart, SquarePlus, LogOut, MessageCircle, Share2, Shield, X } from 'lucide-react-native';
+import { Avatar } from '../components/Avatar';
 import { BlockSheet } from '../components/BlockSheet';
 import { Button } from '../components/Button';
 import { ChatSheet } from '../components/ChatSheet';
@@ -23,6 +24,10 @@ import { ImpostorTable } from '../games/impostor/ImpostorTable';
 import { ROUNDS_PER_GAME, phaseAt as impostorPhase } from '../games/impostor/logic';
 import { useImpostor } from '../games/impostor/useImpostor';
 import { NoteSheet, QuizSheet, TurnsSheet, VideoSheet } from '../components/table/ComposeSheets';
+import { AppealSheet, HandsSheet, HostActionsSheet, REMOVAL_REASONS, RemoveSheet } from '../components/host/HostSheets';
+import { utf8Decode, utf8Encode } from '../rooms/chat';
+import { appealRemoval, hostAction, type RemovalReason } from '../rooms/api';
+import { submitReport } from '../lib/safety';
 import { QuizBody } from '../components/table/QuizBody';
 import { TurnsBody } from '../components/table/TurnsBody';
 import { PutOnTableSheet, type TableChoice } from '../components/table/PutOnTableSheet';
@@ -39,6 +44,7 @@ import { mySavedIds, savePerson, unsavePerson } from '../lib/people';
 import { listBlocked, type Blocked } from '../lib/safety';
 import { formatJoinTime } from '../lib/seats';
 import type { RoomRequest } from '../rooms/api';
+import type { Person } from '../voice/useVoiceRoom';
 import { MOOD_STYLE } from '../rooms/moods';
 import { topicLabel } from '../rooms/start';
 import { roomPhase, secondsLeft } from '../rooms/phase';
@@ -401,6 +407,12 @@ export function RoomScreen({ me, request, onLeft, onMove }: Props) {
     };
   } else if (status === 'full') {
     message = { title: 'That room just filled up', body: "We'll find you another one." };
+  } else if (status === 'removed') {
+    const why = REMOVAL_REASONS.find((r) => r.id === removedFor);
+    message = {
+      title: 'You were removed from this room',
+      body: `${why ? `The host removed you for: ${why.title}. ${why.rule} ` : ''}You can't rejoin this room, but you can join others.`,
+    };
   } else if (status === 'tooMany') {
     message = { title: "You've started a few rooms already", body: 'Try again in a while, or join a room that’s open now.' };
   } else if (status === 'badTitle') {
@@ -435,6 +447,11 @@ export function RoomScreen({ me, request, onLeft, onMove }: Props) {
   const round = impostor.round;
   const everyone = people.map((p) => p.id);
   const openProfile = (p: { id: string; nickname: string }) => setProfile({ id: p.id, nickname: p.nickname });
+  // A trained host tapping someone gets the host actions; everyone else gets save, block and report.
+  const onSeat = (p: Person) => {
+    if (iAmHost && !p.isHost && !p.isMe) setHostPerson(p);
+    else setProfile({ id: p.id, nickname: p.nickname, isHost: p.isHost });
+  };
   let table = null;
   if (connected && isPlay && phase === 'live' && game) {
     table = (
@@ -475,6 +492,65 @@ export function RoomScreen({ me, request, onLeft, onMove }: Props) {
         busy={impostor.busy}
       />
     );
+  }
+
+  // --- trained hosts: hands, mute, remove (room-host-view.md) ---
+  const iAmHost = people.some((p) => p.isMe && p.isHost);
+  const hands = others.filter((p) => p.handUp).sort((a, b) => a.handAt - b.handAt);
+  const [handsOpen, setHandsOpen] = useState(false);
+  const [hostPerson, setHostPerson] = useState<Person | null>(null);
+  const [removePerson, setRemovePerson] = useState<Person | null>(null);
+  const [removedFor, setRemovedFor] = useState<RemovalReason | null>(null);
+  const [appealOpen, setAppealOpen] = useState(false);
+
+  // What the host's actions tell the person, sent only to them, and believed only from a trained host.
+  const peopleNow = useRef(people);
+  peopleNow.current = people;
+  useEffect(() => {
+    if (!connected) return;
+    return voice.onData('host', (payload, from) => {
+      if (!peopleNow.current.some((p) => p.id === from.id && p.isHost)) return;
+      let msg: { k?: string; reason?: string };
+      try {
+        msg = JSON.parse(utf8Decode(payload)) as { k?: string; reason?: string };
+      } catch {
+        return;
+      }
+      if (msg.k === 'letin') setToast('You can talk now. Unmute when you’re ready.');
+      else if (msg.k === 'lowered') setToast('The host lowered your hand. You can raise it again later.');
+      else if (msg.k === 'muted') setToast('The host muted you. You can unmute when it’s your turn.');
+      else if (msg.k === 'removed' && REMOVAL_REASONS.some((r) => r.id === msg.reason)) setRemovedFor(msg.reason as RemovalReason);
+    });
+  }, [connected, voice.onData]);
+
+  const tellPerson = (p: Person, msg: { k: string; reason?: string }) =>
+    voice.publishData('host', utf8Encode(JSON.stringify(msg)), [p.id]);
+
+  async function doHost(p: Person, act: 'letin' | 'notnow' | 'mute' | 'remove', reason?: RemovalReason, alsoReport?: boolean) {
+    if (!room) return;
+    try {
+      if (act === 'letin' || act === 'notnow') {
+        await hostAction(room.id, p.id, 'lower');
+        await tellPerson(p, { k: act === 'letin' ? 'letin' : 'lowered' });
+        setToast(act === 'letin' ? `${p.nickname} can talk now.` : `${p.nickname}'s hand is down.`);
+      } else if (act === 'mute') {
+        await hostAction(room.id, p.id, 'mute');
+        await tellPerson(p, { k: 'muted' });
+        setToast(`${p.nickname} muted.`);
+      } else if (reason) {
+        // They hear why before they're taken out.
+        await tellPerson(p, { k: 'removed', reason });
+        await hostAction(room.id, p.id, 'remove', reason);
+        setToast(`${p.nickname} was removed from this room.`);
+        if (alsoReport) {
+          const asReport = reason === 'sexual' ? 'sexual' : reason === 'unkind' ? 'hate' : reason === 'spam' ? 'scam' : 'other';
+          const why = REMOVAL_REASONS.find((r) => r.id === reason)?.title ?? reason;
+          await submitReport({ id: p.id, nickname: p.nickname }, room.id, asReport, `Removed from the room by a host for: ${why}`).catch(() => {});
+        }
+      }
+    } catch {
+      setToast("That didn't work. Check your connection.");
+    }
   }
 
   // --- the table: open it, put something on it, replace your own ---
@@ -524,7 +600,7 @@ export function RoomScreen({ me, request, onLeft, onMove }: Props) {
     const item = tableItem.item;
     table = (
       <View style={{ gap: space[4] }}>
-        <SeatRow people={people} onPerson={(p) => setProfile({ id: p.id, nickname: p.nickname, isHost: p.isHost })} />
+        <SeatRow people={people} onPerson={onSeat} />
         <TableCard item={item} me={me.id} onOptions={() => setTableOptionsOpen(true)}>
           {item.kind === 'note' ? <NoteBody item={item} /> : null}
           {item.kind === 'turns' ? (
@@ -758,11 +834,13 @@ export function RoomScreen({ me, request, onLeft, onMove }: Props) {
           </Text>
           {impostorOn && impostor.round ? (
             <Text variant="bodyStrong" color="textSoft">{`Round ${impostor.round.number} of ${ROUNDS_PER_GAME}`}</Text>
-          ) : mood || topic || (isSupport && hostPresent) ? (
+          ) : mood || topic || iAmHost || (isSupport && hostPresent) ? (
             <View style={{ flexDirection: 'row', gap: space[2], flexWrap: 'wrap' }}>
               {mood ? <Chip Icon={mood.Icon} label={mood.label} fg={mood.fg} bg={mood.bg} /> : null}
               {topic ? <Chip Icon={Hash} label={topic} fg={colors.textSoft} bg={colors.raised} /> : null}
-              {isSupport && hostPresent ? (
+              {iAmHost ? (
+                <Chip Icon={Shield} label="You're the host" fg={colors.emberText} bg={colors.emberSoft} />
+              ) : isSupport && hostPresent ? (
                 <Chip Icon={Shield} label="Trained host" fg={colors.live} bg={colors.liveSoft} />
               ) : null}
             </View>
@@ -775,7 +853,7 @@ export function RoomScreen({ me, request, onLeft, onMove }: Props) {
             capacity={room?.capacity}
             emptyHint={status === 'connecting' ? 'Finding your room' : undefined}
             centre={countdown !== null ? <CountdownRing seconds={countdown} /> : undefined}
-            onSeatPress={(p) => setProfile({ id: p.id, nickname: p.nickname, isHost: p.isHost })}
+            onSeatPress={onSeat}
           />
         )}
 
@@ -863,8 +941,30 @@ export function RoomScreen({ me, request, onLeft, onMove }: Props) {
             {phase === 'countdown' ? (
               <Button label="Move me to another room" variant="primary" onPress={() => void moveToAnotherRoom()} />
             ) : null}
+            {iAmHost && hands.length > 0 ? (
+              <View
+                accessible
+                accessibilityLabel={`${hands.length} ${hands.length === 1 ? 'hand' : 'hands'} up`}
+                style={{ flexDirection: 'row', alignItems: 'center', gap: space[3], backgroundColor: colors.surface, borderRadius: radius.card, padding: space[3] }}
+              >
+                <Text variant="bodyStrong">{`${hands.length} ${hands.length === 1 ? 'hand' : 'hands'} up`}</Text>
+                <View style={{ flexDirection: 'row', flex: 1 }}>
+                  {hands.slice(0, 3).map((p, i) => (
+                    <View key={p.id} style={{ marginLeft: i === 0 ? 0 : -space[2] }}>
+                      <Avatar userId={p.id} nickname={p.nickname} diameter={size.avatarBadge + space[2]} />
+                    </View>
+                  ))}
+                </View>
+                <Button label="See hands" onPress={() => setHandsOpen(true)} />
+              </View>
+            ) : null}
             <View style={{ flexDirection: 'row', gap: space[3] }}>
-              {secondAction ?? (inAnyGame ? null : handButton)}
+              {secondAction ??
+                (iAmHost ? (
+                  <RowButton Icon={Hand} label="Hands" badge={hands.length} onPress={() => setHandsOpen(true)} />
+                ) : inAnyGame ? null : (
+                  handButton
+                ))}
               <RowButton
                 Icon={MessageCircle}
                 label="Chat"
@@ -889,7 +989,12 @@ export function RoomScreen({ me, request, onLeft, onMove }: Props) {
           </>
         ) : (
           <>
-            {status === 'noHost' ? (
+            {status === 'removed' ? (
+              <>
+                <Button label="Back to Home" variant="primary" onPress={() => onLeft(null)} />
+                {room ? <Button label="This wasn't fair" variant="quiet" onPress={() => setAppealOpen(true)} /> : null}
+              </>
+            ) : status === 'noHost' ? (
               <Button label="Get help now" variant="primary" onPress={onOpenHelp} />
             ) : (status === 'full' || status === 'ended') && request.kind === 'join' ? (
               <Button label="Find me another room" variant="primary" onPress={() => onMove({ kind: 'match', door: room?.door === 'play' || (request.kind === 'join' && request.door === 'play') ? 'play' : 'talk', mood: null })} />
@@ -901,7 +1006,7 @@ export function RoomScreen({ me, request, onLeft, onMove }: Props) {
                 onPress={() => onMove(request.kind === 'create' && room ? { kind: 'join', roomId: room.id } : request)}
               />
             ) : null}
-            <Button label="Back" variant="quiet" onPress={() => onLeft(voice.lastSummary)} />
+            {status !== 'removed' ? <Button label="Back" variant="quiet" onPress={() => onLeft(voice.lastSummary)} /> : null}
           </>
         )}
       </View>
@@ -975,6 +1080,48 @@ export function RoomScreen({ me, request, onLeft, onMove }: Props) {
         onPut={(video, title) => {
           setCompose(null);
           void tableItem.put({ kind: 'video', video, title }, { playing: false, position: 0, sentAt: Date.now() });
+        }}
+      />
+      <HandsSheet
+        visible={handsOpen}
+        hands={hands}
+        onClose={() => setHandsOpen(false)}
+        onLetIn={(p) => void doHost(p, 'letin')}
+        onNotNow={(p) => void doHost(p, 'notnow')}
+      />
+      <HostActionsSheet
+        person={hostPerson}
+        onClose={() => setHostPerson(null)}
+        onMute={(p) => {
+          setHostPerson(null);
+          void doHost(p, 'mute');
+        }}
+        onRemove={(p) => {
+          setHostPerson(null);
+          setTimeout(() => setRemovePerson(p), motion.slow);
+        }}
+        onMore={(p) => {
+          setHostPerson(null);
+          setTimeout(() => setProfile({ id: p.id, nickname: p.nickname }), motion.slow);
+        }}
+      />
+      <RemoveSheet
+        person={removePerson}
+        onClose={() => setRemovePerson(null)}
+        onRemove={(p, reason, alsoReport) => {
+          setRemovePerson(null);
+          void doHost(p, 'remove', reason, alsoReport);
+        }}
+      />
+      <AppealSheet
+        visible={appealOpen}
+        onClose={() => setAppealOpen(false)}
+        onSend={(text) => {
+          setAppealOpen(false);
+          if (room)
+            void appealRemoval(room.id, text)
+              .then(() => setToast('Sent to the Circles team. Thank you.'))
+              .catch(() => setToast("That didn't send. Check your connection."));
         }}
       />
       <TurnsSheet

@@ -14,7 +14,7 @@ new Function('module', 'exports', js)(mod, mod.exports);
 type Room = { id: string; door: 'talk' | 'play' | 'support'; mood: 'chat' | 'laugh' | 'advice' | null; capacity: number; people: string[]; custom?: boolean };
 const pickRoom = mod.exports.pickRoom as (
   rooms: Room[],
-  opts: { door: Room['door']; mood: Room['mood']; me: string; avoid: Set<string>; hosts: Set<string>; excludeRoomId?: string },
+  opts: { door: Room['door']; mood: Room['mood']; me: string; avoid: Set<string>; hosts: Set<string>; excludeRoomId?: string; removedFrom?: Set<string> },
 ) => Room | null;
 const roomTitle = mod.exports.roomTitle as (door: Room['door'], mood: Room['mood']) => string;
 const cleanTitle = mod.exports.cleanTitle as (raw: unknown) => string | null;
@@ -85,6 +85,13 @@ describe('roomTitle', () => {
     expect(roomTitle('talk', 'laugh')).toBe('Want to laugh');
     expect(roomTitle('talk', null)).toBe('Just chat');
     expect(roomTitle('support', null)).toBe('Someone to talk to');
+  });
+});
+
+describe('removed from a room', () => {
+  it('never puts someone back into a room a host removed them from', () => {
+    const rooms = [room('r1', ['a', 'b']), room('r2', ['c'])];
+    expect(pickRoom(rooms, { ...base, door: 'talk', mood: null, removedFrom: new Set(['r1']) })?.id).toBe('r2');
   });
 });
 

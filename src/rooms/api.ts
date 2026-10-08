@@ -47,6 +47,12 @@ export class BadTitleError extends Error {
   }
 }
 
+export class RemovedError extends Error {
+  constructor() {
+    super("You can't rejoin this room");
+  }
+}
+
 export class PausedError extends Error {
   constructor() {
     super('Your account is paused');
@@ -67,6 +73,7 @@ async function call<T>(body: Record<string, unknown>): Promise<T> {
     if (payload.status === 'no_host') throw new NoHostError();
     if (payload.status === 'ended') throw new RoomEndedError();
     if (payload.status === 'too_many') throw new TooManyRoomsError();
+    if (payload.status === 'removed') throw new RemovedError();
     if (payload.status === 'bad_title') throw new BadTitleError();
     if (status === 409) throw new RoomFullError();
     if (status === 403 && payload.error === 'Your account is paused') throw new PausedError();
@@ -109,6 +116,19 @@ export async function roomStats(): Promise<{ people: number; rooms: number }> {
 // Raise or lower your hand. The room server sets it, so nobody can change anything else about themselves.
 export async function setHandUp(roomId: string, up: boolean): Promise<void> {
   await call<{ status: string }>({ action: 'hand', roomId, up });
+}
+
+export type RemovalReason = 'unkind' | 'sexual' | 'spam' | 'off_topic' | 'other';
+
+// Trained hosts only (the room server checks): lower a hand, mute someone, or remove them from the room.
+export async function hostAction(roomId: string, personId: string, act: 'lower' | 'mute' | 'remove', reason?: RemovalReason): Promise<void> {
+  await call<{ status: string }>({ action: 'host', roomId, personId, act, reason });
+}
+
+// "This wasn't fair": one short note about a removal, for the Circles team.
+export async function appealRemoval(roomId: string, text: string): Promise<void> {
+  const { error } = await supabase.rpc('appeal_removal', { p_room: roomId, p_text: text });
+  if (error) throw error;
 }
 
 // Whether a trained host is in a support room right now. Never who.

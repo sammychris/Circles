@@ -35,6 +35,7 @@ export const PRIVACY: LegalDoc = {
         'Your nickname, and your date of birth. We use your date of birth only to check you are 18 or over. We never show it to anyone.',
         'Your email, only if you choose to add one.',
         'Things you do to keep rooms safe: reports you send, people you block. Reports are only seen by the Circles team. A report also carries a short description of what was on the table at the time.',
+        'If a trained host removes you from a room, a note of it with the reason, and your appeal if you send one, so the Circles team can check it was fair.',
         'Photos you put on the table. They are shared only with the people in that room, through links that stop working after 3 hours, and the photos are deleted about 3 hours later. If someone reports them, they are kept so the Circles team can check them.',
         "Saves, and thank-yous you give with the room they were for. A thank-you is never shown with your name, and we don't keep scores, streaks or rankings.",
         'Which rooms exist, their titles, and who opened each one, so we can put people into rooms.',

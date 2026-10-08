@@ -6,6 +6,7 @@
 //   { action: 'support' }                             whether a trained host is in a support room (yes/no only)
 //   { action: 'delete_account' }                      deletes the person's own account and everything tied to it
 //   { action: 'create', door, title, topic?, capacity?, private? }  starts a Talk or Play room (Start something)
+//   { action: 'host', roomId, personId, act, reason? }  a trained host lowers a hand, mutes or removes someone
 //   { action: 'hand', roomId, up }                    raises or lowers your hand in a room you're in
 //   { action: 'preview', roomId }                     a room link's title and seat count, before signing up
 // Secrets (set in Supabase, never in the app): LIVEKIT_API_KEY, LIVEKIT_API_SECRET, LIVEKIT_URL.
@@ -61,12 +62,22 @@ function roomTitle(door: Door, mood: Mood | null): string {
 // Returns null when a new room should be opened (or, for support, when no host is there).
 function pickRoom(
   candidates: Candidate[],
-  opts: { door: Door; mood: Mood | null; me: string; avoid: Set<string>; hosts: Set<string>; excludeRoomId?: string },
+  opts: {
+    door: Door;
+    mood: Mood | null;
+    me: string;
+    avoid: Set<string>;
+    hosts: Set<string>;
+    excludeRoomId?: string;
+    // Rooms a host removed this person from.
+    removedFrom?: Set<string>;
+  },
 ): Candidate | null {
   const fits = candidates.filter((room) => {
     if (room.door !== opts.door) return false;
     if (room.custom) return false;
     if (room.id === opts.excludeRoomId) return false;
+    if (opts.removedFrom?.has(room.id)) return false;
     // A talk room with no mood is a "Just chat" room.
     if (opts.mood && (room.mood ?? (room.door === 'talk' ? 'chat' : null)) !== opts.mood) return false;
     const others = room.people.filter((p) => p !== opts.me);
@@ -345,6 +356,55 @@ Deno.serve(async (req) => {
     return json({ status: 'ok' });
   }
 
+  // A trained host looks after a room: lower someone's hand ("Not now" or "Let in"), mute them (they can
+  // unmute themselves), or remove them (they can't come back into this room while it's open).
+  if (action === 'host') {
+    const { data: hostRow } = await admin.from('hosts').select('user_id').eq('user_id', user.id).maybeSingle();
+    if (!hostRow) return json({ error: 'Only trained hosts can do this' }, 403);
+    const { data: hostRoom } = await admin.from('rooms').select('id, livekit_room_name').eq('id', String(body.roomId ?? '')).maybeSingle();
+    if (!hostRoom) return json({ error: 'Room not found' }, 404);
+    const personId = String(body.personId ?? '');
+    const act = String(body.act ?? '');
+    try {
+      await service.getParticipant(hostRoom.livekit_room_name, user.id);
+    } catch {
+      return json({ error: 'You are not in this room' }, 409);
+    }
+    let target;
+    try {
+      target = await service.getParticipant(hostRoom.livekit_room_name, personId);
+    } catch {
+      return json({ error: 'They are not in this room' }, 409);
+    }
+    const { data: otherHost } = await admin.from('hosts').select('user_id').eq('user_id', personId).maybeSingle();
+    if (otherHost || personId === user.id) return json({ error: 'Not for hosts' }, 403);
+    if (act === 'lower') {
+      const now = String(Date.now());
+      await service.updateParticipant(hostRoom.livekit_room_name, personId, { attributes: { hand: '', handChangedAt: now } });
+      return json({ status: 'ok' });
+    }
+    if (act === 'mute') {
+      const mic = (target.tracks ?? []).find((t) => t.source === TrackSource.MICROPHONE);
+      if (mic) await service.mutePublishedTrack(hostRoom.livekit_room_name, personId, mic.sid, true);
+      return json({ status: 'ok' });
+    }
+    if (act === 'remove') {
+      const reason = ['unkind', 'sexual', 'spam', 'off_topic', 'other'].includes(String(body.reason)) ? String(body.reason) : null;
+      if (!reason) return json({ error: 'Choose a reason' }, 400);
+      const { error } = await admin.from('room_removals').upsert({
+        room_id: hostRoom.id,
+        user_id: personId,
+        removed_nickname: target.name?.slice(0, 20) ?? null,
+        by_host: user.id,
+        reason,
+      });
+      if (error) return json({ error: 'Could not remove them' }, 500);
+      await service.removeParticipant(hostRoom.livekit_room_name, personId);
+      return json({ status: 'ok' });
+    }
+    return json({ error: 'Unknown host action' }, 400);
+  }
+
   if (action !== 'match' && action !== 'join' && action !== 'create') return json({ error: 'Unknown action' }, 400);
 
   // --- voice: nobody speaks before the 18+ question and a nickname (CLAUDE.md, Never list) ---
@@ -389,6 +449,9 @@ Deno.serve(async (req) => {
   const hosts = new Set((hostRows ?? []).map((h) => h.user_id as string));
   const isHost = hosts.has(user.id);
   const avoid = await avoidList();
+  // Rooms a host removed this person from: never again while they're open.
+  const { data: removalRows } = await admin.from('room_removals').select('room_id').eq('user_id', user.id);
+  const removedFrom = new Set((removalRows ?? []).map((r) => r.room_id as string));
 
   type RoomRow = {
     id: string;
@@ -456,6 +519,7 @@ Deno.serve(async (req) => {
       return json({ error: 'This room has ended', status: 'ended' }, 410);
     }
     room = data as RoomRow;
+    if (removedFrom.has(room.id)) return json({ error: "You can't rejoin this room", status: 'removed' }, 403);
     const people = (await peopleOrNone([room.livekit_room_name])).get(room.livekit_room_name) ?? [];
     if (!livekitDown && customRoomEnded(room, people.length)) {
       await admin.from('rooms').update({ status: 'closed' }).eq('id', room.id);
@@ -494,6 +558,7 @@ Deno.serve(async (req) => {
       avoid,
       hosts,
       excludeRoomId: typeof body.excludeRoomId === 'string' ? body.excludeRoomId : undefined,
+      removedFrom,
     });
 
     if (picked) {
@@ -508,6 +573,7 @@ Deno.serve(async (req) => {
         (c) =>
           c.people.length === 0 &&
           !c.custom &&
+          !removedFrom.has(c.id) &&
           c.id !== body.excludeRoomId &&
           (c.mood ?? (door === 'talk' ? 'chat' : null)) === newMood &&
           (door !== 'support' || isHost),

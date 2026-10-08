@@ -136,3 +136,37 @@ as $$
 $$;
 revoke all on function public.expired_table_photos(int) from public, anon, authenticated;
 grant execute on function public.expired_table_photos(int) to service_role;
+
+-- Trained hosts can remove someone from a room ----------------------------------------------------
+-- The removed person can't rejoin that room while it's open. Only the room server writes here; Sammy
+-- reads it in the dashboard. The removed person can send one short appeal ("This wasn't fair").
+create table if not exists public.room_removals (
+  room_id text not null,
+  user_id uuid not null references auth.users (id) on delete cascade,
+  removed_nickname text,
+  by_host uuid references auth.users (id) on delete set null,
+  reason text not null check (reason in ('unkind', 'sexual', 'spam', 'off_topic', 'other')),
+  appeal text check (appeal is null or char_length(appeal) <= 300),
+  created_at timestamptz not null default now(),
+  primary key (room_id, user_id)
+);
+alter table public.room_removals enable row level security;
+-- No policies: people can't read or change removals, only appeal their own through the function below.
+
+create or replace function public.appeal_removal(p_room text, p_text text)
+returns void
+language plpgsql
+security definer
+set search_path = ''
+as $$
+begin
+  if auth.uid() is null then
+    raise exception 'not_signed_in';
+  end if;
+  update public.room_removals
+  set appeal = nullif(left(trim(coalesce(p_text, '')), 300), '')
+  where room_id = p_room and user_id = auth.uid() and appeal is null;
+end;
+$$;
+revoke all on function public.appeal_removal(text, text) from public, anon;
+grant execute on function public.appeal_removal(text, text) to authenticated;
