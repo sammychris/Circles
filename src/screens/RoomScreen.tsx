@@ -1,7 +1,7 @@
-import { useCallback, useEffect, useRef, useState, type ReactNode } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { AppState, Linking, Pressable, ScrollView, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { Flag, Heart, LogOut, Shield } from 'lucide-react-native';
+import { Dice5, Flag, Heart, LogOut, Shield, X } from 'lucide-react-native';
 import { BlockSheet } from '../components/BlockSheet';
 import { Button } from '../components/Button';
 import { Chip } from '../components/Chip';
@@ -15,6 +15,9 @@ import { RoomCircle } from '../components/RoomCircle';
 import { Sheet } from '../components/Sheet';
 import { Text } from '../components/Text';
 import { Toast } from '../components/Toast';
+import { BASE } from '../games/ludo/engine';
+import { LudoTable } from '../games/ludo/LudoTable';
+import { useLudo } from '../games/ludo/useLudo';
 import { SHOW_TEST_NUMBERS } from '../config';
 import { mySavedIds, savePerson, unsavePerson } from '../lib/people';
 import { listBlocked, type Blocked } from '../lib/safety';
@@ -42,13 +45,9 @@ type Props = {
   // Called after leaving. No summary means the person never got into a room.
   onLeft: (summary: RoomSummary | null) => void;
   onMove: (request: RoomRequest) => void;
-  // Something put in the middle of the table, e.g. Ludo (Step 6). Gets the room id and the people.
-  renderTable?: (ctx: { roomName: string; people: { id: string; nickname: string; isMe: boolean }[] }) => ReactNode;
-  // Play rooms: the extra button in the bottom row (e.g. "Play Ludo").
-  tableAction?: ReactNode;
 };
 
-export function RoomScreen({ me, request, onLeft, onMove, renderTable, tableAction }: Props) {
+export function RoomScreen({ me, request, onLeft, onMove }: Props) {
   const colors = useColors();
   const voice = useVoiceRoom();
   const { status, room, people } = voice;
@@ -76,6 +75,9 @@ export function RoomScreen({ me, request, onLeft, onMove, renderTable, tableActi
   const hostPresent = people.some((p) => p.isHost);
   const phase = connected ? roomPhase({ count: people.length, everLive, isSupport, hostPresent }) : null;
   const micLive = connected && people.some((p) => p.isMe && !p.isMuted);
+  // Games only ever in play rooms, never in support rooms (CLAUDE.md, Never list).
+  const isPlay = room?.door === 'play';
+  const ludo = useLudo(room?.id ?? null, me.id, connected && isPlay);
 
   // --- joining: explain the microphone first, then join ---
   const startJoin = useCallback(() => {
@@ -273,9 +275,31 @@ export function RoomScreen({ me, request, onLeft, onMove, renderTable, tableActi
         : { title: 'Finding a third person', body: 'Rooms need three people, so mics are paused for now.' };
   }
 
-  const table = connected && phase === 'live' && room && renderTable
-    ? renderTable({ roomName: room.id, people: people.map((p) => ({ id: p.id, nickname: p.nickname, isMe: p.isMe })) })
-    : null;
+  const game = ludo.game;
+  const table =
+    connected && isPlay && game && phase === 'live' ? (
+      <LudoTable
+        state={game}
+        me={me.id}
+        people={people.map((p) => ({ id: p.id, nickname: p.nickname, isMe: p.isMe }))}
+        onRoll={ludo.roll}
+        onMove={ludo.move}
+        onBringOut={() => {
+          const team = game.turn;
+          const first = game.tokens[team].findIndex((pos) => pos === BASE);
+          if (first >= 0) ludo.move(first);
+        }}
+        onPlayAgain={() => ludo.start(people.map((p) => p.id))}
+        onBackToTalking={ludo.endGame}
+      />
+    ) : null;
+  const inGame = !!game && (game.teams.sun.includes(me.id) || game.teams.sky.includes(me.id));
+  let tableAction = null;
+  if (isPlay && phase === 'live') {
+    if (!game) tableAction = <RowButton Icon={Dice5} label="Play Ludo" onPress={() => ludo.start(people.map((p) => p.id))} />;
+    else if (game.startedBy === me.id) tableAction = <RowButton Icon={X} label="End game" onPress={ludo.endGame} />;
+    else if (inGame) tableAction = <RowButton Icon={X} label="Leave game" onPress={ludo.leaveGame} />;
+  }
 
   return (
     <SafeAreaView style={{ flex: 1, backgroundColor: colors.bg }}>
@@ -397,26 +421,8 @@ export function RoomScreen({ me, request, onLeft, onMove, renderTable, tableActi
               <Button label="Move me to another room" variant="primary" onPress={() => void moveToAnotherRoom()} />
             ) : null}
             <View style={{ flexDirection: 'row', gap: space[3] }}>
-              {tableAction && phase === 'live' ? <View style={{ flex: 1 }}>{tableAction}</View> : null}
-              <Pressable
-                accessibilityRole="button"
-                accessibilityLabel="Leave"
-                onPress={() => void leaveRoom()}
-                style={{
-                  flex: 1,
-                  height: size.buttonPrimary,
-                  borderRadius: radius.card,
-                  backgroundColor: colors.surface,
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  gap: space[1],
-                }}
-              >
-                <LogOut size={size.icon} color={colors.textSoft} strokeWidth={size.iconStroke} />
-                <Text variant="tiny" color="textSoft">
-                  Leave
-                </Text>
-              </Pressable>
+              {tableAction}
+              <RowButton Icon={LogOut} label="Leave" onPress={() => void leaveRoom()} />
             </View>
             {phase !== 'countdown' ? (
               <MicControl state={micState} pausedReason={pausedReason} onPress={() => void onMicPress()} />
@@ -497,5 +503,31 @@ export function RoomScreen({ me, request, onLeft, onMove, renderTable, tableActi
         </View>
       </Sheet>
     </SafeAreaView>
+  );
+}
+
+// Room bottom row button: 56 tall, radius 20, icon over a tiny label (design direction › Room bottom row).
+function RowButton({ Icon, label, onPress }: { Icon: typeof LogOut; label: string; onPress: () => void }) {
+  const colors = useColors();
+  return (
+    <Pressable
+      accessibilityRole="button"
+      accessibilityLabel={label}
+      onPress={onPress}
+      style={{
+        flex: 1,
+        height: size.buttonPrimary,
+        borderRadius: radius.card,
+        backgroundColor: colors.surface,
+        alignItems: 'center',
+        justifyContent: 'center',
+        gap: space[1],
+      }}
+    >
+      <Icon size={size.icon} color={colors.textSoft} strokeWidth={size.iconStroke} />
+      <Text variant="tiny" color="textSoft">
+        {label}
+      </Text>
+    </Pressable>
   );
 }

@@ -94,6 +94,7 @@ export const size = {
   avatarBadge: 24,
   roomRing: 248,
   input: 56,
+  tableAction: 48,
   moodTile: 104,
   rowAction: 96,
   doorTile: 120,
@@ -157,3 +158,11 @@ export const doorColors = {
   learn: moodColors.advice,
   people: { fg: '#E6AFD2', bg: '#352230' },
 } as const;
+
+// Ludo teams: always with a name and an icon, never colour alone (play.md › Pick teams).
+export const teamColors = {
+  sun: moodColors.laugh,
+  sky: moodColors.down,
+} as const;
+
+export const ludo = { board: 280, token: 14, baseToken: 20, die: 56, pip: 10 } as const;

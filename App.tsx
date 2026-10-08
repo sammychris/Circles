@@ -133,7 +133,6 @@ function SignedIn({ session }: { session: Session }) {
               .catch(() => {});
           }}
           onMove={enter}
-          {...playExtras(me)}
         />
       );
     case 'after':
@@ -172,11 +171,6 @@ function SignedIn({ session }: { session: Session }) {
         </>
       );
   }
-}
-
-// Play rooms get Ludo on the table (Step 6). Other rooms get nothing extra.
-function playExtras(_me: { id: string; nickname: string }) {
-  return {};
 }
 
 export default function App() {
