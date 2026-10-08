@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { ActivityIndicator, Alert, BackHandler, Linking, Platform, View } from 'react-native';
+import { ActivityIndicator, Alert, AppState, BackHandler, Linking, Platform, View } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { useFonts } from 'expo-font';
@@ -200,7 +200,13 @@ function SignedIn({
   }, [ready, busy, pendingRequest, onPendingUsed]);
   // Once ready: this phone's address for invitation alerts, if notifications are already allowed.
   useEffect(() => {
-    if (ready) void registerPush();
+    if (!ready) return;
+    void registerPush();
+    // Allowed later in the phone's settings: picked up when Circles comes back.
+    const sub = AppState.addEventListener('change', (state) => {
+      if (state === 'active') void registerPush();
+    });
+    return () => sub.remove();
   }, [ready]);
 
   // The dot on the Groups tab: a new invitation since Groups was last opened. Checked every minute.

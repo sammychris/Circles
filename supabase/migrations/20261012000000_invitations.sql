@@ -45,10 +45,12 @@ $$;
 revoke all on function public.invited_to(uuid, uuid, uuid) from public, anon, authenticated;
 
 -- Sending: only the room server calls this (it first checks the sender really is in a live room).
--- Returns how many invitations were sent. People who aren't mutual saves, are blocked either way, or
+-- Returns the people newly invited (for their alerts; never shown to the sender). People who aren't mutual saves, are blocked either way, or
 -- were removed from Circles are skipped without saying so.
-create or replace function public.send_invitations(p_from uuid, p_to uuid[], p_room text, p_scheduled uuid, p_group uuid)
-returns int
+-- An earlier copy returned a count; the return type can only change by replacing it.
+drop function if exists public.send_invitations(uuid, uuid[], text, uuid, uuid);
+create function public.send_invitations(p_from uuid, p_to uuid[], p_room text, p_scheduled uuid, p_group uuid)
+returns uuid[]
 language plpgsql
 security definer
 set search_path = public
@@ -57,7 +59,7 @@ declare
   r public.rooms;
   s public.scheduled_rooms;
   g public.groups;
-  sent int;
+  sent uuid[];
 begin
   if num_nonnulls(p_room, p_scheduled, p_group) <> 1 or coalesce(array_length(p_to, 1), 0) = 0 then
     raise exception 'bad_invite';
@@ -119,9 +121,9 @@ begin
     insert into public.invitations (from_user, to_user, room_id, scheduled_id, group_id)
     select p_from, people.id, p_room, p_scheduled, p_group from people
     on conflict do nothing
-    returning 1
+    returning to_user
   )
-  select count(*)::int into sent from added;
+  select coalesce(array_agg(to_user), '{}') into sent from added;
   return sent;
 end;
 $$;

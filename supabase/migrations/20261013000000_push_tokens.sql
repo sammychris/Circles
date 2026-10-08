@@ -25,7 +25,7 @@ begin
   if auth.uid() is null then
     raise exception 'not_signed_in';
   end if;
-  if p_token is null or p_token !~ '^ExponentPushToken\[[A-Za-z0-9_-]{10,100}\]$' then
+  if p_token is null or p_token !~ '^Expo(nent)?PushToken\[[A-Za-z0-9_-]{10,100}\]$' then
     raise exception 'bad_token';
   end if;
   insert into public.push_tokens (token, user_id) values (p_token, auth.uid())

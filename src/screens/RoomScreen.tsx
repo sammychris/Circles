@@ -5,6 +5,7 @@ import { Flag, Hand, Hash, Heart, SquarePlus, LogOut, MessageCircle, Share2, Shi
 import { Avatar } from '../components/Avatar';
 import { BlockSheet } from '../components/BlockSheet';
 import { InviteSheet } from '../components/InviteSheet';
+import { setInRoom } from '../lib/reminders';
 import { Button } from '../components/Button';
 import { ChatSheet } from '../components/ChatSheet';
 import { Chip } from '../components/Chip';
@@ -95,6 +96,11 @@ export function RoomScreen({ me, request, onLeft, onMove }: Props) {
   const colors = useColors();
   const voice = useVoiceRoom();
   const { status, room, people } = voice;
+  // Invitation alerts stay quiet while you're here.
+  useEffect(() => {
+    setInRoom(true);
+    return () => setInRoom(false);
+  }, []);
   const [micAllowed, setMicAllowed] = useState(false);
   const [micDenied, setMicDenied] = useState(false);
   const [askOpen, setAskOpen] = useState(false);

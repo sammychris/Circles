@@ -14,10 +14,20 @@ const CHANNEL = 'reminders';
 const KEY = (userId: string) => `circles.phoneReminders.${userId}`;
 const supported = Platform.OS !== 'web';
 
+// In a room right now? Then invitation alerts wait quietly in the list instead of sounding over the
+// room (above all a calm support room). Set by the room screen.
+let inRoom = false;
+export function setInRoom(on: boolean) {
+  inRoom = on;
+}
+
 // While the app is open, a reminder still shows as a banner.
 if (supported) {
   Notifications.setNotificationHandler({
-    handleNotification: async () => ({ shouldShowBanner: true, shouldShowList: true, shouldPlaySound: true, shouldSetBadge: false }),
+    handleNotification: async (n) => {
+      const quiet = inRoom && n.request.content.data?.kind === 'invitation';
+      return { shouldShowBanner: !quiet, shouldShowList: true, shouldPlaySound: !quiet, shouldSetBadge: false };
+    },
   });
 }
 

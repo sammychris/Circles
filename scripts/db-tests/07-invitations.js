@@ -16,7 +16,13 @@ module.exports = async ({ as, fails, check, assert, db }) => {
   await save(users.bayo, users.ada);
   await save(users.ada, users.chi);
   const send = (from, to, room, scheduled, group) =>
-    db.query('select public.send_invitations($1, $2::uuid[], $3, $4, $5) as n', [from, to, room ?? null, scheduled ?? null, group ?? null]);
+    db.query('select coalesce(array_length(public.send_invitations($1, $2::uuid[], $3, $4, $5), 1), 0) as n', [
+      from,
+      to,
+      room ?? null,
+      scheduled ?? null,
+      group ?? null,
+    ]);
   const room = `inv-${Date.now()}`;
   const support = `inv-support-${Date.now()}`;
   await db.query(

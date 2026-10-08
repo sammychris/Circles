@@ -530,6 +530,7 @@ Deno.serve(async (req) => {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
       body: JSON.stringify(messages.slice(0, 100)),
+      signal: AbortSignal.timeout(5000),
     });
     const out = (await res.json().catch(() => null)) as { data?: { details?: { error?: string } }[] } | null;
     const gone = (out?.data ?? []).flatMap((t, i) => (t?.details?.error === 'DeviceNotRegistered' ? [messages[i].to] : []));
@@ -553,9 +554,7 @@ Deno.serve(async (req) => {
       const here = (await peopleOrNone([r.livekit_room_name as string])).get(r.livekit_room_name as string) ?? [];
       if (!here.includes(user.id)) return json({ error: 'This room has ended', status: 'ended' }, 410);
     }
-    // Invitations made from here on are the new ones (a little slack for clock differences).
-    const since = new Date(Date.now() - 5000).toISOString();
-    const { error } = await admin.rpc('send_invitations', {
+    const { data: newlyInvited, error } = await admin.rpc('send_invitations', {
       p_from: user.id,
       p_to: to,
       p_room: roomId,
@@ -569,31 +568,25 @@ Deno.serve(async (req) => {
       }
       return json({ error: 'Could not send the invitations' }, 500);
     }
-    // An alert on the lock screen for each person newly invited ("Ada_K invited you to Ludo night"),
-    // through Expo's push service. Only phones that turned alerts on have an address. An alert that
-    // can't be sent is only a missed nudge: the invitation is still in Groups.
-    try {
-      const [column, value] = roomId ? ['room_id', roomId] : scheduledId ? ['scheduled_id', scheduledId] : ['group_id', groupId];
-      const { data: fresh } = await admin
-        .from('invitations')
-        .select('to_user')
-        .eq('from_user', user.id)
-        .eq(column, value)
-        .in('to_user', to)
-        .is('dismissed_at', null)
-        .gte('created_at', since);
-      const invited = (fresh ?? []).map((r) => r.to_user as string);
-      if (invited.length > 0) {
+    // An alert on the lock screen for each person newly invited, sent after this reply so the sender
+    // never waits on it (and the reply's timing gives nothing away). Lock screens can be seen by
+    // others, so a private room is only "a private room" (notifications.md); groups keep their name.
+    const invited = Array.isArray(newlyInvited) ? (newlyInvited as string[]) : [];
+    if (invited.length > 0) {
+      const alert = (async () => {
         const { data: named } = roomId
-          ? await admin.from('rooms').select('title').eq('id', roomId).maybeSingle()
+          ? await admin.from('rooms').select('title, private').eq('id', roomId).maybeSingle()
           : scheduledId
-            ? await admin.from('scheduled_rooms').select('title').eq('id', scheduledId).maybeSingle()
+            ? await admin.from('scheduled_rooms').select('title, private').eq('id', scheduledId).maybeSingle()
             : await admin.from('groups').select('title:name').eq('id', groupId).maybeSingle();
-        const what = (named?.title as string | undefined) ?? 'a room';
+        const what = (named as { private?: boolean } | null)?.private ? 'a private room' : ((named?.title as string | undefined) ?? 'a room');
         await sendAlerts(invited, `${nickname} invited you to ${what}`, { kind: 'invitation' });
-      }
-    } catch {
-      // See above.
+      })().catch(() => {
+        // An alert that can't be sent is only a missed nudge: the invitation is still in Groups.
+      });
+      const runtime = (globalThis as { EdgeRuntime?: { waitUntil: (p: Promise<unknown>) => void } }).EdgeRuntime;
+      if (runtime) runtime.waitUntil(alert);
+      else await alert;
     }
     // Never how many went out: that would hint at who saved you, or who left Circles.
     return json({ status: 'ok' });

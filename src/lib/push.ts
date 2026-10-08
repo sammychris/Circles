@@ -55,14 +55,22 @@ export async function alertsAllowed(): Promise<boolean> {
   }
 }
 
-// Logging out: this phone stops getting that account's alerts. Runs while still signed in.
+// Logging out: this phone stops getting that account's alerts. Runs while still signed in. The phone
+// also drops its address altogether, so even if the server couldn't be told (offline), the old
+// address stops working and the room server forgets it at the next alert. A new address is made at
+// the next sign-in.
 export async function forgetPush(): Promise<void> {
   if (!supported) return;
   try {
     const token = await AsyncStorage.getItem(KEY);
     if (token) await supabase.rpc('forget_push_token', { p_token: token });
+  } catch {
+    // Covered by dropping the address below.
+  }
+  try {
+    await Notifications.unregisterForNotificationsAsync();
     await AsyncStorage.removeItem(KEY);
   } catch {
-    // The next account to sign in on this phone takes the address over anyway.
+    // Nothing else to do.
   }
 }

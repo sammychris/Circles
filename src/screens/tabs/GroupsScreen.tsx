@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from 'react';
-import { Alert, Pressable, RefreshControl, ScrollView, View } from 'react-native';
+import { Alert, AppState, Pressable, RefreshControl, ScrollView, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Bell, CalendarClock, Lock } from 'lucide-react-native';
 import { Avatar } from '../../components/Avatar';
@@ -85,6 +85,11 @@ export function GroupsScreen({
   const [alertsOn, setAlertsOn] = useState(true);
   useEffect(() => {
     void alertsAllowed().then(setAlertsOn);
+    // Back from the phone's settings: the row goes away once alerts are allowed.
+    const sub = AppState.addEventListener('change', (state) => {
+      if (state === 'active') void alertsAllowed().then(setAlertsOn);
+    });
+    return () => sub.remove();
   }, []);
   const [inviting, setInviting] = useState<{ target: InviteTarget; title: string } | null>(null);
   const loadInvites = useCallback(async () => {

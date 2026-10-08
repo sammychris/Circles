@@ -684,6 +684,9 @@ Now that Firebase is set up (part 20), an invitation also shows as an alert: **"
 - **Only phones that allowed notifications get alerts.** Circles never asks just for this out of the blue. It asks when you set a reminder, or when you tap **Turn on** next to "Get an alert when your people invite you" (Groups › My people, shown only if you have people who could invite you).
 - **Each phone's address for alerts** (a code from Expo, not a phone number) is kept by the room server only. Nobody can read it from the app, not even their own. Logging out removes it from that phone. Deleting the account removes all of them.
 - **Never about a support room:** nobody can be invited to one, so no alert can ever mention one.
+- **Lock screens can be seen by others,** so an invite-only room shows as "Ada_K invited you to **a private room**". Groups keep their name.
+- **Inside a room, alerts stay quiet:** no banner or sound over the conversation (above all in a support room). They wait in the phone's notification list.
+- One alert per invitation, even if someone taps Invite twice.
 - Alerts go through Expo's free push service, which passes them to Firebase. No new keys or accounts.
 
 **What you need to do**
