@@ -16,7 +16,7 @@ export type ChatMessage = { id: string; from: string; nickname: string; text: st
 export const CHAT_MAX_LINES = 4;
 
 // Invisible characters that can hide or reorder text: controls, zero-width marks, bidi overrides and isolates.
-const INVISIBLE = /[\u0000-\u0008\u000B\u000C\u000E-\u001F\u007F​-‏‪-‮⁠-⁤⁦-⁩﻿]/g;
+const INVISIBLE = /[\u0000-\u0009\u000B\u000C\u000E-\u001F\u007F\u200B-\u200F\u202A-\u202E\u2060-\u2064\u2066-\u2069\uFEFF]/g;
 
 // Trims, removes invisible characters and limits the length. Empty means "don't send".
 export function cleanChat(text: string): string {

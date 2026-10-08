@@ -1,4 +1,4 @@
-import { acceptItem, allowedKinds, findLink, keepsTable, linkSite, parseVideoLink, videoPositionNow, type TableItem } from '../src/table/model';
+import { acceptItem, allowedKinds, nextTurn, tally, findLink, keepsTable, linkSite, parseVideoLink, videoPositionNow, type TableItem } from '../src/table/model';
 
 const ada = { id: 'ada', nickname: 'Ada_K' };
 const PHOTOS = 'https://x.supabase.co/storage/v1/object/sign/table/';
@@ -67,6 +67,30 @@ describe('the table', () => {
 jest.mock('expo-image-picker', () => ({}));
 jest.mock('expo-image-manipulator', () => ({ ImageManipulator: {}, SaveFormat: {} }));
 jest.mock('../src/lib/supabase', () => ({ supabase: {} }));
+
+describe('take turns and quiz', () => {
+  it('passes the turn to the next person still here', () => {
+    expect(nextTurn(['a', 'b', 'c'], 0, ['a', 'b', 'c'])).toBe(1);
+    expect(nextTurn(['a', 'b', 'c'], 0, ['a', 'c'])).toBe(2);
+    expect(nextTurn(['a', 'b', 'c'], 2, ['a', 'b', 'c'])).toBe(0);
+    expect(nextTurn(['a'], 0, ['a'])).toBe(0);
+  });
+
+  it('counts quiz answers without names, one per person', () => {
+    const answers = new Map([['a', 0], ['b', 1], ['c', 1], ['d', 9]]);
+    expect(tally(answers, 3)).toEqual([1, 2, 0]);
+  });
+
+  it('checks quiz and turn items from other phones', () => {
+    expect(acceptItem({ id: 'q', at: 1, kind: 'quiz', question: 'Best jollof?', answers: ['Lagos'] }, ada, 'talk', PHOTOS)).toBeNull();
+    const quiz = acceptItem({ id: 'q', at: 1, kind: 'quiz', question: 'Best jollof?', answers: ['Lagos', 'Accra', 'x', 'y', 'z'], correct: 7 }, ada, 'talk', PHOTOS);
+    expect(quiz?.kind === 'quiz' && quiz.answers.length).toBe(4);
+    expect(quiz?.kind === 'quiz' && quiz.correct).toBeNull();
+    expect(acceptItem({ id: 't', at: 1, kind: 'turns', topic: 'Stories', minutes: 3 }, ada, 'support', PHOTOS)).toBeNull();
+    const turns = acceptItem({ id: 't', at: 1, kind: 'turns', topic: 'Stories', minutes: 99 }, ada, 'talk', PHOTOS);
+    expect(turns?.kind === 'turns' && turns.minutes).toBe(2);
+  });
+});
 
 describe('photo upload helpers', () => {
   it('turns base64 into the same bytes as the standard decoder', () => {

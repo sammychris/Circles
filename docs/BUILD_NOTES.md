@@ -231,7 +231,7 @@ Then on each phone: open Circles, close it fully (swipe it away), and open it ag
 - **If the room drops to two while you're sharing your screen, sharing stops.** The table hides then, so you'd have no Stop button.
 - **Photos are deleted from storage itself 3 hours after upload, oldest first.** A photo can't be missed, and reported ones are kept.
 - **A shared screen is only sent while someone is watching it**, to save the presenter's data.
-- **Not built yet from the Table design:** Take turns, Quiz, Words (for Learn), a photo ban for repeat reports, and a host switch to turn off notes in support rooms.
+- **Not built yet from the Table design:** Words (for Learn), a photo ban for repeat reports, and a host switch to turn off notes in support rooms.
 
 **What you need to do**
 1. Run the database update again: `supabase/migrations/20261010000000_open_test_extras.sql` (it now also creates the photo storage). It's safe to run twice.
@@ -245,3 +245,20 @@ Then on each phone: open Circles, close it fully (swipe it away), and open it ag
 - [ ] **Photos:** pick 3 photos. The others see **Tap to see**. Slide to the next one, and theirs follow. On another phone, go back: **Back to live** appears.
 - [ ] **Share my screen:** read the warning, allow it, then open another app. The others tap **Tap to see** and watch your screen. Tap **Stop sharing**.
 - [ ] In a support room, **Table** only offers **A note or link**.
+
+---
+
+## 7. Take turns and Quiz on the Table
+
+**What I built**
+- **Take turns** (Table, then Do together): an optional topic ("Your best Lagos traffic story") and how long each turn lasts: 1, 2 or 3 minutes. Everyone in the room is in the order, starting with whoever started it. People who arrive later join the end. The card shows whose turn it is (in green) and how long is left. When time's up it moves on by itself. The speaker can tap **Pass to the next person**, and the starter can tap **Next person**.
+- **Quiz:** a question with 2 to 4 answers. You can mark the right one; if you don't, it's a poll. Everyone taps an answer on their own phone and can change it until the reveal. The starter sees "3 of 5 answered" and taps **Reveal the answers**. Everyone then sees how many people chose each answer, with the right one ticked.
+
+**Choices I made (open to change)**
+- **Nobody ever sees who chose what**, only how many. Answers go only to the starter's phone, which just counts them. No points, scores or rankings, as your rules say.
+- **Not in support rooms.** Those keep notes and links only, as the design says.
+- **Turns don't mute anyone.** It's only a guide. Nobody is ever muted by a game or activity (your Never list).
+
+**Phone checklist**
+- [ ] Table, then **Take turns**, 1 minute. All phones see the order. After a minute it moves on by itself. The person whose turn it is taps **Pass**, and it moves on.
+- [ ] Table, then **Quiz**: ask "Best jollof?" with Lagos, Accra and Abuja, and mark Lagos. Others answer. Tap **Reveal**: everyone sees the counts, and nobody's name.

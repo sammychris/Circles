@@ -7,6 +7,8 @@ import {
   cleanState,
   itemToWire,
   keepsTable,
+  nextTurn,
+  tally,
   type Door,
   type TableItem,
   type TableMessage,
@@ -62,12 +64,19 @@ export function useTable(
     stateRef.current = next;
     setStateState(next);
   }, []);
+  const peopleRef = useRef<string[]>([]);
+  peopleRef.current = people.map((p) => p.id);
   const hostsRef = useRef(new Set<string>());
   hostsRef.current = new Set(people.filter((p) => p.isHost).map((p) => p.id));
   const iAmHost = people.some((p) => p.id === me.id && p.isHost);
   const iAmHostRef = useRef(iAmHost);
   iAmHostRef.current = iAmHost;
   const heard = useRef(new Map<string, number[]>());
+  // The presenter's quiz answers, by person (never shown to anyone, only counted).
+  const quizAnswers = useRef(new Map<string, number>());
+  const [answeredCount, setAnsweredCount] = useState(0);
+  // This person's own quiz answer.
+  const [myAnswer, setMyAnswer] = useState<number | null>(null);
   const answered = useRef(new Map<string, number>());
 
   const send = useCallback(
@@ -106,6 +115,22 @@ export function useTable(
         if (!current || current.id !== msg.id || current.by !== from.id) return;
         const next = cleanState(msg.state, current.kind, current.kind === 'photos' ? current.photos.length : 0);
         if (next && next.seq > stateRef.current.seq) setState(next);
+      } else if (msg.k === 'answer') {
+        // Only the presenter counts answers, one per person, until the reveal.
+        if (!current || current.by !== me.id || current.kind !== 'quiz' || current.id !== msg.id) return;
+        if (stateRef.current.revealed || typeof msg.choice !== 'number') return;
+        if (!Number.isInteger(msg.choice) || msg.choice < 0 || msg.choice >= current.answers.length) return;
+        quizAnswers.current.set(from.id, msg.choice);
+        setAnsweredCount(quizAnswers.current.size);
+      } else if (msg.k === 'pass') {
+        // The speaker hands on their turn.
+        if (!current || current.by !== me.id || current.kind !== 'turns' || current.id !== msg.id) return;
+        const st = stateRef.current;
+        if (!st.order || st.order[st.index ?? 0] !== from.id) return;
+        const index = nextTurn(st.order, st.index ?? 0, peopleRef.current);
+        const next = { ...st, index, startedAt: Date.now(), seq: st.seq + 1 };
+        setState(next);
+        void send({ k: 'state', id: current.id, state: next });
       } else if (msg.k === 'off') {
         // Only the presenter, or a trained host, can take something off the table.
         if (current && current.id === msg.id && (current.by === from.id || hostsRef.current.has(from.id))) {
@@ -156,6 +181,9 @@ export function useTable(
       }
       const next = { ...fresh, id: newId(), by: me.id, byName: me.nickname, at: Date.now() } as TableItem;
       const nextState = { ...firstState, seq: 1 };
+      quizAnswers.current = new Map();
+      setAnsweredCount(0);
+      setMyAnswer(null);
       setBumped(false);
       setItem(next);
       setState(nextState);
@@ -194,7 +222,88 @@ export function useTable(
     [setItem, setState],
   );
 
+  // A new item: forget the last quiz answer.
+  const itemId = item?.id;
+  useEffect(() => setMyAnswer(null), [itemId]);
+
+  // Quiz: send your answer to the presenter only. You can change it until the reveal.
+  const answer = useCallback(
+    (choice: number) => {
+      const current = itemRef.current;
+      if (!current || current.kind !== 'quiz' || stateRef.current.revealed) return;
+      setMyAnswer(choice);
+      if (current.by === me.id) {
+        quizAnswers.current.set(me.id, choice);
+        setAnsweredCount(quizAnswers.current.size);
+      } else void send({ k: 'answer', id: current.id, choice }, [current.by]);
+    },
+    [me.id, send],
+  );
+
+  // Quiz: the presenter shows how many chose each answer. Never who.
+  const reveal = useCallback(() => {
+    const current = itemRef.current;
+    if (!current || current.by !== me.id || current.kind !== 'quiz') return;
+    const counts = tally(quizAnswers.current, current.answers.length);
+    const next = { ...stateRef.current, revealed: true, counts, seq: stateRef.current.seq + 1 };
+    setState(next);
+    void send({ k: 'state', id: current.id, state: next });
+  }, [me.id, send, setState]);
+
+  // Take turns: the speaker (or the presenter) moves on to the next person.
+  const passTurn = useCallback(() => {
+    const current = itemRef.current;
+    if (!current || current.kind !== 'turns') return;
+    if (current.by !== me.id) {
+      void send({ k: 'pass', id: current.id }, [current.by]);
+      return;
+    }
+    const st = stateRef.current;
+    if (!st.order || st.order.length === 0) return;
+    const next = { ...st, index: nextTurn(st.order, st.index ?? 0, peopleRef.current), startedAt: Date.now(), seq: st.seq + 1 };
+    setState(next);
+    void send({ k: 'state', id: current.id, state: next });
+  }, [me.id, send, setState]);
+
+  // Take turns, on the presenter's phone: people who arrive join the end of the order, and when time
+  // is up the turn moves on by itself.
+  useEffect(() => {
+    if (!item || item.kind !== 'turns' || item.by !== me.id) return;
+    const timer = setInterval(() => {
+      const st = stateRef.current;
+      const order = st.order ?? [];
+      const here = peopleRef.current;
+      const joined = here.filter((id) => !order.includes(id));
+      const nextOrder = joined.length > 0 ? [...order, ...joined] : order;
+      const current = nextOrder[st.index ?? 0];
+      const timeUp = Date.now() - (st.startedAt ?? 0) > item.minutes * 60_000;
+      const left = current !== undefined && !here.includes(current);
+      if (!timeUp && !left && joined.length === 0) return;
+      const index = timeUp || left ? nextTurn(nextOrder, st.index ?? 0, here) : st.index ?? 0;
+      const next = { ...st, order: nextOrder, index, startedAt: timeUp || left ? Date.now() : st.startedAt, seq: st.seq + 1 };
+      setState(next);
+      void send({ k: 'state', id: item.id, state: next });
+    }, 1000);
+    return () => clearInterval(timer);
+  }, [item, me.id, send, setState]);
+
   const mine = !!item && item.by === me.id;
   const clearBumped = useCallback(() => setBumped(false), []);
-  return { item, state, mine, canTakeOff: mine || iAmHost, bumped, clearBumped, put, present, takeOff, dismissFrom };
+  return {
+    item,
+    state,
+    mine,
+    canTakeOff: mine || iAmHost,
+    bumped,
+    clearBumped,
+    put,
+    present,
+    takeOff,
+    dismissFrom,
+    myAnswer,
+    answeredCount,
+    answer,
+    reveal,
+    passTurn,
+  };
 }

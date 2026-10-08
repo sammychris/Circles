@@ -1,6 +1,6 @@
 import type { ComponentType } from 'react';
 import { Platform, Pressable, View } from 'react-native';
-import { Dice5, FileText, Images, MonitorPlay, MonitorUp, Search } from 'lucide-react-native';
+import { CircleHelp, Dice5, FileText, Images, ListOrdered, MonitorPlay, MonitorUp, Search } from 'lucide-react-native';
 import type { Door, TableKind } from '../../table/model';
 import { allowedKinds } from '../../table/model';
 import { doorColors, moodColors, opacity, radius, size, space, useColors } from '../../theme';
@@ -104,12 +104,20 @@ export function PutOnTableSheet({ visible, door, gamesReady, onClose, onPick }: 
         ) : null}
       </View>
 
-      {allowed.includes('video') ? (
+      {allowed.includes('turns') || allowed.includes('video') ? (
         <View style={{ gap: space[2] }}>
           <Text variant="metaStrong" color="textMeta">
             Do together
           </Text>
-          <Row Icon={MonitorPlay} title="Watch together" line="A YouTube or Vimeo video, the same moment for everyone" onPress={() => onPick('video')} />
+          {allowed.includes('turns') ? (
+            <Row Icon={ListOrdered} title="Take turns" line="A speaking order for stories and debates" onPress={() => onPick('turns')} />
+          ) : null}
+          {allowed.includes('quiz') ? (
+            <Row Icon={CircleHelp} title="Quiz" line="You ask, everyone answers on their phone" onPress={() => onPick('quiz')} />
+          ) : null}
+          {allowed.includes('video') ? (
+            <Row Icon={MonitorPlay} title="Watch together" line="A YouTube or Vimeo video, the same moment for everyone" onPress={() => onPick('video')} />
+          ) : null}
         </View>
       ) : null}
 

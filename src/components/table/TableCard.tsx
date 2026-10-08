@@ -13,6 +13,8 @@ const VERB: Record<TableItem['kind'], string> = {
   video: 'put a video on the table',
   photos: 'is showing photos',
   screen: 'is sharing their screen',
+  turns: 'started taking turns',
+  quiz: 'asked a question',
 };
 
 // While something is on the table, the seats move up into a row of small avatars (design direction ›

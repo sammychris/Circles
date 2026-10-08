@@ -22,7 +22,9 @@ import { useLudo } from '../games/ludo/useLudo';
 import { ImpostorTable } from '../games/impostor/ImpostorTable';
 import { ROUNDS_PER_GAME, phaseAt as impostorPhase } from '../games/impostor/logic';
 import { useImpostor } from '../games/impostor/useImpostor';
-import { NoteSheet, VideoSheet } from '../components/table/ComposeSheets';
+import { NoteSheet, QuizSheet, TurnsSheet, VideoSheet } from '../components/table/ComposeSheets';
+import { QuizBody } from '../components/table/QuizBody';
+import { TurnsBody } from '../components/table/TurnsBody';
 import { PutOnTableSheet, type TableChoice } from '../components/table/PutOnTableSheet';
 import { NoteBody, SeatRow, TableCard, TableOptionsSheet } from '../components/table/TableCard';
 import { PhotosBody } from '../components/table/PhotosBody';
@@ -128,7 +130,7 @@ export function RoomScreen({ me, request, onLeft, onMove }: Props) {
     voice.reconnects,
   );
   const [putOpen, setPutOpen] = useState(false);
-  const [compose, setCompose] = useState<'note' | 'video' | null>(null);
+  const [compose, setCompose] = useState<'note' | 'video' | 'turns' | 'quiz' | null>(null);
   const [tableOptionsOpen, setTableOptionsOpen] = useState(false);
   const [photosBusy, setPhotosBusy] = useState(false);
   // What was on the table when the report was opened, kept even if it comes off while they write.
@@ -508,7 +510,7 @@ export function RoomScreen({ me, request, onLeft, onMove }: Props) {
         setWordHidden(false);
         if (choice === 'ludo') ludo.start(everyone);
         else impostor.startGame(everyone);
-      } else if (choice === 'note' || choice === 'video') {
+      } else if (choice === 'note' || choice === 'video' || choice === 'turns' || choice === 'quiz') {
         setTimeout(() => setCompose(choice), motion.slow);
       } else if (choice === 'photos') {
         setTimeout(() => void putPhotos(), motion.slow);
@@ -525,6 +527,22 @@ export function RoomScreen({ me, request, onLeft, onMove }: Props) {
         <SeatRow people={people} onPerson={(p) => setProfile({ id: p.id, nickname: p.nickname, isHost: p.isHost })} />
         <TableCard item={item} me={me.id} onOptions={() => setTableOptionsOpen(true)}>
           {item.kind === 'note' ? <NoteBody item={item} /> : null}
+          {item.kind === 'turns' ? (
+            <TurnsBody key={item.id} item={item} state={tableItem.state} me={me.id} people={people} onPass={tableItem.passTurn} />
+          ) : null}
+          {item.kind === 'quiz' ? (
+            <QuizBody
+              key={item.id}
+              item={item}
+              state={tableItem.state}
+              mine={tableItem.mine}
+              myAnswer={tableItem.myAnswer}
+              answeredCount={tableItem.answeredCount}
+              peopleCount={people.length}
+              onAnswer={tableItem.answer}
+              onReveal={tableItem.reveal}
+            />
+          ) : null}
           {item.kind === 'photos' ? (
             <PhotosBody key={item.id} item={item} state={tableItem.state} mine={tableItem.mine} onPresent={tableItem.present} />
           ) : null}
@@ -957,6 +975,24 @@ export function RoomScreen({ me, request, onLeft, onMove }: Props) {
         onPut={(video, title) => {
           setCompose(null);
           void tableItem.put({ kind: 'video', video, title }, { playing: false, position: 0, sentAt: Date.now() });
+        }}
+      />
+      <TurnsSheet
+        visible={compose === 'turns'}
+        onClose={() => setCompose(null)}
+        onPut={(topic, minutes) => {
+          setCompose(null);
+          // Everyone here, starting with you; people who arrive later join the end.
+          const order = [me.id, ...people.filter((p) => !p.isMe).map((p) => p.id)];
+          void tableItem.put({ kind: 'turns', topic, minutes }, { order, index: 0, startedAt: Date.now() });
+        }}
+      />
+      <QuizSheet
+        visible={compose === 'quiz'}
+        onClose={() => setCompose(null)}
+        onPut={(question, answers, correct) => {
+          setCompose(null);
+          void tableItem.put({ kind: 'quiz', question, answers, correct }, { revealed: false });
         }}
       />
       <TableOptionsSheet

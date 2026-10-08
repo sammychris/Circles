@@ -104,7 +104,7 @@ function titleBreaksRules(title: string): 'number' | 'link' | 'reserved' | null 
   // Phone numbers: at least 7 digits once everything but letters and digits is taken out.
   if (/\p{Nd}{7,}/u.test(title.normalize('NFKC').replace(/[^\p{L}\p{N}]/gu, ''))) return 'number';
   if (/(https?:|www\.|\.(com|ng|net|org|io|me|ly|co)\b|@[a-z0-9_]{3,})/i.test(title)) return 'link';
-  const plain = Array.from(title.normalize('NFKD').replace(/[̀-ͯ]/g, '').toLowerCase())
+  const plain = Array.from(title.normalize('NFKD').replace(/[\u0300-\u036f]/g, '').toLowerCase())
     .map((ch) => LOOKALIKES[ch] ?? ch)
     .join('')
     .replace(/[^a-z]+/g, ' ')

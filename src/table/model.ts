@@ -8,9 +8,13 @@ export const TABLE_TOPIC = 'table';
 export const NOTE_MAX = 500;
 export const PHOTOS_MAX = 20;
 export const VIDEO_TITLE_MAX = 60;
+export const TOPIC_MAX = 120;
+export const QUESTION_MAX = 160;
+export const ANSWER_MAX = 60;
+export const TURN_MINUTES = [1, 2, 3] as const;
 
 export type Door = 'talk' | 'play' | 'support';
-export type TableKind = 'note' | 'video' | 'photos' | 'screen';
+export type TableKind = 'note' | 'video' | 'photos' | 'screen' | 'turns' | 'quiz';
 export type VideoRef = { provider: 'youtube' | 'vimeo'; id: string };
 export type Photo = { url: string; path: string };
 // On the wire a photo is just its storage path and link token; every phone rebuilds the link itself,
@@ -38,23 +42,41 @@ export type TableItem = Common &
     | { kind: 'video'; video: VideoRef; title: string }
     | { kind: 'photos'; photos: Photo[] }
     | { kind: 'screen' }
+    // Take turns: a speaking order for stories and debates, with a gentle timer.
+    | { kind: 'turns'; topic: string; minutes: number }
+    // Quiz: everyone answers privately; the presenter reveals how many chose each. No scores kept.
+    | { kind: 'quiz'; question: string; answers: string[]; correct: number | null }
   );
 
-// Where the presenter is: the photo they're showing, or the video's play state.
-export type TableState = { seq: number; index?: number; playing?: boolean; position?: number; sentAt?: number };
+// Where the presenter is: the photo they're showing, the video's play state, whose turn it is, or a
+// quiz's revealed counts.
+export type TableState = {
+  seq: number;
+  index?: number;
+  playing?: boolean;
+  position?: number;
+  sentAt?: number;
+  order?: string[];
+  startedAt?: number;
+  revealed?: boolean;
+  counts?: number[];
+};
 
 export type TableMessage =
   | { k: 'put'; item: unknown; state: TableState }
   | { k: 'state'; id: string; state: TableState }
   | { k: 'off'; id: string }
-  | { k: 'hello' };
+  | { k: 'hello' }
+  // To the presenter only: a quiz answer, or the speaker passing their turn.
+  | { k: 'answer'; id: string; choice: number }
+  | { k: 'pass'; id: string };
 
 // Support rooms only ever get notes and links: no photos, videos or screens (CLAUDE.md, Never list).
 export function allowedKinds(door: Door): TableKind[] {
-  return door === 'support' ? ['note'] : ['note', 'video', 'photos', 'screen'];
+  return door === 'support' ? ['note'] : ['note', 'turns', 'quiz', 'video', 'photos', 'screen'];
 }
 
-const INVISIBLE = /[\u0000-\u0009\u000B\u000C\u000E-\u001F\u007F​-‏‪-‮⁠-⁤⁦-⁩﻿]/g;
+const INVISIBLE = /[\u0000-\u0009\u000B\u000C\u000E-\u001F\u007F\u200B-\u200F\u202A-\u202E\u2060-\u2064\u2066-\u2069\uFEFF]/g;
 
 export function cleanNote(text: string): string {
   let lines = 0;
@@ -167,7 +189,44 @@ export function acceptItem(
     return { ...common, kind, photos };
   }
   if (kind === 'screen') return { ...common, kind };
+  if (kind === 'turns') {
+    const topic = typeof r.topic === 'string' ? oneLine(r.topic, TOPIC_MAX) : '';
+    const minutes = TURN_MINUTES.includes(r.minutes as 1 | 2 | 3) ? (r.minutes as number) : 2;
+    return { ...common, kind, topic, minutes };
+  }
+  if (kind === 'quiz') {
+    const question = typeof r.question === 'string' ? oneLine(r.question, QUESTION_MAX) : '';
+    const answers = Array.isArray(r.answers)
+      ? r.answers.slice(0, 4).map((a) => (typeof a === 'string' ? oneLine(a, ANSWER_MAX) : '')).filter(Boolean)
+      : [];
+    if (!question || answers.length < 2) return null;
+    const correct = typeof r.correct === 'number' && Number.isInteger(r.correct) && r.correct >= 0 && r.correct < answers.length ? r.correct : null;
+    return { ...common, kind, question, answers, correct };
+  }
   return null;
+}
+
+// One line of plain text, at most `max` characters.
+export function oneLine(text: string, max: number): string {
+  return Array.from(cleanNote(text).replace(/\s+/g, ' ').trim()).slice(0, max).join('');
+}
+
+// Take turns: who speaks next, skipping anyone who left.
+export function nextTurn(order: string[], index: number, here: string[]): number {
+  for (let step = 1; step <= order.length; step++) {
+    const i = (index + step) % order.length;
+    if (here.includes(order[i])) return i;
+  }
+  return index;
+}
+
+// Quiz: how many chose each answer, from each person's latest answer. Never who chose what.
+export function tally(answers: Map<string, number>, count: number): number[] {
+  const counts = new Array(count).fill(0);
+  answers.forEach((choice) => {
+    if (choice >= 0 && choice < count) counts[choice] += 1;
+  });
+  return counts;
 }
 
 // Two people put something on the table at the same moment: the first one stays. The presenter can
@@ -196,6 +255,17 @@ export function cleanState(raw: unknown, kind: TableKind, photoCount: number): T
     const index = typeof r.index === 'number' ? Math.round(r.index) : 0;
     return { seq, index: Math.min(Math.max(index, 0), Math.max(photoCount - 1, 0)) };
   }
+  if (kind === 'turns') {
+    const order = Array.isArray(r.order) ? r.order.filter((id): id is string => typeof id === 'string' && id.length <= 64).slice(0, 12) : [];
+    const index = typeof r.index === 'number' ? Math.min(Math.max(Math.round(r.index), 0), Math.max(order.length - 1, 0)) : 0;
+    const startedAt = typeof r.startedAt === 'number' && Number.isFinite(r.startedAt) ? r.startedAt : Date.now();
+    return { seq, order, index, startedAt };
+  }
+  if (kind === 'quiz') {
+    const revealed = r.revealed === true;
+    const counts = revealed && Array.isArray(r.counts) ? r.counts.slice(0, 4).map((n) => (typeof n === 'number' && n >= 0 ? Math.round(n) : 0)) : undefined;
+    return { seq, revealed, counts };
+  }
   if (kind === 'video') {
     const position = typeof r.position === 'number' && Number.isFinite(r.position) ? Math.max(0, r.position) : 0;
     const sentAt = typeof r.sentAt === 'number' && Number.isFinite(r.sentAt) ? r.sentAt : Date.now();
@@ -208,6 +278,8 @@ export function cleanState(raw: unknown, kind: TableKind, photoCount: number): T
 export function describeItem(item: TableItem): string {
   if (item.kind === 'note') return `On the table, a note by ${item.byName}: "${item.text}"`;
   if (item.kind === 'video') return `On the table, a ${item.video.provider} video by ${item.byName}: ${item.video.id}${item.title ? ` (${item.title})` : ''}`;
+  if (item.kind === 'turns') return `On the table, ${item.byName} started taking turns${item.topic ? `: "${item.topic}"` : ''}`;
+  if (item.kind === 'quiz') return `On the table, a quiz by ${item.byName}: "${item.question}" (${item.answers.join(' / ')})`;
   if (item.kind === 'photos') return `On the table, ${item.photos.length} photos by ${item.byName}: ${item.photos.map((p) => p.path).join(', ')}`;
   return `On the table, ${item.byName} was sharing their screen`;
 }
