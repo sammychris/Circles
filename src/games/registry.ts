@@ -1,5 +1,6 @@
 import { chessGame } from './chess/engine';
 import { draughts } from './draughts/engine';
+import { mafia } from './mafia/engine';
 import { whot } from './whot/engine';
 import type { GameId, TableGame } from './tableGame';
 
@@ -8,4 +9,5 @@ export const GAMES: Partial<Record<GameId, TableGame<unknown>>> = {
   draughts: draughts as TableGame<unknown>,
   chess: chessGame as TableGame<unknown>,
   whot: whot as TableGame<unknown>,
+  mafia: mafia as TableGame<unknown>,
 };

@@ -28,10 +28,13 @@ import { WordsBody } from '../components/table/WordsBody';
 import { DraughtsBody } from '../games/draughts/DraughtsBody';
 import { ChessBody } from '../games/chess/ChessBody';
 import { WhotBody } from '../games/whot/WhotBody';
+import { MafiaBody } from '../games/mafia/MafiaBody';
+import type { MafiaPublic, MafiaSecret } from '../games/mafia/engine';
 import type { WhotPublic } from '../games/whot/engine';
 import type { ChessGame } from '../games/chess/engine';
 import type { DraughtsGame } from '../games/draughts/engine';
 import { GAME_IDS, type GameId } from '../games/tableGame';
+import { GAMES } from '../games/registry';
 import { AppealSheet, HandsSheet, HostActionsSheet, REMOVAL_REASONS, RemoveSheet } from '../components/host/HostSheets';
 import { utf8Decode, utf8Encode } from '../rooms/chat';
 import { appealRemoval, hostAction, type RemovalReason } from '../rooms/api';
@@ -285,8 +288,12 @@ export function RoomScreen({ me, request, onLeft, onMove }: Props) {
     if (!ok) setBlockedOpen(true);
   }, [micAllowed, micLive, voice]);
 
+  // Mafia's night: everyone's mic is paused, at most 20 seconds, and the screen says why (activities.md ›
+  // pausesMics). It never mutes anyone outside the night.
+  const mafiaNight =
+    tableItem.item?.kind === 'game' && tableItem.item.game === 'mafia' && (tableItem.state.g as MafiaPublic | undefined)?.phase === 'night';
   const micState: MicState =
-    phase && phase !== 'live'
+    (phase && phase !== 'live') || mafiaNight
       ? 'paused'
       : !micAllowed
         ? micDenied
@@ -295,8 +302,16 @@ export function RoomScreen({ me, request, onLeft, onMove }: Props) {
         : micLive
           ? 'live'
           : 'muted';
-  const pausedReason =
-    isSupport && !hostPresent ? 'Waiting for a host' : phase === 'countdown' ? 'Finding a third person' : 'Rooms need three people';
+  const pausedReason = mafiaNight
+    ? 'Night: the Mafia is choosing'
+    : isSupport && !hostPresent
+      ? 'Waiting for a host'
+      : phase === 'countdown'
+        ? 'Finding a third person'
+        : 'Rooms need three people';
+  useEffect(() => {
+    if (mafiaNight && micLive) void voice.setMic(false);
+  }, [mafiaNight, micLive, voice.setMic]);
 
   // --- people: save, block, report ---
   const toggleSave = useCallback(
@@ -591,6 +606,11 @@ export function RoomScreen({ me, request, onLeft, onMove }: Props) {
     setPutOpen(false);
     confirmReplace(() => {
       if (GAME_IDS.includes(choice as GameId)) {
+        const engine = GAMES[choice as GameId];
+        if (engine && people.length < engine.min) {
+          setToast(choice === 'mafia' ? 'Mafia needs at least 5 people: a narrator and 4 players.' : `${engine.name} needs at least ${engine.min} people.`);
+          return;
+        }
         if (tableItem.item) tableItem.takeOff();
         void tableItem.startGame(choice as GameId);
       } else if (choice === 'ludo' || choice === 'impostor') {
@@ -646,6 +666,18 @@ export function RoomScreen({ me, request, onLeft, onMove }: Props) {
               starter={tableItem.mine}
               onMove={tableItem.sendMove}
               onPlayAgain={() => void tableItem.startGame('whot')}
+              onBackToTalking={tableItem.takeOff}
+            />
+          ) : null}
+          {item.kind === 'game' && item.game === 'mafia' && tableItem.state.g ? (
+            <MafiaBody
+              g={tableItem.state.g as MafiaPublic}
+              secret={(tableItem.mySecret as MafiaSecret | null) ?? null}
+              me={me.id}
+              people={people}
+              starter={tableItem.mine}
+              onMove={tableItem.sendMove}
+              onPlayAgain={() => void tableItem.startGame('mafia')}
               onBackToTalking={tableItem.takeOff}
             />
           ) : null}

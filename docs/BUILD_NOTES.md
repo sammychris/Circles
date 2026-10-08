@@ -337,3 +337,47 @@ Then on each phone: open Circles, close it fully (swipe it away), and open it ag
 - [ ] Learn together, then **Igbo**, then **Practise Igbo now**. It asks your level; pick Beginner. You're in an "Igbo practice" room showing "Beginner".
 - [ ] A second phone picks Igbo and Beginner and lands in the same room. A third picking Fluent gets a different room.
 - [ ] In the room, Table, then **Words**: type "kedu = how are you" and two more. Tap **Show the first word**.
+
+---
+
+## 12. More games: Draughts, Chess in teams, Whot, Mafia
+
+All four are under Table, then Games, in game rooms, next to Ludo and Find the Impostor.
+
+**How they run:** whoever starts a game holds it on their phone. Everyone else's moves go there, are checked against the game's rules, and the result goes to everyone. Anything hidden (a Whot hand, a Mafia role) is sent only to the person it belongs to. Nothing is kept: no points, streaks or rankings. Whoever started a game can end it ("End game" in the bottom row), and "Play again" or "Back to talking" come at the end.
+
+**Draughts** (our own code)
+- Two teams, Sun and Sky, on the common 8 × 8 board.
+- Capturing is compulsory and a piece can jump several times in one turn. A piece that reaches the far side becomes a king, which moves one square in any diagonal direction.
+- Your team talks it over, then anyone on it taps a piece (it has a ring) and where it goes. Team Sky sees the board from its own side.
+- It's a draw after 80 moves without a capture. A team with nobody left loses.
+
+**Chess in teams** (rules from chess.js, a free, open-source chess library, BSD licence)
+- Team Sun plays white, Team Sky black.
+- On your team's turn, anyone taps a piece and a square to suggest a move, for example "Ada_K suggests Knight to f3". It's played when most of the team taps **Agree**, or after 60 seconds with the latest suggestion, as the design says.
+
+**Whot** (our own code, Nigerian rules)
+- 54 cards, 5 each.
+- 1 Hold on, 2 Pick two, 5 Pick three, 8 Suspension, 14 General market (everyone else picks one, and you play again), 20 Whot (call a shape).
+- Stuck? **Go to market**. First to finish wins.
+- **Your hand is only on your phone.** Everyone sees how many cards each person has.
+- Anyone who takes more than 60 seconds goes to market, so the game never stalls.
+
+**Mafia** (our own code)
+- **The person who starts it is the narrator**, as in the real game. They don't play, and they see the roles so they can narrate. It needs at least 5 people: a narrator and 4 players.
+- Roles: Mafia (two Mafia with 6 or more players), Doctor, Detective, and Townspeople. Each player sees only their own role, and can hide it.
+- **Night lasts at most 20 seconds, and everyone's mic is paused**, with "Night: the Mafia is choosing" shown on the mic. The design allows this for short secret phases only.
+- **Day:** everyone talks, then votes. The counts show, never who voted for whom.
+- **"Out" players stay in the room**, keep listening and can chat; they just can't vote. Nobody is ever muted or removed for real.
+
+**Choices I made (open to change)**
+- **Draughts is 8 × 8.** Many Nigerians play 10 × 10 (international draughts); tell me if you'd like that instead.
+- **Whot's "General market" lets the player go again.** House rules vary; tell me yours.
+- **The starter's phone holds the whole game,** including everyone's Whot hand. Someone with a changed app could peek at the hands of a game they started. For the open test that's fine. Later, the cards can be dealt by the server, the way Find the Impostor's words already are.
+- **Not built yet:** Draw and Guess, Ayo, Finish the Line, Story Chain, and On the Same Wave.
+
+**Phone checklist** (3 or more phones, in a game room)
+- [ ] Table, then **Draughts**: teams appear. Your team taps a ringed piece, then a square.
+- [ ] Table, then **Chess in teams**: suggest a move, and a teammate taps **Agree**.
+- [ ] Table, then **Whot**: each phone shows only its own cards. Play a 2, and the next person picks two.
+- [ ] With 5 phones: Table, then **Mafia**. The starter sees everyone's role and the others only their own. At night, mics pause and the night roles choose. By day, vote.
