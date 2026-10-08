@@ -357,7 +357,7 @@ All four are under Table, then Games, in game rooms, next to Ludo and Find the I
 - It's a draw after 80 moves without a capture. A team with nobody left loses.
 
 **Chess in teams** (rules from chess.js, a free, open-source chess library, BSD licence)
-- Team Sun plays white, Team Sky black.
+- Team Sun plays white, Team Sky black. (Changed in part 16: in a set, the teams take turns having the first move, and keep their own look.)
 - On your team's turn, anyone taps a piece and a square to suggest a move, for example "Ada_K suggests Knight to f3". It's played when most of the team taps **Agree**, or after 60 seconds with the latest suggestion, as the design says. Teammates can tap **Suggest another**.
 - The 60 seconds start with the first suggestion and don't restart, so nobody can hold the game up by suggesting again and again.
 - Sun's pieces are outlined, Sky's are solid, so they don't rely on colour.
@@ -470,7 +470,7 @@ Your idea (2026-10-08): keep the score while people keep playing, and celebrate 
 **Choices I made (open to change)**
 - **No score for Mafia or Find the Impostor.** Roles change every game, and counting who got caught can feel like picking on people.
 - **A draw counts for nobody.**
-- **The teams take turns going first** through a set, in Ludo and Draughts. In Chess, Team Sun always plays white, as now; tell me if you'd like the teams to swap colours each game.
+- **The teams take turns going first** through a set, in Ludo, Draughts and Chess (see part 16 for Chess).
 - **Play again never adds more people than the game allows** (6 for Draughts and Chess): anyone extra watches.
 - **If a whole team leaves,** Play again mixes new teams and the score starts over, and the room is told so.
 - **In Whot, someone who leaves the room** drops out of the score.
@@ -496,9 +496,11 @@ Your idea (2026-10-08): keep the score while people keep playing, and celebrate 
 - **Me** shows **Add your email** for anyone who skipped it.
 - **Log out** without an email warns you first, and now says to add your email in Me to keep the account.
 - The app also renews your sign-in as soon as you come back to it, so it should stay signed in between visits.
-- **Chess through a set:** teams keep their colours and swap places. The team that moved second moves first next game (it gets the white pieces), and the board turns round so your pieces are always at the bottom.
+- **Chess through a set:** teams keep their own colours and look, and swap places. The team that moved second moves first next game (in chess terms it plays white), and the board turns round so your pieces are always at the bottom.
+- **Everyone in a room needs this update** for Chess: a phone on an older version would show the wrong team's turn when Team Sky goes first.
+- **Adding an email never says whether it's already on another account.** If it is, the app still shows the code screen ("If this email isn't already on another Circles account, we sent it a code"), so nobody can use Circles to find out who's on it.
 
-**What you need to do** (until you do, sending a code fails and people carry on without email)
+**What you need to do.** Until you do: your own team's addresses get a link instead of a code, so they get stuck on the code screen; everyone else sees "We couldn't send the code" and can tap **Continue without email**.
 1. **Put the code in two emails.** In Supabase, open **Authentication**, then **Emails** (Templates).
    1. Open **Magic Link**. Replace the message with:
       `Your Circles code is {{ .Token }}. It works for 1 hour. If you didn't ask for it, ignore this email.`
@@ -507,7 +509,8 @@ Your idea (2026-10-08): keep the score while people keep playing, and celebrate 
       `Your Circles code is {{ .Token }}. Type it in the app to add this email to your account.`
       Click **Save**.
    This is because the app asks for a code, not a link.
-2. **An email-sending service.** Supabase's own email only sends to your team's addresses, a few an hour, so other people's codes would never arrive. This needs a free account with an email service, so I'll walk you through it step by step once you say yes.
+2. **Check Confirm email is on.** In Supabase, open **Authentication**, then **Sign In / Providers**, then **Email**. **Confirm email** should be on. If it's off, Supabase saves an email without sending a code, and the app would wait for a code that never comes.
+3. **An email-sending service.** Supabase's own email only sends to your team's addresses, a few an hour, so other people's codes would never arrive. This needs a free account with an email service, so I'll walk you through it step by step once you say yes. The service sees people's email addresses, so I'll add it to the Privacy Policy at the same time.
 
 **Phone checklist**
 - [ ] On a fresh install, tap **Get started**, answer the 18+ question, type a nickname and your email. A code arrives by email; type it and you're in.

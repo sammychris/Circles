@@ -73,15 +73,18 @@ function confirmDeleteAccount() {
   );
 }
 
-// Without an email, logging out loses the account for good, so ask first.
-function confirmSignOut(hasEmail: boolean) {
+// Without an email, logging out loses the account for good, so ask first. `fromMe`: the warning can
+// point to Add your email, which is right there.
+function confirmSignOut(hasEmail: boolean, fromMe = false) {
   if (hasEmail) {
     signOut();
     return;
   }
   Alert.alert(
     'Log out?',
-    "You won't be able to get this account or nickname back after you log out. To keep it, add your email in Me first.",
+    fromMe
+      ? "You won't be able to get this account or nickname back after you log out. To keep it, tap Stay, then Add your email."
+      : "You won't be able to get this account or nickname back after you log out.",
     [
       { text: 'Stay', style: 'cancel' },
       { text: 'Log out', style: 'destructive', onPress: signOut },
@@ -92,7 +95,7 @@ function confirmSignOut(hasEmail: boolean) {
 type Screen =
   | { name: 'home' }
   | { name: 'door'; door: DoorName }
-  | { name: 'me' }
+  | { name: 'me'; notice?: string }
   | { name: 'addEmail' }
   | { name: 'start'; door: 'talk' | 'play' | 'learn'; subject?: string; draft?: Extract<RoomRequest, { kind: 'create' }> }
   | { name: 'learn'; subject: string }
@@ -149,6 +152,7 @@ function SignedIn({
       if (screen.name === 'room') return true;
       if (screen.name === 'start') setScreen(screen.door === 'learn' ? { name: 'learn', subject: screen.subject ?? '' } : { name: 'door', door: screen.door });
       else if (screen.name === 'learn') setScreen({ name: 'door', door: 'learn' });
+      else if (screen.name === 'addEmail') setScreen({ name: 'me' });
       else setScreen({ name: 'home' });
       return true;
     });
@@ -206,9 +210,10 @@ function SignedIn({
         <MeScreen
           me={me}
           hasEmail={hasEmail}
+          notice={screen.notice}
           onBack={home}
           onAddEmail={() => setScreen({ name: 'addEmail' })}
-          onLogOut={() => confirmSignOut(hasEmail)}
+          onLogOut={() => confirmSignOut(hasEmail, true)}
           onDelete={confirmDeleteAccount}
         />
       );
@@ -216,10 +221,7 @@ function SignedIn({
       return (
         <AddEmailFlow
           onClose={() => setScreen({ name: 'me' })}
-          onAdded={() => {
-            setToast('Email added. Your account is safe.');
-            setScreen({ name: 'me' });
-          }}
+          onAdded={() => setScreen({ name: 'me', notice: 'Email added. Your account is safe.' })}
         />
       );
     case 'learn':

@@ -15,14 +15,14 @@ import { scoreLine, setWinnerLine, type SetScore } from '../score';
 import { SIDE_NAME, sideOf } from '../tableGame';
 import { AGREE_SECONDS, chessGame, colourOf, targets, teamOfPiece, turnOf, type ChessGame, type ChessMove } from './engine';
 
-// Never colour alone: Team Sun (white) has outlined chess symbols, Team Sky (black) solid ones, and the
-// label says which. The "text style" marker stops phones drawing them as emoji.
+// Never colour alone: Team Sun's pieces are outlined chess symbols, Team Sky's solid ones, whichever team
+// has the first move, and the label says which. The "text style" marker stops phones drawing them as emoji.
 const OUTLINE: Record<string, string> = { k: '♔︎', q: '♕︎', r: '♖︎', b: '♗︎', n: '♘︎', p: '♙︎' };
 const GLYPH: Record<string, string> = { k: '♚︎', q: '♛︎', r: '♜︎', b: '♝︎', n: '♞︎', p: '♟︎' };
 const NAME: Record<string, string> = { k: 'king', q: 'queen', r: 'rook', b: 'bishop', n: 'knight', p: 'pawn' };
 const TEAM_ICON = { sun: Sun, sky: Cloud } as const;
 
-// Squares are numbered 0..63 row by row from a8 (as the board is drawn for Team Sun).
+// Squares are numbered 0..63 row by row from a8 (as the board is drawn for the team with white).
 const squareName = (i: number) => `${String.fromCharCode(97 + (i % 8))}${8 - Math.floor(i / 8)}`;
 const indexOf = (square: string) => (8 - Number(square[1])) * 8 + (square.charCodeAt(0) - 97);
 

@@ -1,4 +1,5 @@
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
+import { BackHandler, type TextInput } from 'react-native';
 import { AuthLayout } from '../components/AuthLayout';
 import { Button } from '../components/Button';
 import { TextField } from '../components/TextField';
@@ -21,6 +22,16 @@ export function NicknameScreen({ onSaved, onBack }: Props) {
   // The nickname is saved once; if the email then needs another try, it isn't saved again.
   const [saved, setSaved] = useState(false);
   const [codeSentTo, setCodeSentTo] = useState<string | null>(null);
+  const emailBox = useRef<TextInput>(null);
+  // Android back on the code screen: back to the email box (not out of the app).
+  useEffect(() => {
+    if (!codeSentTo) return;
+    const sub = BackHandler.addEventListener('hardwareBackPress', () => {
+      setCodeSentTo(null);
+      return true;
+    });
+    return () => sub.remove();
+  }, [codeSentTo]);
 
   async function saveNickname(): Promise<boolean> {
     if (saved) return true;
@@ -62,8 +73,10 @@ export function NicknameScreen({ onSaved, onBack }: Props) {
     }
     const sendError = await sendEmailCode('add', clean);
     setBusy(false);
-    if (sendError) {
-      setEmailError(sendError.status === 422 ? 'That email is already used by another account.' : friendlyAuthError(sendError.status));
+    // 422: already on another account. Carry on as if a code was sent, so nobody can test which emails
+    // use Circles (the code screen says so).
+    if (sendError && sendError.status !== 422) {
+      setEmailError(friendlyAuthError(sendError.status));
       return;
     }
     setCodeSentTo(clean);
@@ -78,12 +91,13 @@ export function NicknameScreen({ onSaved, onBack }: Props) {
     <AuthLayout
       title="Pick a nickname"
       body="It's the only name people in Circles will see. Don't use your real name or your number."
-      onBack={onBack}
+      // Once the nickname is saved, going back would throw the account away, so there's no Back.
+      onBack={saved ? undefined : onBack}
       backHint="Takes you back to the start"
       footer={
         <>
           <Button label="Continue" variant="primary" loading={busy} onPress={() => void save()} />
-          {saved ? <Button label="Continue without email" variant="quiet" onPress={onSaved} /> : null}
+          {saved ? <Button label="Continue without email" variant="quiet" disabled={busy} onPress={onSaved} /> : null}
         </>
       }
     >
@@ -98,15 +112,16 @@ export function NicknameScreen({ onSaved, onBack }: Props) {
         autoCapitalize="none"
         autoCorrect={false}
         maxLength={NICKNAME_MAX}
-        helper={`Letters, numbers and _ only, up to ${NICKNAME_MAX} characters.`}
+        helper={saved ? 'Saved. This is your nickname.' : `Letters, numbers and _ only, up to ${NICKNAME_MAX} characters.`}
         error={error}
         editable={!saved}
         returnKeyType={EMAIL_ENABLED ? 'next' : 'done'}
-        onSubmitEditing={() => (EMAIL_ENABLED ? undefined : void save())}
+        onSubmitEditing={() => (EMAIL_ENABLED ? emailBox.current?.focus() : void save())}
         autoFocus
       />
       {EMAIL_ENABLED ? (
         <TextField
+          ref={emailBox}
           label="Email (optional)"
           value={email}
           onChangeText={(t) => {

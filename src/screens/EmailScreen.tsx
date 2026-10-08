@@ -49,11 +49,10 @@ export function EmailScreen({ purpose, initialEmail, onBack, onCodeSent }: Props
     const sendError = await sendEmailCode(purpose, clean);
     setBusy(false);
     if (sendError) {
-      if (purpose === 'signIn' && sendError.status === 422) {
-        // No account with that email. Carry on as if we sent one, so nobody can test which emails use Circles.
+      if (sendError.status === 422) {
+        // No account with that email (signing in), or it's already on another account (adding). Either
+        // way, carry on as if we sent a code, so nobody can test which emails use Circles.
         onCodeSent(clean);
-      } else if (purpose === 'add' && sendError.status === 422) {
-        setError('That email is already used by another account.');
       } else {
         setError(friendlyAuthError(sendError.status));
       }

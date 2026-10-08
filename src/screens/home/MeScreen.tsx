@@ -21,13 +21,15 @@ type Props = {
   onAddEmail: () => void;
   onLogOut: () => void;
   onDelete: () => void;
+  // A note to show once on arrival, e.g. "Email added. Your account is safe."
+  notice?: string;
 };
 
-export function MeScreen({ me, hasEmail, onBack, onAddEmail, onLogOut, onDelete }: Props) {
+export function MeScreen({ me, hasEmail, onBack, onAddEmail, onLogOut, onDelete, notice }: Props) {
   const colors = useColors();
   const [blocked, setBlocked] = useState<Blocked[] | null>(null);
   const [failed, setFailed] = useState(false);
-  const [toast, setToast] = useState<string | null>(null);
+  const [toast, setToast] = useState<string | null>(notice ?? null);
   const [doc, setDoc] = useState<LegalDoc | null>(null);
   const [soundOn, setSoundOn] = useSoundSetting();
 

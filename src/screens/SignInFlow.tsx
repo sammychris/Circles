@@ -1,4 +1,5 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
+import { BackHandler } from 'react-native';
 import { supabase } from '../lib/supabase';
 import { CodeScreen } from './CodeScreen';
 import { EmailScreen, OFFLINE_TEXT, isOffline } from './EmailScreen';
@@ -21,6 +22,15 @@ export function SignInFlow({ linkRoom, onLinkEnded }: Props) {
   const [email, setEmail] = useState('');
   const [starting, setStarting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  // Android back: from the code to the email, from the email to Welcome (not out of the app).
+  useEffect(() => {
+    if (stage.name === 'welcome') return;
+    const sub = BackHandler.addEventListener('hardwareBackPress', () => {
+      setStage(stage.name === 'code' ? { name: 'email' } : { name: 'welcome' });
+      return true;
+    });
+    return () => sub.remove();
+  }, [stage.name]);
 
   async function start() {
     setStarting(true);
@@ -51,6 +61,7 @@ export function SignInFlow({ linkRoom, onLinkEnded }: Props) {
           onLinkEnded?.();
           void start();
         }}
+        onHaveAccount={() => setStage({ name: 'email' })}
       />
     );
   }

@@ -1,3 +1,4 @@
+import { EMAIL_ENABLED } from '../config';
 import { useEffect, useState } from 'react';
 import { Linking, Platform, ScrollView, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -25,12 +26,14 @@ type Props = {
   onJoin: () => void;
   // The room has ended: start the usual way, then find another room.
   onFindAnother: () => void;
+  // Already has an account (with an email): sign in, then the room opens.
+  onHaveAccount?: () => void;
   // Already-loaded preview (for screenshots and tests); otherwise it's fetched.
   initialPreview?: RoomPreview;
 };
 
 // Someone tapped a friend's room link (docs/screens/16-join-from-a-link.png, link-first.md).
-export function LinkPreviewScreen({ roomId, by, starting, error, onJoin, onFindAnother, initialPreview }: Props) {
+export function LinkPreviewScreen({ roomId, by, starting, error, onJoin, onFindAnother, onHaveAccount, initialPreview }: Props) {
   const colors = useColors();
   const [preview, setPreview] = useState<RoomPreview | null>(initialPreview ?? null);
   const [failed, setFailed] = useState(false);
@@ -140,6 +143,9 @@ export function LinkPreviewScreen({ roomId, by, starting, error, onJoin, onFindA
                 ? 'No download. Answer one question, then pick a nickname. 18+ only.'
                 : 'Answer one question, then pick a nickname. 18+ only.'}
             </Text>
+            {EMAIL_ENABLED && onHaveAccount ? (
+              <Button label="I already have an account" variant="quiet" disabled={starting} onPress={onHaveAccount} />
+            ) : null}
           </>
         )}
         {androidWeb && open && !full ? (
