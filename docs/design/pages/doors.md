@@ -60,7 +60,7 @@ No ember button on Home. Each door page has its own.
 | Door | Rule |
 |---|---|
 | Need someone to talk to | Only rooms with a trained host, up to 10. Fill the fullest room that isn't full, so nobody waits alone. No host online: next scheduled time + reminder + help line. Never an unhosted support room. |
-| I'm bored | Join a game with free seats. If none, open a lobby that starts at 3 people (2 for Chess and Draughts) and lets the room vote on the game. |
+| I'm bored | Join a game with free seats. If none, open a lobby that starts at 2 people (each game keeps its own minimum: Find the Impostor 3, Mafia 5) and lets the room vote on the game. |
 | I want to talk | Mood or topic optional. Rooms of 3 to 6, or up to 10 with a host. |
 | Learn together | By language and level; quiet times fall back to the next practice group. |
 | My people | Private rooms by invite; friends get "Tolu started a room". |

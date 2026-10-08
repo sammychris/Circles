@@ -1,18 +1,26 @@
-import { clock, roomPhase, secondsLeft } from '../src/rooms/phase';
+import { clock, minPeopleFor, roomPhase, secondsLeft } from '../src/rooms/phase';
 
 const talk = { isSupport: false, hostPresent: false };
+const support = { isSupport: true, hostPresent: true };
 
 describe('roomPhase', () => {
-  it('waits for three people before anyone talks', () => {
+  it('lets one person wait, and goes live when a second arrives', () => {
     expect(roomPhase({ ...talk, count: 1, everLive: false })).toBe('waiting');
-    expect(roomPhase({ ...talk, count: 2, everLive: false })).toBe('waiting');
-    expect(roomPhase({ ...talk, count: 3, everLive: false })).toBe('live');
+    expect(roomPhase({ ...talk, count: 2, everLive: false })).toBe('live');
   });
 
-  it('starts a countdown when a live room drops to two, and recovers at three', () => {
-    expect(roomPhase({ ...talk, count: 2, everLive: true })).toBe('countdown');
+  it('starts a countdown when a live room drops to one, and recovers at two', () => {
     expect(roomPhase({ ...talk, count: 1, everLive: true })).toBe('countdown');
-    expect(roomPhase({ ...talk, count: 3, everLive: true })).toBe('live');
+    expect(roomPhase({ ...talk, count: 0, everLive: true })).toBe('countdown');
+    expect(roomPhase({ ...talk, count: 2, everLive: true })).toBe('live');
+  });
+
+  it('needs three people in a support room, so nobody is alone with one stranger', () => {
+    expect(minPeopleFor(true)).toBe(3);
+    expect(minPeopleFor(false)).toBe(2);
+    expect(roomPhase({ ...support, count: 2, everLive: false })).toBe('waiting');
+    expect(roomPhase({ ...support, count: 3, everLive: false })).toBe('live');
+    expect(roomPhase({ ...support, count: 2, everLive: true })).toBe('countdown');
   });
 
   it('never runs a support room without a host', () => {

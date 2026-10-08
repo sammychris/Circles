@@ -6,7 +6,7 @@ While you slept I built Steps 2b to 7. Everything is saved on GitHub, on the bra
 
 This page is everything **you** need to do, in order. Each part is short. It should take about 45 minutes, plus the wait while Expo builds the app.
 
-**Before you test, one thing to know:** a room only lets people talk once **3 people** are in it, as your rules say. With only your Samsung and the Redmi, you'll see "One more to go" and the mics stay paused. For the room tests, use a third phone or get a friend to join.
+**Before you test, one thing to know:** support rooms only let people talk once **3 people** are in them. Every other room goes live as soon as **2 people** are in it. (Changed after this page was first written: see `docs/NEXT.md`, item 1.)
 
 ---
 
@@ -95,9 +95,9 @@ Tick each one. If something is wrong, tell me what you tapped and what you saw.
 **Talking**
 - [ ] I want to talk: pick "Want to laugh" (or nothing), then tap **Find my room**. You get a room.
 - [ ] On the other phones do the same. All three end up in the **same** room. The app fills existing rooms first.
-- [ ] With 1 or 2 people it says "Nobody's here yet" or "One more to go", and the mic says "Mic paused".
-- [ ] When the 3rd person arrives, the mic turns orange ("You're muted / Tap to talk"). Talk.
-- [ ] One person leaves. The other two see a **2-minute countdown** ("Finding a third person") and mics pause. A 3rd person joining again brings the room back.
+- [ ] On your own it says "Nobody's here yet", and the mic says "Mic paused / Waiting for someone to join".
+- [ ] When the 2nd person arrives, the mic turns orange ("You're muted / Tap to talk"). Talk.
+- [ ] Everyone else leaves. The last person sees a **2-minute countdown** ("Waiting for someone to join") and the mic pauses. Someone joining again brings the room back.
 - [ ] The lock-screen notification says only "Circles", never the room's name.
 
 **Block and Report**

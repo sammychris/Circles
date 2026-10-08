@@ -109,7 +109,7 @@ export function StartScreen({ door, subject, draft, onBack, onStart }: Props) {
           <Button label="Start the room" variant="primary" onPress={start} />
           <View style={{ flexDirection: 'row', justifyContent: 'center', alignItems: 'center', flexWrap: 'wrap', gap: space[1] }}>
             <Text variant="meta" color="textMeta">
-              Rooms start when three people are here.
+              It goes live when someone joins.
             </Text>
             <Pressable accessibilityRole="link" onPress={() => setRulesOpen(true)} hitSlop={space[3]}>
               <Text variant="metaStrong" style={{ textDecorationLine: 'underline' }}>

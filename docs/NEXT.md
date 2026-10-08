@@ -4,13 +4,13 @@ The to-do list for the next Claude Code session. Read it after `docs/PROGRESS.md
 Last updated 2026-10-08.
 
 Everything up to here is built, reviewed by `circles-reviewer`, and pushed to
-`claude/gallant-faraday-7s2l1w`. None of it has been tested on phones yet.
+`claude/gallant-faraday-7s2l1w`, and carried on in `claude/dreamy-meitner-mjoykp`. None of it has been tested on phones yet.
 
 ---
 
-## 1. Decision waiting for Sammy's yes: how many people a room needs
+## 1. Done: how many people a room needs
 
-**Today:** every room needs 3 people before mics turn on. If a room drops to 2, a 2-minute countdown starts and then the room closes.
+**Before this change:** every room needed 3 people before mics turned on. If a room dropped to 2, a 2-minute countdown started and then the room closed.
 
 **Sammy's idea (2026-10-08):** only "I need someone to talk to" rooms need 3, because that's where kind people gather. Other rooms can start with 2, maybe even 1.
 
@@ -27,7 +27,7 @@ Everything up to here is built, reviewed by `circles-reviewer`, and pushed to
 - **Games are unchanged.** Each game already has its own minimum (Draughts 2, Whot 2, Mafia 5).
 - **Safety in rooms of 2 stays the same:** Block and Report remain on every person.
 
-**Status: Sammy said yes (2026-10-08).** Support rooms need 3. Every other room can start with 1 waiting and goes live at 2. Build it as in the table above.
+**Status: built (2026-10-08), not yet tested on phones.** Support rooms need 3. Every other room can start with 1 waiting and goes live at 2. The game list now says "Needs at least N people" for games a room is too small for (Find the Impostor 3, Mafia 5). The room server already fills the fullest room first, so it needed no change.
 
 **Where it lives in the code and docs** (update all of them together):
 - Rule and logic:
@@ -73,8 +73,8 @@ Short version:
 - **Tip for Sammy:** schedule a few real regular rooms yourself during the open test, so Explore always has something on it.
 
 ### Order of work
-1. Room sizes (section 1). Small.
-2. Game mode (A). **Add `expo-audio` and `expo-notifications` to the app in the same change,** so Sammy needs only **one** new build for sounds and later reminders.
+1. ~~Room sizes (section 1).~~ Done.
+2. Game mode (A). **Next.** **Add `expo-audio` and `expo-notifications` to the app in the same change,** so Sammy needs only **one** new build for sounds and later reminders.
 3. Bottom bar and the Home, Explore, Groups and Me pages (B).
 4. Scheduled and weekly rooms, reminders and invitations (C).
 
@@ -164,6 +164,6 @@ The full click-by-click steps are in `docs/BUILD_NOTES.md`, under "What you need
   - Never set the image picker's `microphonePermission: false`. It removes the microphone permission the voice rooms need.
   - Never run `git checkout package.json`.
 - **When committing:**
-  - Save to `claude/gallant-faraday-7s2l1w`.
+  - Save to the branch the session names (this one: `claude/dreamy-meitner-mjoykp`).
   - Keep model names out of commits.
   - Never commit keys.

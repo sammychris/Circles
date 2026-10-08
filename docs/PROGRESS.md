@@ -4,7 +4,7 @@ Claude Code updates this file at the end of every build step. Newest entries at 
 
 ## Current step
 
-**Everything on the list is built (the Table, host tools, Learn together, four more games) and reviewed. It is waiting for Sammy's Supabase updates, one new app build, and the phone test. The to-do list for the next session, including a room-size decision waiting for Sammy's yes, is in `docs/NEXT.md`. Read it next.**
+**Room sizes (NEXT.md item 1) are built: support rooms need 3, every other room goes live at 2. Next is game mode (NEXT.md item 1b, part A). Everything still waits for Sammy's Supabase updates, one new app build, and the phone test. The to-do list is in `docs/NEXT.md`. Read it next.**
 
 Every choice made so far, and Sammy's click-by-click steps, are in `docs/BUILD_NOTES.md`.
 
@@ -17,7 +17,7 @@ Still open from Step 1: a test with a friend in another place on their own mobil
 - No tab bar: Home has the doors (see `docs/screens/01-home.png`).
 - Sign-up for the open test (5–6 days of public testing): nickname + 18+ question only, email optional, every room open to everyone, no bot check. Sammy will make email and then phone required later. Decided 2026-10-08, after hearing the risks (abusers coming back, vulnerable people in support rooms).
 - Block and Report (Step 2b) get built before the open test starts.
-- Rooms need 3 people before anyone can talk (rules.roomMinPeople); a live room that drops to 2 gets a 2-minute countdown with mics paused, then closes for those two.
+- Room sizes (Sammy, 2026-10-08): support rooms need 3 people and a trained host before anyone can talk (`rules.supportMinPeople`); every other room lets one person wait and goes live at 2 (`rules.roomMinPeople`). A live room that drops below its minimum gets a 2-minute countdown with mics paused, then closes. Games keep their own minimums (Find the Impostor 3, Mafia 5); the game list says "Needs at least N people" when the room is too small. Earlier, every room needed 3.
 - Every room holds 6 for now, support rooms included (the design allows 10, but the seat circle draws 6, and nobody should be in a room unseen).
 - Support rooms only ever run with a trained host. Hosts are rows in the `hosts` table that Sammy adds.
 - Ludo is our own code (no outside licence), for two teams (Sun and Sky). Nothing about a game is saved.
@@ -64,7 +64,7 @@ Still open from Step 1: a test with a friend in another place on their own mobil
 
 - **2b Safety:** tap a seat for Save, Block and Report. There are three Report sheets (who, what happened, sent), and "Someone may be in danger" is marked urgent. Block silences the person for the blocker, keeps you out of rooms together, and removes saves both ways (a database trigger). Reports and bans can only be read by Sammy in the dashboard. Banned people get "Your account is paused" or "has been closed".
 - **3 Home and rooms:** Home with the support line and four doors. I want to talk has optional moods, Find my room and an Open now list. The room server (`livekit-token`: match, join, list, stats, support, delete_account) puts people in the fullest room with a seat and opens new rooms only when needed, never with someone they blocked.
-- **4 Room rules:** waiting ("Nobody's here yet"), live, and a countdown with paused mics when the room drops to 2. Short reconnects don't trigger it. After the room: "Thanks for being there", with private thank-yous, secret saves and "Was everyone kind?". My people lists mutual saves only.
+- **4 Room rules:** waiting ("Nobody's here yet"), live, and a countdown with paused mics when the room drops below its minimum (changed later: see Decisions made › Room sizes). Short reconnects don't trigger it. After the room: "Thanks for being there", with private thank-yous, secret saves and "Was everyone kind?". My people lists mutual saves only.
 - **5 Support door:** Come in only when a trained host is in a room (or you are one). The help screen opens over the room so voice keeps going, and shows no numbers until Sammy gives verified ones. The lock-screen notification never names the room.
 - **6 Ludo:** the I'm bored door, Play now, and Play Ludo in play rooms only. Two teams, the board on the table, with every phone in step through Supabase Realtime. Leave game and End game; Play again.
 - **7 Web check:** see below.

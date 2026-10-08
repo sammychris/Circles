@@ -135,7 +135,7 @@ export const roomGlowScale = { edge: 1.4, core: 1.2 } as const;
 export const lift = { radius: 24, offset: 8, elevation: 8 } as const;
 
 // From docs/design/tokens.json › rules.
-export const rules = { maxTextScale: 1.3, roomMinPeople: 3, roomDropWaitSeconds: 120 } as const;
+export const rules = { maxTextScale: 1.3, roomMinPeople: 2, supportMinPeople: 3, roomDropWaitSeconds: 120 } as const;
 
 export const effects = {
   liveGlow: 'rgba(84, 201, 154, 0.25)',

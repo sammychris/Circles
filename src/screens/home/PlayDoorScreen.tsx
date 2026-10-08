@@ -109,7 +109,7 @@ export function PlayDoorScreen({
           <View style={{ flex: 1 }} />
         </View>
         <Text variant="meta" color="textMeta">
-          In a game room, tap Play a game and pick one once three people are there.
+          In a game room, tap Play a game and pick one once others join you.
         </Text>
       </View>
 

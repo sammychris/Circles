@@ -6,6 +6,8 @@
 
 export type Team = 'sun' | 'sky';
 export const TEAMS: Team[] = ['sun', 'sky'];
+// One person on each team.
+export const MIN_PLAYERS = 2;
 export const BASE = -1;
 export const LAST_TRACK = 50;
 export const FINISH = 56;

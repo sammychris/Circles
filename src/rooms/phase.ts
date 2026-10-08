@@ -1,10 +1,12 @@
 import { rules } from '../theme/tokens';
 
 // Where a room is in its life (CIRCLES_ARCHITECTURE.md › Room rules):
-// - waiting:   fewer than 3 people and the room hasn't started yet. Mics stay off.
-// - live:      3 or more people (and, in support rooms, a trained host). Everyone can talk.
-// - countdown: it was live and dropped below 3 (or the support host left). Mics pause;
+// - waiting:   fewer people than the room needs, and it hasn't started yet. Mics stay off.
+// - live:      enough people (and, in support rooms, a trained host). Everyone can talk.
+// - countdown: it was live and dropped below the minimum (or the support host left). Mics pause;
 //              if nobody arrives before the countdown ends, the room closes.
+// Support rooms need 3, so someone who is down is never alone with one stranger. Every other
+// room goes live at 2 (Sammy's decision, 2026-10-08).
 export type RoomPhase = 'waiting' | 'live' | 'countdown';
 
 export type PhaseInput = {
@@ -12,11 +14,14 @@ export type PhaseInput = {
   everLive: boolean;
   isSupport: boolean;
   hostPresent: boolean;
-  minPeople?: number;
 };
 
-export function roomPhase({ count, everLive, isSupport, hostPresent, minPeople = rules.roomMinPeople }: PhaseInput): RoomPhase {
-  const enoughPeople = count >= minPeople;
+export function minPeopleFor(isSupport: boolean): number {
+  return isSupport ? rules.supportMinPeople : rules.roomMinPeople;
+}
+
+export function roomPhase({ count, everLive, isSupport, hostPresent }: PhaseInput): RoomPhase {
+  const enoughPeople = count >= minPeopleFor(isSupport);
   const hosted = !isSupport || hostPresent;
   if (enoughPeople && hosted) return 'live';
   return everLive ? 'countdown' : 'waiting';

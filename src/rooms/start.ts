@@ -20,7 +20,7 @@ export function topicLabel(topic: string | null | undefined): string | null {
   return TOPICS.find((t) => t.id === topic)?.label ?? null;
 }
 
-// Rooms hold at least 3 to start; these are the sizes people can pick.
+// A started room goes live at 2 (src/rooms/phase.ts); these are the most people it can hold.
 export const ROOM_SIZES = [4, 5, 6] as const;
 export const TITLE_MAX = 40;
 

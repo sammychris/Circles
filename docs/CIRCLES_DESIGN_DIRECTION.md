@@ -289,7 +289,7 @@ People sit on a ring, not in a grid.
 - Badges bottom-right, 24 px with a 2 px `bg` ring: mic-off (`raised` / `textSoft`), hand (`emberSoft` / `emberText`).
 - The speaker gets the Speaking glow from section 4.
 - Empty seats: 2 px dashed `seatEmpty` circle with a plus.
-- The same drawing is reused, smaller, on Room drops to 2, Nobody here yet and the welcome screen.
+- The same drawing is reused, smaller, on Room drops below its minimum (2 in support rooms, 1 elsewhere), Nobody here yet and the welcome screen.
 
 ### The table slot
 The middle of the room circle. In Version 1 it shows "6 here / 4 seats open". When something is put on the table:

@@ -91,7 +91,7 @@ I couldn't run these commands from the cloud, because the network here blocks Ex
 - **Chat is never stored.** Messages go straight between the phones in the room, through LiveKit, and disappear when you leave. Nobody, including you, can read them later. The Privacy Policy already says this.
 - **Text only.** No photos, no voice notes, and links don't open. That keeps support rooms free of shared photos, as the rules say.
 - **Chat is in every room, support rooms too.** Some people find it easier to type than to speak when they're low. Tell me if you'd rather turn it off in support rooms.
-- **Chat follows the same rule as the mics.** While a room is waiting for its third person, or a support room has no trained host, you can read the chat but not send ("Chat opens when three people are here"). Otherwise two strangers could chat one-to-one, which the 3-person rule is there to avoid.
+- **Chat follows the same rule as the mics.** While a room is waiting for its second person (third in support rooms), or a support room has no trained host, you can read the chat but not send ("Chat opens when someone joins"). Support rooms keep the 3-person rule so someone who is down is never alone with one stranger.
 - **Messages from people you've blocked are hidden**, including ones they sent before you blocked them.
 - **Up to 300 characters and 4 lines a message, and 5 messages in 10 seconds.** Faster than that, it says "Slow down a little". A changed app that tries to flood the chat is ignored by everyone else's phone.
 - **Names can't be faked.** The name on a message comes from the room server, not from the message, and phones aren't allowed to change their own name or host badge.
@@ -145,7 +145,7 @@ I couldn't run these commands from the cloud, because the network here blocks Ex
 - **Nobody can read who started a room**, not even through the database.
 - **Invite only needs the web version online** (part 2), because it works by link. Until then that choice is greyed out and says so.
 - **No host role for the person who starts a room.** Everyone has the same controls, as in other free rooms. The design's "creator becomes host" comes with hosted rooms.
-- **Sizes are 4, 5 or 6.** Rooms still need 3 people to start talking.
+- **Sizes are 4, 5 or 6.** The room goes live when a second person joins.
 - **Not built yet:** a description (280 characters), "Start a room with friends" on My people, weekly groups with reminders, and hosted rooms of up to 10.
 
 **What you need to do**
@@ -172,12 +172,12 @@ I couldn't run these commands from the cloud, because the network here blocks Ex
 - [ ] **Welcome:** tap Terms, then Privacy Policy. Both open and read clearly.
 - [ ] **Me:** Privacy Policy and Terms are there too.
 - [ ] **Chat:** in a room with 3 people, tap **Chat** and send "hello". The other phones show a small number on Chat; open it and they see your message with your nickname.
-- [ ] **Chat with 2 people:** it says "Chat opens when three people are here".
+- [ ] **Chat on your own:** alone in a room, it says "Chat opens when someone joins".
 - [ ] **Block:** block someone, and their chat messages disappear for you.
 - [ ] **Raise hand:** tap **Raise hand**. The others see a hand and "Hand up" on your seat. Tap the mic to talk, and the hand comes down by itself.
 - [ ] **Start a talk room:** I want to talk, then **Start a talk room**. Name it "Test room", pick Football, then **Start the room**. On another phone, I want to talk shows "Test room · Football" in Open now. Join it.
 - [ ] **Bad name:** try naming a room "Call 08031234567". It says to leave phone numbers out.
-- [ ] **Start a game room:** Let's play, then **Start a game room**. It opens a game room where Play a game works once 3 are in.
+- [ ] **Start a game room:** Let's play, then **Start a game room**. It opens a game room where Play a game works once 2 are in (Find the Impostor needs 3, Mafia 5).
 - [ ] **Once the web version is online:** Invite in a room shares a link. Opening it in a phone browser shows "YourName invited you to…". Invite only rooms open the share menu by themselves, and never show in Open now.
 
 ---
@@ -218,7 +218,7 @@ Then on each phone: open Circles, close it fully (swipe it away), and open it ag
 - **Support rooms: notes and links only.** No photos, videos or screens, which is your existing rule. The room server also stops phones in support rooms from sending a screen at all.
 - **One thing on the table at a time.** Only the person who put it there (or a host) can take it off or replace it. If two people put something on at the same moment, the first one stays.
 - **When the presenter leaves the room, their item goes with them.**
-- **The table opens once three people are here**, like the mics and the chat.
+- **The table opens once the room is live** (2 people, 3 in support rooms), like the mics and the chat.
 - **Photos and shared screens are hidden until each person taps "Tap to see".** I went further than "blurred": nothing is drawn at all until you tap, because a blur can still show too much.
 - **Videos and shared screens only load when each person taps**, to save data. The presenter's own loads straight away.
 - **Watch together only accepts YouTube and Vimeo links**, shown in their official players, so the rights and ads stay with them. Private and age-restricted videos won't play. The video goes quieter while someone else is talking, and there's a tip that headphones stop the sound echoing into the room.
@@ -228,7 +228,7 @@ Then on each phone: open Circles, close it fully (swipe it away), and open it ag
 - **In a browser,** screen sharing works on computers only. Phone browsers can't share their screen.
 - **The Privacy Policy now covers photos, shared screens and the YouTube and Vimeo players.**
 - **Only a trained host can replace or take off someone else's item**, and then it goes for everyone. If you block the presenter, their item disappears for you.
-- **If the room drops to two while you're sharing your screen, sharing stops.** The table hides then, so you'd have no Stop button.
+- **If the room drops below its minimum while you're sharing your screen, sharing stops.** The table hides then, so you'd have no Stop button.
 - **Photos are deleted from storage itself 3 hours after upload, oldest first.** A photo can't be missed, and reported ones are kept.
 - **A shared screen is only sent while someone is watching it**, to save the presenter's data.
 - **Not built yet from the Table design:** Words (for Learn), a photo ban for repeat reports, and a host switch to turn off notes in support rooms.
@@ -392,6 +392,19 @@ All four are under Table, then Games, in game rooms, next to Ludo and Find the I
 - [ ] Table, then **Chess in teams**: suggest a move, and a teammate taps **Agree**.
 - [ ] Table, then **Whot**: each phone shows only its own cards. Play a 2, and the next person picks two.
 - [ ] With 5 phones: Table, then **Mafia**. The starter sees everyone's role and the others only their own. At night, mics pause and the night roles choose. By day, vote.
+
+## 13. Room sizes
+
+- **Support rooms need 3 people and a trained host** before anyone can talk, as before. The host counts as one of the 3. If a support room drops to 2, the 2-minute countdown starts.
+- **Every other room goes live at 2.** One person can start or join a room and wait in it ("Nobody's here yet"). If it drops to 1, the same 2-minute countdown runs, then the room closes.
+- **Games keep their own minimum.** In a room of 2, Ludo, Draughts, Chess and Whot can be played. Find the Impostor and Mafia are greyed out and say "Needs at least 3 people" or "Needs at least 5 people: a narrator and 4 players".
+- **Nothing to set up.** This is app-only; the room server already fills the fullest room first.
+
+**Phone checklist (2 phones)**
+- [ ] On one phone, I want to talk, then **Find my room**. It says "Nobody's here yet" and the mic says "Mic paused / Waiting for someone to join".
+- [ ] The second phone does the same and lands in the same room. Both mics turn orange ("You're muted / Tap to talk"). Talk.
+- [ ] In a game room with 2, tap the Table: Ludo works; Find the Impostor says "Needs at least 3 people".
+- [ ] One phone leaves. The other sees the 2-minute countdown ("Waiting for someone to join"). Joining again brings the room back.
 
 ---
 

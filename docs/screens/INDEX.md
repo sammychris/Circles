@@ -12,7 +12,7 @@ Only open the screenshots for the step you're working on. You don't need all of 
 | `01-home.png` | Home: one house, many doors | Step 3 | `docs/design/pages/doors.md` › Home |
 | `04-i-want-to-talk.png` | I want to talk: pick a kind of chat, Find my room | Step 3 | `doors.md` › I want to talk; `live.md` |
 | `09-nobody-here-yet.png` | Nobody here yet (empty room) | Step 3 | `doors.md` › Matching |
-| `06-room-drops-to-2.png` | Room drops to 2: countdown, mics paused | Step 4 | `CIRCLES_DESIGN_DIRECTION.md` › Mic control (paused) |
+| `06-room-drops-to-2.png` | Room drops below its minimum (to 2 in support rooms, to 1 elsewhere): countdown, mics paused | Step 4 | `CIRCLES_DESIGN_DIRECTION.md` › Mic control (paused) |
 | `07-after-the-room.png` | After the room: save, thank, was everyone kind | Step 4 | `docs/design/pages/report-and-block.md` |
 | `08-mini-profile.png` | Mini profile sheet: save, block, report | Step 4 | `report-and-block.md` |
 | `02-someone-to-talk-to.png` | Need someone to talk to (support door) | Step 5 | `doors.md` › Need someone to talk to |

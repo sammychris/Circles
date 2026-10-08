@@ -21,7 +21,7 @@ import { BASE } from '../games/ludo/engine';
 import { LudoTable } from '../games/ludo/LudoTable';
 import { useLudo } from '../games/ludo/useLudo';
 import { ImpostorTable } from '../games/impostor/ImpostorTable';
-import { ROUNDS_PER_GAME, phaseAt as impostorPhase } from '../games/impostor/logic';
+import { MIN_PLAYERS as IMPOSTOR_MIN, ROUNDS_PER_GAME, phaseAt as impostorPhase } from '../games/impostor/logic';
 import { useImpostor } from '../games/impostor/useImpostor';
 import { NoteSheet, QuizSheet, TurnsSheet, VideoSheet, WordsSheet } from '../components/table/ComposeSheets';
 import { WordsBody } from '../components/table/WordsBody';
@@ -209,7 +209,7 @@ export function RoomScreen({ me, request, onLeft, onMove }: Props) {
     return () => sub.remove();
   }, [micAllowed, connected, voice]);
 
-  // --- room rules: 3 people to talk; a countdown when a live room drops to 2 ---
+  // --- room rules: 2 people to talk (3 in support rooms); a countdown when a live room drops below ---
   useEffect(() => {
     if (phase === 'live') setEverLive(true);
     if (phase === 'countdown') {
@@ -318,9 +318,11 @@ export function RoomScreen({ me, request, onLeft, onMove }: Props) {
     ? 'Night: the Mafia is choosing'
     : isSupport && !hostPresent
       ? 'Waiting for a host'
-      : phase === 'countdown'
-        ? 'Finding a third person'
-        : 'Rooms need three people';
+      : isSupport
+        ? phase === 'countdown'
+          ? 'Finding a third person'
+          : 'Support rooms need three people'
+        : 'Waiting for someone to join';
   // People whose mic the night paused are told when they can talk again.
   const pausedByNight = useRef(false);
   useEffect(() => {
@@ -429,14 +431,16 @@ export function RoomScreen({ me, request, onLeft, onMove }: Props) {
     if (chatOpen) setChatReadAt(lastChatAt);
   }, [chatOpen, lastChatAt]);
   const unread = chatOpen ? 0 : chat.filter((m) => !m.mine && m.at > chatReadAt).length;
-  // Chat follows the same rule as the mics: nothing new until the room is live (three people, and a
-  // trained host in support rooms).
+  // Chat follows the same rule as the mics: nothing new until the room is live (two people; three and
+  // a trained host in support rooms).
   const chatPaused =
     phase === 'live'
       ? null
       : isSupport && !hostPresent
         ? 'Chat is paused until a trained host is here.'
-        : 'Chat opens when three people are here.';
+        : isSupport
+          ? 'Chat opens when three people are here.'
+          : 'Chat opens when someone joins.';
   // Tapping a name in chat opens their profile; closing it goes back to the chat.
   const [profileFromChat, setProfileFromChat] = useState(false);
 
@@ -475,17 +479,17 @@ export function RoomScreen({ me, request, onLeft, onMove }: Props) {
       ? hostPresent
         ? { title: 'A quiet room is opening', body: 'It starts when three people are here. Mics stay off until then.' }
         : { title: 'Waiting for a host', body: 'Support rooms always have a trained host. Mics stay off until one is here.' }
-      : people.length <= 1
-        ? {
-            title: room?.mood === 'laugh' ? "Nobody's laughing yet" : room?.mood === 'advice' ? 'Nobody else here yet' : "Nobody's here yet",
-            body: "You're the first one here. A room starts when three people join.",
-          }
-        : { title: 'One more to go', body: 'A room starts when three people join. Mics stay off until then.' };
+      : {
+          title: room?.mood === 'laugh' ? "Nobody's laughing yet" : room?.mood === 'advice' ? 'Nobody else here yet' : "Nobody's here yet",
+          body: "You're the first one here. Waiting for someone to join. Mics turn on when they do.",
+        };
   } else if (phase === 'countdown') {
     message =
       isSupport && !hostPresent
         ? { title: 'Your host has left', body: 'Support rooms need a trained host, so mics are paused for now.' }
-        : { title: 'Finding a third person', body: 'Rooms need three people, so mics are paused for now.' };
+        : isSupport
+          ? { title: 'Finding a third person', body: 'Support rooms need three people, so mics are paused for now.' }
+          : { title: 'Waiting for someone to join', body: 'Everyone else has left, so mics are paused for now.' };
   }
 
   const game = ludo.game;
@@ -531,8 +535,8 @@ export function RoomScreen({ me, request, onLeft, onMove }: Props) {
         outcome={impostor.outcome}
         onVote={(id) => void impostor.castVote(id)}
         onPerson={openProfile}
-        onNextRound={() => impostor.nextRound(everyone)}
-        onPlayAgain={() => impostor.startGame(everyone)}
+        onNextRound={() => (people.length < IMPOSTOR_MIN ? impostorTooFew() : impostor.nextRound(everyone))}
+        onPlayAgain={() => (people.length < IMPOSTOR_MIN ? impostorTooFew() : impostor.startGame(everyone))}
         onBackToTalking={impostor.endGame}
         busy={impostor.busy}
       />
@@ -601,7 +605,13 @@ export function RoomScreen({ me, request, onLeft, onMove }: Props) {
   // --- the table: open it, put something on it, replace your own ---
   function openTable() {
     if (phase !== 'live') {
-      setToast(isSupport && !hostPresent ? 'The table opens when a trained host is here.' : 'The table opens when three people are here.');
+      setToast(
+        isSupport && !hostPresent
+          ? 'The table opens when a trained host is here.'
+          : isSupport
+            ? 'The table opens when three people are here.'
+            : 'The table opens when someone joins.',
+      );
       return;
     }
     if (tableItem.item && !tableItem.canTakeOff) {
@@ -621,6 +631,11 @@ export function RoomScreen({ me, request, onLeft, onMove }: Props) {
       { text: 'Cancel', style: 'cancel' },
       { text: 'Replace', onPress: then },
     ]);
+  }
+
+  // Rooms go live at 2, but Find the Impostor needs 3.
+  function impostorTooFew() {
+    setToast(`Find the Impostor needs at least ${IMPOSTOR_MIN} people.`);
   }
 
   // Starts a Table game when there are enough people for it.
@@ -645,6 +660,11 @@ export function RoomScreen({ me, request, onLeft, onMove }: Props) {
         if (tableItem.item) tableItem.takeOff();
         void tableItem.startGame(choice as GameId);
       } else if (choice === 'ludo' || choice === 'impostor') {
+        // Say so instead of clearing the table for nothing.
+        if (choice === 'impostor' && people.length < IMPOSTOR_MIN) {
+          impostorTooFew();
+          return;
+        }
         if (tableItem.item) tableItem.takeOff();
         setWordHidden(false);
         if (choice === 'ludo') ludo.start(everyone);
@@ -839,7 +859,7 @@ export function RoomScreen({ me, request, onLeft, onMove }: Props) {
       sawSharing.current = false;
       tableItem.takeOff();
     }
-    // The room stopped being live (it dropped to two): the table hides, so a shared screen stops.
+    // The room stopped being live (it dropped below its minimum): the table hides, so a shared screen stops.
     if (screenOnTable && phase && phase !== 'live') tableItem.takeOff();
   }, [meSharing, screenOnTable, phase, voice.setScreenShare, tableItem.takeOff]);
 
@@ -1191,6 +1211,7 @@ export function RoomScreen({ me, request, onLeft, onMove }: Props) {
           visible={putOpen}
           door={room.door}
           gamesReady={ludo.ready && impostor.ready}
+          peopleCount={people.length}
           onClose={() => setPutOpen(false)}
           onPick={onTablePick}
         />

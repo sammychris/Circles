@@ -3,6 +3,8 @@ import { Platform, Pressable, View } from 'react-native';
 import { CircleHelp, Crown, Dice5, FileText, Grid3x3, Images, Languages, ListOrdered, MonitorPlay, MonitorUp, Search, Spade, VenetianMask } from 'lucide-react-native';
 import type { Door, TableKind } from '../../table/model';
 import { GAMES } from '../../games/registry';
+import { MIN_PLAYERS as IMPOSTOR_MIN } from '../../games/impostor/logic';
+import { MIN_PLAYERS as LUDO_MIN } from '../../games/ludo/engine';
 import type { GameId } from '../../games/tableGame';
 import { allowedKinds } from '../../table/model';
 import { doorColors, moodColors, opacity, radius, size, space, useColors } from '../../theme';
@@ -80,15 +82,26 @@ export function canShareScreen(): boolean {
 type Props = {
   visible: boolean;
   door: Door;
-  // Games are only offered in play rooms, once three people are here.
+  // Games are only offered in play rooms, once the game channels have settled.
   gamesReady: boolean;
+  // Each game has its own minimum (Find the Impostor 3, Mafia 5), so a room of 2 can't start every game.
+  peopleCount: number;
   onClose: () => void;
   onPick: (choice: TableChoice) => void;
 };
 
 // "Put on the table" (docs/screens/18-put-on-the-table.png, activities.md). Only what this room allows.
-export function PutOnTableSheet({ visible, door, gamesReady, onClose, onPick }: Props) {
+export function PutOnTableSheet({ visible, door, gamesReady, peopleCount, onClose, onPick }: Props) {
   const allowed = allowedKinds(door);
+  // What a game row says, and whether it can be picked yet.
+  const gameRow = (min: number, line: string, tooFew = `Needs at least ${min} people`) =>
+    !gamesReady
+      ? { line: 'Getting the game ready', disabled: true }
+      : peopleCount < min
+        ? { line: tooFew, disabled: true }
+        : { line, disabled: false };
+  const impostorRow = gameRow(IMPOSTOR_MIN, "3 to 6 people. One of you doesn't know the word");
+  const ludoRow = gameRow(LUDO_MIN, 'Two teams');
   const share = allowed.includes('photos') || allowed.includes('screen');
   return (
     <Sheet visible={visible} onClose={onClose}>
@@ -143,29 +156,30 @@ export function PutOnTableSheet({ visible, door, gamesReady, onClose, onPick }: 
             Icon={Search}
             tint={moodColors.laugh}
             title="Find the Impostor"
-            line={gamesReady ? "3 to 6 people. One of you doesn't know the word" : 'Starts once three people are here'}
-            disabled={!gamesReady}
+            line={impostorRow.line}
+            disabled={impostorRow.disabled}
             onPress={() => onPick('impostor')}
           />
           <Row
             Icon={Dice5}
             tint={doorColors.people}
             title="Ludo"
-            line={gamesReady ? 'Two teams' : 'Starts once three people are here'}
-            disabled={!gamesReady}
+            line={ludoRow.line}
+            disabled={ludoRow.disabled}
             onPress={() => onPick('ludo')}
           />
           {(Object.keys(GAMES) as GameId[]).map((id) => {
             const game = GAMES[id]!;
             const Icon = GAME_ICON[id];
+            const row = gameRow(game.min, game.line, id === 'mafia' ? 'Needs at least 5 people: a narrator and 4 players' : undefined);
             return (
               <Row
                 key={id}
                 Icon={Icon}
                 tint={GAME_TINT[id]}
                 title={game.name}
-                line={gamesReady ? game.line : 'Starts once three people are here'}
-                disabled={!gamesReady}
+                line={row.line}
+                disabled={row.disabled}
                 onPress={() => onPick(id)}
               />
             );

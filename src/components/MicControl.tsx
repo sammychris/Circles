@@ -11,7 +11,7 @@ const COPY: Record<MicState, { title: string; hint: string }> = {
   live: { title: "You're live", hint: 'Tap to mute' },
   notAllowed: { title: 'Mic not allowed', hint: 'Tap to turn on' },
   blocked: { title: 'Mic is off in your phone settings', hint: 'Tap to fix' },
-  paused: { title: 'Mic paused', hint: 'Rooms need three people' },
+  paused: { title: 'Mic paused', hint: 'Waiting for someone to join' },
 };
 
 export function MicControl({

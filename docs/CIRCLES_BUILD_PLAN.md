@@ -34,7 +34,7 @@ Room list by mood/topic; new people are placed into existing rooms first; room c
 
 ## Step 4 — Room rules
 
-Minimum 3; countdown and close when it drops to 2; leaving and rejoining.
+Support rooms need 3, every other room goes live at 2 (one person can wait in it); countdown and close when it drops below that; leaving and rejoining.
 
 ## Step 5 — "I need someone to talk to"
 
