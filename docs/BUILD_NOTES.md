@@ -136,9 +136,13 @@ I couldn't run these commands from the cloud, because the network here blocks Ex
 - **Talk and Play only, starting now.** The design's step 1 (Talk, Learn, Play) and step 2 (once or every week) wait until Learn and weekly groups exist. Coming from a door, you skip straight to the details, as the design says.
 - **Rooms people start are never filled by "Find my room" or "Play now".** Someone who picked "Want to laugh" shouldn't land in "Arsenal fans". People find them in the list, or by link.
 - **Nobody can start a support room.** Those only open for trained hosts. The database refuses it too.
-- **Room names are checked**, because strangers see them: 3 to 40 characters, no phone numbers, no web links, no @names, and nothing that passes for the Circles team or a support room ("Circles official", "Someone to talk to", "crisis", "helpline"). Support rooms always have a trained host, so a room pretending to be one could fool someone who's low. Anyone can still report a room with a bad name (Report, then The whole room).
-- **At most 3 rooms an hour per person**, so nobody floods the lists.
-- **A room someone started ends after it has been empty for 15 minutes.** Old links then say "This room has ended".
+- **Room names are checked**, because strangers see them: 3 to 40 characters, no phone numbers, no web links, no @names, and nothing that passes for the Circles team or for trained help ("Circles official", "Admin", "Someone to talk to", "crisis", "helpline", "therapist", "counsellor", "support group", "suicide"…). Tricks like "C1rcles", "Circ les" or look-alike letters are caught too. **This word list is a safety choice: tell me any words to add or remove.** Support rooms always have a trained host, so a room pretending to be one could fool someone who's low. Anyone can still report a room with a bad name (Report, then The whole room).
+- **At most 3 rooms an hour per person**, so nobody floods the lists. Someone determined could get round it with several anonymous accounts. Email or phone checks fix that later.
+- **A room someone started ends once nobody has been in it for 15 minutes.** Old links then say "This room has ended". If the room server can't reach LiveKit, it never closes a room for looking empty.
+- **You choose who can join every time.** Neither "Anyone" nor "Invite only" is picked for you, because "Anyone" lists your room publicly. The size starts at "Up to 6", the normal room size.
+- **If a room doesn't start** (a name the server refuses, or too many rooms this hour), **Back** returns you to the form with what you typed.
+- **In a browser, the share menu can't open by itself**, so an invite-only room shows "Tap Invite to send the link" instead.
+- **Nobody can read who started a room**, not even through the database.
 - **Invite only needs the web version online** (part 2), because it works by link. Until then that choice is greyed out and says so.
 - **No host role for the person who starts a room.** Everyone has the same controls, as in other free rooms. The design's "creator becomes host" comes with hosted rooms.
 - **Sizes are 4, 5 or 6.** Rooms still need 3 people to start talking.

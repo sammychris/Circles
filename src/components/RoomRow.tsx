@@ -1,4 +1,4 @@
-import { View } from 'react-native';
+import { Pressable, View } from 'react-native';
 import { Hash } from 'lucide-react-native';
 import type { OpenRoom } from '../rooms/api';
 import { MOOD_STYLE } from '../rooms/moods';
@@ -15,9 +15,13 @@ export function RoomRow({ room, onJoin }: { room: OpenRoom; onJoin: () => void }
   const mood = topic || !room.mood ? { Icon: Hash, fg: colors.textSoft, bg: colors.raised } : MOOD_STYLE[room.mood];
   const full = room.here >= room.capacity;
   return (
-    <View
+    // The whole row is one button for screen readers ("…, 4 of 6 seats. Join"), so Join is reachable.
+    <Pressable
       accessible
-      accessibilityLabel={`${room.title}.${topic ? ` ${topic}.` : ''} ${room.here} of ${room.capacity} seats.${full ? ' Full.' : ''}`}
+      accessibilityRole={full ? undefined : 'button'}
+      accessibilityLabel={`${room.title}.${topic ? ` ${topic}.` : ''} ${room.here} of ${room.capacity} seats. ${full ? 'Full.' : 'Join'}`}
+      disabled={full}
+      onPress={onJoin}
       style={{ flexDirection: 'row', alignItems: 'center', gap: space[3], paddingVertical: space[3] }}
     >
       <View
@@ -47,7 +51,7 @@ export function RoomRow({ room, onJoin }: { room: OpenRoom; onJoin: () => void }
       ) : (
         <Button label="Join" onPress={onJoin} style={{ width: size.rowAction }} />
       )}
-    </View>
+    </Pressable>
   );
 }
 

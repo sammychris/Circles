@@ -372,7 +372,7 @@ export function RoomScreen({ me, request, onLeft, onMove }: Props) {
   } else if (status === 'tooMany') {
     message = { title: "You've started a few rooms already", body: 'Try again in a while, or join a room that’s open now.' };
   } else if (status === 'badTitle') {
-    message = { title: 'That name can’t be used', body: 'Go back and pick another name, without phone numbers or links.' };
+    message = { title: 'That name can’t be used', body: 'Go back and pick another name. Room names can’t have phone numbers or links, or look like the Circles team or a support room.' };
   } else if (status === 'ended') {
     message = { title: 'This room has ended', body: 'Everyone has gone home. There are other rooms open now.' };
   } else if (status === 'paused') {
@@ -510,7 +510,9 @@ export function RoomScreen({ me, request, onLeft, onMove }: Props) {
   useEffect(() => {
     if (!canInvite || autoInvited.current || request.kind !== 'create' || !request.private) return;
     autoInvited.current = true;
-    void invite();
+    // Browsers only share after a tap, so on the web we point at the Invite button instead.
+    if (Platform.OS === 'web') setToast('Your room is ready. Tap Invite to send the link.');
+    else void invite();
   });
 
   return (
@@ -699,7 +701,7 @@ export function RoomScreen({ me, request, onLeft, onMove }: Props) {
             {status === 'noHost' ? (
               <Button label="Get help now" variant="primary" onPress={onOpenHelp} />
             ) : (status === 'full' || status === 'ended') && request.kind === 'join' ? (
-              <Button label="Find me another room" variant="primary" onPress={() => onMove({ kind: 'match', door: 'talk', mood: null })} />
+              <Button label="Find me another room" variant="primary" onPress={() => onMove({ kind: 'match', door: room?.door === 'play' || (request.kind === 'join' && request.door === 'play') ? 'play' : 'talk', mood: null })} />
             ) : status !== 'paused' && status !== 'idle' && status !== 'tooMany' && status !== 'badTitle' ? (
               // A room you started is rejoined, not started again.
               <Button

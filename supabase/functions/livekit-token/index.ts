@@ -85,29 +85,61 @@ const TOPICS = ['football', 'music', 'movies', 'faith', 'relationships', 'work',
 const SIZES = [4, 5, 6];
 const TITLE_MAX = 40;
 
-// A room title someone typed: plain words, 3 to 40 characters. No phone numbers or web links, because
-// titles are shown to strangers. Returns null when it can't be used.
+const LOOKALIKES: Record<string, string> = {
+  '0': 'o', '1': 'i', '3': 'e', '4': 'a', '5': 's', '7': 't', '@': 'a', '$': 's', '!': 'i', '|': 'i',
+  'а': 'a', 'с': 'c', 'е': 'e', 'о': 'o', 'р': 'p', 'х': 'x', 'у': 'y', 'і': 'i', 'ѕ': 's', 'к': 'k',
+  'м': 'm', 'т': 't', 'н': 'h', 'в': 'b', 'ο': 'o', 'α': 'a', 'ι': 'i', 'ε': 'e', 'κ': 'k', 'ν': 'v', 'ρ': 'p',
+};
+// Words a room name may not contain, even with spaces, accents or lookalike letters: anything that
+// passes for the Circles team, or for a support room (those always have a trained host).
+const RESERVED_JOINED = [
+  'circles', 'official', 'moderator', 'someonetotalkto', 'crisis', 'helpline', 'hotline', 'therapist', 'therapy',
+  'counsellor', 'counselor', 'counselling', 'counseling', 'suicide', 'selfharm', 'trainedhost', 'trainedlistener',
+  'supportgroup', 'supportroom', 'peersupport',
+];
+const RESERVED_WORDS = /\b(admin|administrator|mod|mods|staff|host)\b/;
+
+// Keep in step with src/rooms/start.ts (__tests__/start.test.ts checks both give the same answers).
+function titleBreaksRules(title: string): 'number' | 'link' | 'reserved' | null {
+  // Phone numbers: at least 7 digits once everything but letters and digits is taken out.
+  if (/\p{Nd}{7,}/u.test(title.normalize('NFKC').replace(/[^\p{L}\p{N}]/gu, ''))) return 'number';
+  if (/(https?:|www\.|\.(com|ng|net|org|io|me|ly|co)\b|@[a-z0-9_]{3,})/i.test(title)) return 'link';
+  const plain = Array.from(title.normalize('NFKD').replace(/[̀-ͯ]/g, '').toLowerCase())
+    .map((ch) => LOOKALIKES[ch] ?? ch)
+    .join('')
+    .replace(/[^a-z]+/g, ' ')
+    .trim();
+  const joined = plain.replace(/ /g, '');
+  if (RESERVED_JOINED.some((word) => joined.includes(word)) || RESERVED_WORDS.test(plain)) return 'reserved';
+  return null;
+}
+
+// A room title someone typed: plain words, 3 to 40 characters. Titles are shown to strangers.
+// Returns null when it can't be used.
 function cleanTitle(raw: unknown): string | null {
   if (typeof raw !== 'string') return null;
   const title = raw
-    .replace(/[\u0000-\u001F\u007F\u200B-\u200F\u202A-\u202E\u2060-\u2064\u2066-\u2069\uFEFF]/g, '')
+    .replace(/[\u0000-\u001F\u007F\u200B-\u200F\u202A-\u202E\u2060-\u2064\u2066-\u2069\uFEFF]/g, ' ')
     .replace(/\s+/g, ' ')
     .trim();
   const length = Array.from(title).length;
   if (length < 3 || length > TITLE_MAX) return null;
-  if (/[0-9]{7,}/.test(title.replace(/[\s.\-()+]/g, ''))) return null;
-  if (/(https?:|www\.|\.(com|ng|net|org|io|me|ly|co)\b|@[a-z0-9_]{3,})/i.test(title)) return null;
-  // Nothing that passes for the Circles team or for a support room, which always has a trained host.
-  if (/(circles|official|admin|moderator|someone to talk to|crisis|helpline|hotline)/i.test(title)) return null;
+  if (titleBreaksRules(title)) return null;
   return title;
 }
 
-// A room someone started closes once it has been empty for a while, so old links stop working.
+// A room someone started closes once nobody has been in it for a while, so old links stop working.
+// active_at is the last time the server saw someone in it (joining, or in a room list).
 const CUSTOM_EMPTY_MINUTES = 15;
-function customRoomEnded(room: { custom?: boolean; created_at?: string }, peopleHere: number, now = Date.now()): boolean {
+function customRoomEnded(
+  room: { custom?: boolean; created_at?: string; active_at?: string | null },
+  peopleHere: number,
+  now = Date.now(),
+): boolean {
   if (!room.custom || peopleHere > 0) return false;
   const created = room.created_at ? new Date(room.created_at).getTime() : 0;
-  return now - created > CUSTOM_EMPTY_MINUTES * 60 * 1000;
+  const active = room.active_at ? new Date(room.active_at).getTime() : 0;
+  return now - Math.max(created, active) > CUSTOM_EMPTY_MINUTES * 60 * 1000;
 }
 // END MATCHING
 
@@ -139,17 +171,18 @@ Deno.serve(async (req) => {
   if (body.action === 'preview') {
     const { data: room } = await admin
       .from('rooms')
-      .select('id, door, mood, title, topic, capacity, status, custom, created_at, livekit_room_name')
+      .select('id, door, mood, title, topic, capacity, status, custom, created_at, active_at, livekit_room_name')
       .eq('id', String(body.roomId ?? ''))
       .maybeSingle();
     if (!room || room.door === 'support' || room.status !== 'open') return json({ status: 'ended' });
     let here = 0;
+    let counted = true;
     try {
       here = (await service.listParticipants(room.livekit_room_name)).length;
     } catch {
-      here = 0;
+      counted = false;
     }
-    if (customRoomEnded(room, here)) return json({ status: 'ended' });
+    if (counted && customRoomEnded(room, here)) return json({ status: 'ended' });
     return json({
       status: 'open',
       room: { id: room.id, door: room.door, mood: room.mood, topic: room.topic, title: room.title, capacity: room.capacity },
@@ -170,6 +203,17 @@ Deno.serve(async (req) => {
   const action = String(body.action ?? (body.roomId ? 'join' : ''));
 
   // Who is in each LiveKit room right now, by room name. A room nobody is in doesn't exist in LiveKit.
+  // Set when LiveKit couldn't be reached: rooms then look empty, so nothing is closed for being empty.
+  let livekitDown = false;
+  async function peopleOrNone(names: string[]): Promise<Map<string, string[]>> {
+    try {
+      return await peopleIn(names);
+    } catch {
+      livekitDown = true;
+      return new Map<string, string[]>();
+    }
+  }
+
   async function peopleIn(names: string[]): Promise<Map<string, string[]>> {
     const result = new Map<string, string[]>();
     if (names.length === 0) return result;
@@ -183,6 +227,19 @@ Deno.serve(async (req) => {
         }),
     );
     return result;
+  }
+
+  // Rooms people started: note the ones with people in them, and close the ones left empty too long.
+  type Tracked = { id: string; custom?: boolean; created_at?: string; active_at?: string | null; livekit_room_name: string };
+  async function trackCustomRooms(rows: Tracked[], people: Map<string, string[]>): Promise<void> {
+    const now = Date.now();
+    const here = (r: Tracked) => people.get(r.livekit_room_name)?.length ?? 0;
+    const active = rows.filter((r) => r.custom && here(r) > 0).map((r) => r.id);
+    const ended = livekitDown ? [] : rows.filter((r) => customRoomEnded(r, here(r), now)).map((r) => r.id);
+    await Promise.all([
+      active.length > 0 ? admin.from('rooms').update({ active_at: new Date(now).toISOString() }).in('id', active) : null,
+      ended.length > 0 ? admin.from('rooms').update({ status: 'closed' }).in('id', ended) : null,
+    ]).catch(() => {});
   }
 
   // People this person blocked, and people who blocked them. They're never put in a room together.
@@ -204,9 +261,13 @@ Deno.serve(async (req) => {
 
   // --- list and stats: no voice, so no 18+ or nickname check needed beyond being signed in ---
   if (action === 'stats') {
-    const { data: rooms } = await admin.from('rooms').select('livekit_room_name, door').eq('status', 'open');
-    const names = (rooms ?? []).filter((r) => r.door !== 'support').map((r) => r.livekit_room_name as string);
-    const people = await peopleIn(names).catch(() => new Map<string, string[]>());
+    const { data: rooms } = await admin
+      .from('rooms')
+      .select('id, livekit_room_name, door, custom, created_at, active_at')
+      .eq('status', 'open');
+    const counted = (rooms ?? []).filter((r) => r.door !== 'support');
+    const people = await peopleOrNone(counted.map((r) => r.livekit_room_name as string));
+    await trackCustomRooms(counted as Tracked[], people);
     let total = 0;
     people.forEach((list) => (total += list.length));
     return json({ people: total, rooms: people.size });
@@ -235,12 +296,13 @@ Deno.serve(async (req) => {
     // Invite-only rooms are never listed: only their link opens them.
     const { data: rooms } = await admin
       .from('rooms')
-      .select('id, title, mood, topic, capacity, livekit_room_name')
+      .select('id, title, mood, topic, capacity, custom, created_at, active_at, livekit_room_name')
       .eq('status', 'open')
       .eq('private', false)
       .eq('door', door);
     const names = (rooms ?? []).map((r) => r.livekit_room_name as string);
-    const [people, avoid] = await Promise.all([peopleIn(names).catch(() => new Map<string, string[]>()), avoidList()]);
+    const [people, avoid] = await Promise.all([peopleOrNone(names), avoidList()]);
+    await trackCustomRooms((rooms ?? []) as Tracked[], people);
     const list = (rooms ?? [])
       .map((r) => ({ ...r, people: people.get(r.livekit_room_name as string) ?? [] }))
       .filter((r) => r.people.length > 0 && !r.people.some((p) => avoid.has(p)))
@@ -326,9 +388,10 @@ Deno.serve(async (req) => {
     status: string;
     custom?: boolean;
     created_at?: string;
+    active_at?: string | null;
     livekit_room_name: string;
   };
-  const ROOM_FIELDS = 'id, door, mood, topic, title, capacity, status, custom, created_at, livekit_room_name';
+  const ROOM_FIELDS = 'id, door, mood, topic, title, capacity, status, custom, created_at, active_at, livekit_room_name';
   let room: RoomRow | null = null;
 
   if (action === 'create') {
@@ -381,8 +444,8 @@ Deno.serve(async (req) => {
       return json({ error: 'This room has ended', status: 'ended' }, 410);
     }
     room = data as RoomRow;
-    const people = (await peopleIn([room.livekit_room_name]).catch(() => new Map())).get(room.livekit_room_name) ?? [];
-    if (customRoomEnded(room, people.length)) {
+    const people = (await peopleOrNone([room.livekit_room_name])).get(room.livekit_room_name) ?? [];
+    if (!livekitDown && customRoomEnded(room, people.length)) {
       await admin.from('rooms').update({ status: 'closed' }).eq('id', room.id);
       return json({ error: 'This room has ended', status: 'ended' }, 410);
     }
@@ -402,7 +465,8 @@ Deno.serve(async (req) => {
       .eq('private', false)
       .eq('door', door);
     const all = (rows ?? []) as RoomRow[];
-    const people = await peopleIn(all.map((r) => r.livekit_room_name)).catch(() => new Map<string, string[]>());
+    const people = await peopleOrNone(all.map((r) => r.livekit_room_name));
+    await trackCustomRooms(all, people);
     const candidates: Candidate[] = all.map((r) => ({
       id: r.id,
       door: r.door,
@@ -462,6 +526,7 @@ Deno.serve(async (req) => {
   }
 
   if (!room) return json({ error: 'Could not find a room' }, 500);
+  if (room.custom) await admin.from('rooms').update({ active_at: new Date().toISOString() }).eq('id', room.id);
 
   // The ticket only lets this person into this one room, for one hour. The nickname is the only name in it.
   const token = new AccessToken(apiKey, apiSecret, {

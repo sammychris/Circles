@@ -3,7 +3,9 @@ import { Pressable, View } from 'react-native';
 import { Check } from 'lucide-react-native';
 import { AuthLayout } from '../components/AuthLayout';
 import { Button } from '../components/Button';
+import { ErrorLine } from '../components/ErrorLine';
 import { RadioRow } from '../components/Choice';
+import { RoomRulesSheet } from '../components/RoomRulesSheet';
 import { Text } from '../components/Text';
 import { TextField } from '../components/TextField';
 import { WEB_URL } from '../config';
@@ -45,35 +47,39 @@ function Pill({ label, selected, onPress }: { label: string; selected: boolean; 
 
 type Props = {
   door: 'talk' | 'play';
+  // What they typed before, when a room didn't start and they came back to change it.
+  draft?: Extract<RoomRequest, { kind: 'create' }>;
   onBack: () => void;
   onStart: (request: RoomRequest) => void;
 };
 
 // Start something (docs/design/pages/start-something.md, docs/screens/17). For the open test: Talk or Play,
 // starting now. Weekly groups, Learn and hosted rooms come later.
-export function StartScreen({ door, onBack, onStart }: Props) {
-  const [title, setTitle] = useState('');
-  const [topic, setTopic] = useState<Topic | null>(null);
-  const [capacity, setCapacity] = useState<number>(6);
-  const [inviteOnly, setInviteOnly] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+export function StartScreen({ door, draft, onBack, onStart }: Props) {
+  const [title, setTitle] = useState(draft?.title ?? '');
+  const [topic, setTopic] = useState<Topic | null>(draft?.topic ?? null);
+  const [capacity, setCapacity] = useState<number>(draft?.capacity ?? 6);
+  // Nobody is listed publicly without choosing it (design direction: nothing is chosen for people).
+  const [inviteOnly, setInviteOnly] = useState<boolean | null>(draft ? draft.private : null);
+  const [error, setError] = useState<string | null>(draft ? (titleProblem(draft.title) ? TITLE_PROBLEM_TEXT[titleProblem(draft.title)!] : null) : null);
+  const [whoError, setWhoError] = useState<string | null>(null);
+  const [rulesOpen, setRulesOpen] = useState(false);
   const talk = door === 'talk';
   // Invite-only rooms are opened by a link, and links need the web version to be online.
   const canInvite = !!WEB_URL;
 
   const start = () => {
     const problem = titleProblem(title);
-    if (problem) {
-      setError(TITLE_PROBLEM_TEXT[problem]);
-      return;
-    }
+    if (problem) setError(TITLE_PROBLEM_TEXT[problem]);
+    if (inviteOnly === null) setWhoError('Choose who can join.');
+    if (problem || inviteOnly === null) return;
     onStart({
       kind: 'create',
       door,
       title: title.replace(/\s+/g, ' ').trim(),
       topic: talk ? topic : null,
       capacity,
-      private: inviteOnly && canInvite,
+      private: !!inviteOnly && canInvite,
     });
   };
 
@@ -89,9 +95,16 @@ export function StartScreen({ door, onBack, onStart }: Props) {
       footer={
         <>
           <Button label="Start the room" variant="primary" onPress={start} />
-          <Text variant="meta" color="textMeta" center>
-            Rooms start when three people are here. The room rules apply.
-          </Text>
+          <View style={{ flexDirection: 'row', justifyContent: 'center', alignItems: 'center', flexWrap: 'wrap', gap: space[1] }}>
+            <Text variant="meta" color="textMeta">
+              Rooms start when three people are here.
+            </Text>
+            <Pressable accessibilityRole="link" onPress={() => setRulesOpen(true)} hitSlop={space[3]}>
+              <Text variant="metaStrong" style={{ textDecorationLine: 'underline' }}>
+                Room rules
+              </Text>
+            </Pressable>
+          </View>
         </>
       }
     >
@@ -122,7 +135,7 @@ export function StartScreen({ door, onBack, onStart }: Props) {
 
       <View style={{ gap: space[3] }}>
         <Text variant="bodyStrong">How many people?</Text>
-        <View accessibilityRole="radiogroup" style={{ flexDirection: 'row', gap: space[2] }}>
+        <View accessibilityRole="radiogroup" style={{ flexDirection: 'row', flexWrap: 'wrap', gap: space[2] }}>
           {ROOM_SIZES.map((n) => (
             <Pill key={n} label={`Up to ${n}`} selected={capacity === n} onPress={() => setCapacity(n)} />
           ))}
@@ -135,8 +148,11 @@ export function StartScreen({ door, onBack, onStart }: Props) {
           <RadioRow
             title="Anyone"
             line={talk ? 'Listed under "I want to talk" for anyone to join.' : 'Listed under "Let\'s play" for anyone to join.'}
-            selected={!inviteOnly}
-            onPress={() => setInviteOnly(false)}
+            selected={inviteOnly === false}
+            onPress={() => {
+              setInviteOnly(false);
+              setWhoError(null);
+            }}
           />
           <RadioRow
             title="Invite only"
@@ -145,12 +161,17 @@ export function StartScreen({ door, onBack, onStart }: Props) {
                 ? 'Not listed. Only people you send the link to can join.'
                 : 'Comes once the web version of Circles is online, so links work.'
             }
-            selected={inviteOnly && canInvite}
+            selected={inviteOnly === true && canInvite}
             disabled={!canInvite}
-            onPress={() => setInviteOnly(true)}
+            onPress={() => {
+              setInviteOnly(true);
+              setWhoError(null);
+            }}
           />
         </View>
+        {whoError ? <ErrorLine message={whoError} /> : null}
       </View>
+      <RoomRulesSheet visible={rulesOpen} onClose={() => setRulesOpen(false)} />
     </AuthLayout>
   );
 }

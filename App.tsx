@@ -93,7 +93,7 @@ type Screen =
   | { name: 'door'; door: DoorName }
   | { name: 'me' }
   | { name: 'addEmail' }
-  | { name: 'start'; door: 'talk' | 'play' }
+  | { name: 'start'; door: 'talk' | 'play'; draft?: Extract<RoomRequest, { kind: 'create' }> }
   | { name: 'room'; request: RoomRequest; visit: number }
   | { name: 'after'; summary: RoomSummary };
 
@@ -145,11 +145,12 @@ function SignedIn({
     const sub = BackHandler.addEventListener('hardwareBackPress', () => {
       if (screen.name === 'home') return false;
       if (screen.name === 'room') return true;
-      setScreen({ name: 'home' });
+      if (screen.name === 'start') setScreen({ name: 'door', door: screen.door });
+      else setScreen({ name: 'home' });
       return true;
     });
     return () => sub.remove();
-  }, [screen.name]);
+  }, [screen]);
 
   if (state.status === 'loading') return <Centered />;
   if (state.status === 'error') {
@@ -183,7 +184,10 @@ function SignedIn({
           me={me}
           request={screen.request}
           onLeft={(summary) => {
+            const request = screen.request;
             if (summary) setScreen({ name: 'after', summary });
+            // A room that never started: back to the form, with what they typed still there.
+            else if (request.kind === 'create') setScreen({ name: 'start', door: request.door, draft: request });
             else home();
             void myBan()
               .then(setBan)
@@ -216,7 +220,14 @@ function SignedIn({
         />
       );
     case 'start':
-      return <StartScreen door={screen.door} onBack={() => setScreen({ name: 'door', door: screen.door })} onStart={enter} />;
+      return (
+        <StartScreen
+          door={screen.door}
+          draft={screen.draft}
+          onBack={() => setScreen({ name: 'door', door: screen.door })}
+          onStart={enter}
+        />
+      );
     case 'door':
       if (screen.door === 'talk') {
         return (

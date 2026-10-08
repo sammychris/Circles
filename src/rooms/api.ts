@@ -11,7 +11,8 @@ export type RoomTicket = { token: string; url: string; roomName: string; room: R
 // How someone gets into a room: matched through a door, or picked from the Open now list.
 export type RoomRequest =
   | { kind: 'match'; door: Door; mood: Mood | null; excludeRoomId?: string }
-  | { kind: 'join'; roomId: string }
+  // door: where they found the room, so "Find me another room" looks behind the same door.
+  | { kind: 'join'; roomId: string; door?: 'talk' | 'play' }
   // Start something: a room with your own title. Invite-only rooms are only opened by their link.
   | { kind: 'create'; door: 'talk' | 'play'; title: string; topic: Topic | null; capacity: number; private: boolean };
 

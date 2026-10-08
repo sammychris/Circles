@@ -25,6 +25,11 @@ module.exports = async ({ users, as, fails, check, assert, db }) => {
     assert.deepStrictEqual(seen, ['o1']);
   });
 
+  await check('nobody can read who opened a room', async () => {
+    await fails(as(users.ada, "select created_by from public.rooms where id = 'o1'"), 'permission denied');
+    await fails(as(users.ada, "select livekit_room_name from public.rooms where id = 'o1'"), 'permission denied');
+  });
+
   await check('people can never start a support room, and titles stay short', async () => {
     await fails(
       db.query("insert into public.rooms (id, kind, door, capacity, status, livekit_room_name, custom) values ('s9', 'hosted', 'support', 6, 'open', 'circles-s9', true)"),

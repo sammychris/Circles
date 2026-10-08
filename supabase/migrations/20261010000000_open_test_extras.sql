@@ -54,3 +54,10 @@ create policy "rooms: signed-in can read" on public.rooms
   for select to authenticated using (door <> 'support' and not private);
 
 create index if not exists rooms_started_by on public.rooms (created_by, created_at) where custom;
+
+-- active_at: the last time someone was seen in a room a person started. It ends 15 minutes after that.
+alter table public.rooms add column if not exists active_at timestamptz;
+
+-- People can read only what a room list needs: never who opened a room, or its voice room name.
+revoke select on public.rooms from anon, authenticated;
+grant select (id, door, mood, title, topic, capacity, status) on public.rooms to authenticated;

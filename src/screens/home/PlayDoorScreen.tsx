@@ -116,7 +116,7 @@ export function PlayDoorScreen({
       <View style={{ gap: space[2] }}>
         {rooms.length > 0 ? <Text variant="heading">Open now</Text> : null}
         {rooms.map((room) => (
-          <RoomRow key={room.id} room={room} onJoin={() => onEnter({ kind: 'join', roomId: room.id })} />
+          <RoomRow key={room.id} room={room} onJoin={() => onEnter({ kind: 'join', roomId: room.id, door: 'play' })} />
         ))}
         <Button label="Start a game room" variant="quiet" onPress={onStart} />
       </View>
