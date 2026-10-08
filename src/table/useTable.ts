@@ -3,7 +3,7 @@ import { utf8Decode, utf8Encode } from '../rooms/chat';
 import type { DataListener } from '../voice/useVoiceRoom';
 import { GAMES } from '../games/registry';
 import { addWin, type SetScore } from '../games/score';
-import type { Side } from '../games/tableGame';
+import { SIDE_NAME, type Side } from '../games/tableGame';
 import { gameMode } from '../theme/tokens';
 import type { GameId } from '../games/tableGame';
 import {
@@ -168,10 +168,11 @@ export function useTable(
         setEndedBy(null);
         const photoCount = incoming.kind === 'photos' ? incoming.photos.length : 0;
         setItem(incoming);
-        setState(onLocalClock(cleanState(msg.state, incoming.kind, photoCount) ?? { seq: 0 }, now));
+        const game = incoming.kind === 'game' ? incoming.game : undefined;
+        setState(onLocalClock(cleanState(msg.state, incoming.kind, photoCount, game) ?? { seq: 0 }, now));
       } else if (msg.k === 'state') {
         if (!current || current.id !== msg.id || current.by !== from.id) return;
-        const next = cleanState(msg.state, current.kind, current.kind === 'photos' ? current.photos.length : 0);
+        const next = cleanState(msg.state, current.kind, current.kind === 'photos' ? current.photos.length : 0, current.kind === 'game' ? current.game : undefined);
         if (next && next.seq > stateRef.current.seq) setState(onLocalClock(next, now));
       } else if (msg.k === 'answer') {
         // Only the presenter counts answers, one per person, until the reveal.
@@ -351,12 +352,16 @@ export function useTable(
 
   // Starts a game with everyone in the room. Play again can keep the teams and carry the score on.
   const startGame = useCallback(
-    async (gameId: GameId, opts: { set?: SetScore; teams?: Record<Side, string[]> | null } = {}) => {
+    async (gameId: GameId, opts: { set?: SetScore; teams?: Record<Side, string[]> | null; first?: Side } = {}) => {
       const engine = GAMES[gameId];
       if (!engine) return false;
       const names = Object.fromEntries(namesRef.current);
       let full = engine.setup(peopleRef.current.slice(0, engine.max), me.id, Math.random, names);
       if (opts.teams && full && typeof full === 'object' && 'teams' in full) full = { ...full, teams: opts.teams };
+      // Through a set, the teams take turns to go first (Draughts; in Chess, Team Sun is always white).
+      if (opts.first && full && typeof full === 'object' && 'turn' in full && typeof full.turn === 'string') {
+        full = { ...full, turn: opts.first, last: `${SIDE_NAME[opts.first]} goes first` };
+      }
       const ok = await put({ kind: 'game', game: gameId }, { g: engine.publicView(full), ...(opts.set ? { set: opts.set } : {}) });
       if (ok === false) return false;
       fullGame.current = full;

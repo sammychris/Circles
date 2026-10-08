@@ -37,7 +37,7 @@ import type { WhotPublic } from '../games/whot/engine';
 import type { ChessGame } from '../games/chess/engine';
 import type { DraughtsGame } from '../games/draughts/engine';
 import { GAME_IDS, type GameId, type Side } from '../games/tableGame';
-import { SCORED_GAMES, TEAM_SCORED, carryOn, keepTeams, newScore, type ScoreGame } from '../games/score';
+import { SCORED_GAMES, firstSide, newScore, replayPlan, type ScoreGame } from '../games/score';
 import { ScoreSheet } from '../games/mode/ScoreSheet';
 import { GAMES } from '../games/registry';
 import { AppealSheet, HandsSheet, HostActionsSheet, REMOVAL_REASONS, RemoveSheet } from '../components/host/HostSheets';
@@ -603,7 +603,6 @@ export function RoomScreen({ me, request, onLeft, onMove }: Props) {
     setToast(`Find the Impostor needs at least ${IMPOSTOR_MIN} people.`);
   }
 
-  // Starts a Table game when there are enough people for it.
   // Starts a Table game when there are enough people for it. `keep` carries the score on (and the
   // teams), for Play again.
   function playTableGame(id: GameId, keep: Parameters<typeof tableItem.startGame>[1] = {}) {
@@ -624,21 +623,22 @@ export function RoomScreen({ me, request, onLeft, onMove }: Props) {
     if (game === 'ludo') ludo.start(everyone, { set });
     else playTableGame(game, { set });
   }
-  // Play again: the same teams and the score carried on. With `fresh`, new teams and a new score.
+  // Play again: the same teams and the score carried on (src/games/score.ts › replayPlan). With
+  // `fresh`, new teams and a new score.
   function replayTableGame(id: GameId, fresh = false) {
     const set = tableItem.state.set;
-    const g = tableItem.state.g as { teams?: Record<Side, string[]> } | undefined;
-    const teams = !fresh && g?.teams ? keepTeams(g.teams, everyone) : null;
     if (!set) return playTableGame(id);
-    const restart = fresh || (TEAM_SCORED.includes(set.game) && !teams);
-    playTableGame(id, { set: restart ? newScore(set.game, set.target) : carryOn(set), teams });
+    const g = tableItem.state.g as { teams?: Record<Side, string[]> } | undefined;
+    const plan = replayPlan({ score: set, teams: g?.teams, here: everyone, max: GAMES[id]?.max ?? everyone.length, fresh });
+    if (plan.mixed) setToast('A team had nobody left, so the teams were mixed again and the score starts over.');
+    playTableGame(id, { set: plan.score, teams: plan.teams, first: firstSide(plan.score) });
   }
   function replayLudo(fresh = false) {
     const g = ludo.game;
-    const set = g?.set;
-    const teams = !fresh && g ? keepTeams(g.teams, everyone) : null;
-    if (!set) return ludo.start(everyone);
-    ludo.start(everyone, { set: fresh || !teams ? newScore('ludo', set.target) : carryOn(set), teams });
+    if (!g?.set) return ludo.start(everyone);
+    const plan = replayPlan({ score: g.set, teams: g.teams, here: everyone, max: everyone.length, fresh });
+    if (plan.mixed) setToast('A team had nobody left, so the teams were mixed again and the score starts over.');
+    ludo.start(everyone, { set: plan.score, teams: plan.teams, first: firstSide(plan.score) });
   }
 
   function onTablePick(choice: TableChoice) {
@@ -932,17 +932,20 @@ export function RoomScreen({ me, request, onLeft, onMove }: Props) {
       people,
       starter: tableItem.mine,
       onPlayAgain: () => replayTableGame(tableGame.game),
+      onBackToTalking: tableItem.mine ? tableItem.takeOff : tableItem.hideItem,
+    };
+    // The score for the sitting: Draughts, Chess and Whot only (src/games/score.ts).
+    const scored = {
       score: tableItem.state.set,
       onFresh: tableItem.state.set ? () => replayTableGame(tableGame.game, true) : undefined,
-      onBackToTalking: tableItem.mine ? tableItem.takeOff : tableItem.hideItem,
     };
     gameView = !g ? (
       // After a reconnect, until the starter's phone sends the game again.
       <GameStage kind={tableGame.game} gameKey={tableGame.id} turn={{ text: GAME_TITLE[tableGame.game] }} board={() => null} note="Getting the game back…" />
     ) : tableGame.game === 'draughts' ? (
-      <DraughtsBody g={g as DraughtsGame} pending={tableItem.movePending} onMove={tableItem.sendMove} {...common} />
+      <DraughtsBody g={g as DraughtsGame} pending={tableItem.movePending} onMove={tableItem.sendMove} {...common} {...scored} />
     ) : tableGame.game === 'chess' ? (
-      <ChessBody g={g as ChessGame} pending={tableItem.movePending} onMove={tableItem.sendMove} {...common} />
+      <ChessBody g={g as ChessGame} pending={tableItem.movePending} onMove={tableItem.sendMove} {...common} {...scored} />
     ) : tableGame.game === 'whot' ? (
       <WhotBody
         g={g as WhotPublic}
@@ -950,6 +953,7 @@ export function RoomScreen({ me, request, onLeft, onMove }: Props) {
         pending={tableItem.movePending}
         onMove={tableItem.sendMove}
         {...common}
+        {...scored}
       />
     ) : (
       <MafiaBody g={g as MafiaPublic} secret={(tableItem.mySecret as MafiaSecret | null) ?? null} onMove={tableItem.sendMove} {...common} />
@@ -1011,193 +1015,193 @@ export function RoomScreen({ me, request, onLeft, onMove }: Props) {
   // Sheets and dialogs, the same in the room and in game mode.
   const sheets = (
     <>
-        <ScoreSheet game={scoreAsk} onClose={() => setScoreAsk(null)} onStart={(target) => scoreAsk && startScored(scoreAsk, target)} />
-        <MicAskSheet visible={askOpen} onAllow={() => void onAllow()} onListen={onListen} />
-        <MicBlockedSheet
-          visible={blockedOpen}
-          onOpenSettings={() => {
-            setBlockedOpen(false);
-            if (Platform.OS !== 'web') void Linking.openSettings();
-          }}
-          onClose={() => setBlockedOpen(false)}
-        />
-        <MiniProfileSheet
-          person={profile}
-          saved={!!profile && saved.has(profile.id)}
-          onClose={() => {
-            setProfile(null);
-            if (profileFromChat) {
-              setProfileFromChat(false);
-              setTimeout(() => setChatOpen(true), motion.slow);
-            }
-          }}
-          onToggleSave={(p) => void toggleSave(p)}
-          onBlock={(p) => {
-            setProfile(null);
+      <ScoreSheet game={scoreAsk} onClose={() => setScoreAsk(null)} onStart={(target) => scoreAsk && startScored(scoreAsk, target)} />
+      <MicAskSheet visible={askOpen} onAllow={() => void onAllow()} onListen={onListen} />
+      <MicBlockedSheet
+        visible={blockedOpen}
+        onOpenSettings={() => {
+          setBlockedOpen(false);
+          if (Platform.OS !== 'web') void Linking.openSettings();
+        }}
+        onClose={() => setBlockedOpen(false)}
+      />
+      <MiniProfileSheet
+        person={profile}
+        saved={!!profile && saved.has(profile.id)}
+        onClose={() => {
+          setProfile(null);
+          if (profileFromChat) {
             setProfileFromChat(false);
-            setToBlock({ id: p.id, nickname: p.nickname });
-          }}
-          onReport={(p) => {
-            setProfile(null);
-            setProfileFromChat(false);
-            setReportPerson(p);
-            setReportOpen(true);
-          }}
+            setTimeout(() => setChatOpen(true), motion.slow);
+          }
+        }}
+        onToggleSave={(p) => void toggleSave(p)}
+        onBlock={(p) => {
+          setProfile(null);
+          setProfileFromChat(false);
+          setToBlock({ id: p.id, nickname: p.nickname });
+        }}
+        onReport={(p) => {
+          setProfile(null);
+          setProfileFromChat(false);
+          setReportPerson(p);
+          setReportOpen(true);
+        }}
+      />
+      <BlockSheet me={me.id} person={toBlock} onClose={() => setToBlock(null)} onBlocked={onBlocked} />
+      <ReportSheet
+        visible={reportOpen}
+        roomId={room?.id ?? null}
+        people={others.map((p) => ({ id: p.id, nickname: p.nickname }))}
+        startWith={reportPerson}
+        evidence={reportEvidence}
+        onClose={() => setReportOpen(false)}
+        onAlsoBlock={(p) => setToBlock(p)}
+        onSeeHelp={() => {
+          setReportOpen(false);
+          onOpenHelp();
+        }}
+      />
+      {room ? (
+        <PutOnTableSheet
+          visible={putOpen}
+          door={room.door}
+          gamesReady={ludo.ready && impostor.ready}
+          peopleCount={people.length}
+          onClose={() => setPutOpen(false)}
+          onPick={onTablePick}
         />
-        <BlockSheet me={me.id} person={toBlock} onClose={() => setToBlock(null)} onBlocked={onBlocked} />
-        <ReportSheet
-          visible={reportOpen}
-          roomId={room?.id ?? null}
-          people={others.map((p) => ({ id: p.id, nickname: p.nickname }))}
-          startWith={reportPerson}
-          evidence={reportEvidence}
-          onClose={() => setReportOpen(false)}
-          onAlsoBlock={(p) => setToBlock(p)}
-          onSeeHelp={() => {
-            setReportOpen(false);
-            onOpenHelp();
-          }}
-        />
-        {room ? (
-          <PutOnTableSheet
-            visible={putOpen}
-            door={room.door}
-            gamesReady={ludo.ready && impostor.ready}
-            peopleCount={people.length}
-            onClose={() => setPutOpen(false)}
-            onPick={onTablePick}
+      ) : null}
+      <NoteSheet
+        visible={compose === 'note'}
+        onClose={() => setCompose(null)}
+        onPut={(text) => {
+          setCompose(null);
+          void tableItem.put({ kind: 'note', text, link: findLink(text) });
+        }}
+      />
+      <VideoSheet
+        visible={compose === 'video'}
+        onClose={() => setCompose(null)}
+        onPut={(video, title) => {
+          setCompose(null);
+          void tableItem.put({ kind: 'video', video, title }, { playing: false, position: 0, sentAt: Date.now() });
+        }}
+      />
+      <HandsSheet
+        visible={handsOpen}
+        hands={hands}
+        onClose={() => setHandsOpen(false)}
+        onLetIn={(p) => void doHost(p, 'letin')}
+        onNotNow={(p) => void doHost(p, 'notnow')}
+      />
+      <HostActionsSheet
+        person={hostPerson}
+        onClose={() => setHostPerson(null)}
+        onMute={(p) => {
+          setHostPerson(null);
+          void doHost(p, 'mute');
+        }}
+        onRemove={(p) => {
+          setHostPerson(null);
+          setTimeout(() => setRemovePerson(p), motion.slow);
+        }}
+        onMore={(p) => {
+          setHostPerson(null);
+          setTimeout(() => setProfile({ id: p.id, nickname: p.nickname }), motion.slow);
+        }}
+      />
+      <RemoveSheet
+        person={removePerson}
+        onClose={() => setRemovePerson(null)}
+        onRemove={(p, reason, alsoReport) => {
+          setRemovePerson(null);
+          void doHost(p, 'remove', reason, alsoReport);
+        }}
+      />
+      <AppealSheet
+        visible={appealOpen}
+        onClose={() => setAppealOpen(false)}
+        onSend={(text) => {
+          setAppealOpen(false);
+          if (room)
+            void appealRemoval(room.id, text)
+              .then(() => setToast('Sent to the Circles team. Thank you.'))
+              .catch(() => setToast("That didn't send. Check your connection."));
+        }}
+      />
+      <TurnsSheet
+        visible={compose === 'turns'}
+        onClose={() => setCompose(null)}
+        onPut={(topic, minutes) => {
+          setCompose(null);
+          // Everyone here, starting with you; people who arrive later join the end.
+          const order = [me.id, ...people.filter((p) => !p.isMe).map((p) => p.id)];
+          void tableItem.put({ kind: 'turns', topic, minutes }, { order: order.slice(0, 12), index: 0, startedAt: Date.now(), sentAt: Date.now() });
+        }}
+      />
+      <WordsSheet
+        visible={compose === 'words'}
+        onClose={() => setCompose(null)}
+        onPut={(words) => {
+          setCompose(null);
+          void tableItem.put({ kind: 'words', words }, { index: 0 });
+        }}
+      />
+      <QuizSheet
+        visible={compose === 'quiz'}
+        onClose={() => setCompose(null)}
+        onPut={(question, answers, correct) => {
+          setCompose(null);
+          void tableItem.put({ kind: 'quiz', question, answers, correct }, { revealed: false });
+        }}
+      />
+      <TableOptionsSheet
+        visible={tableOptionsOpen}
+        canTakeOff={tableItem.canTakeOff}
+        onClose={() => setTableOptionsOpen(false)}
+        onTakeOff={() => {
+          setTableOptionsOpen(false);
+          tableItem.takeOff();
+        }}
+        onReport={() => {
+          setTableOptionsOpen(false);
+          const item = tableItem.item;
+          setReportPerson(item && !tableItem.mine ? { id: item.by, nickname: item.byName } : null);
+          setTimeout(() => setReportOpen(true), motion.slow);
+        }}
+      />
+      <ChatSheet
+        visible={chatOpen && connected}
+        messages={chat}
+        onClose={() => setChatOpen(false)}
+        pausedReason={chatPaused}
+        onSend={voice.sendChat}
+        onPerson={(p) => {
+          setChatOpen(false);
+          setProfileFromChat(true);
+          // Let the chat slide away first: two sheets can't swap in the same moment on every phone.
+          setTimeout(() => openProfile(p), motion.slow);
+        }}
+      />
+      <HelpModal visible={helpOpen} onClose={() => setHelpOpen(false)} inRoom={connected} />
+      <Sheet visible={!!afterBlock} onClose={() => setAfterBlock(null)}>
+        <Text variant="title">{`You're both still in this room`}</Text>
+        <Text variant="body" color="textSoft">
+          {`You won't hear ${afterBlock?.nickname ?? 'them'} any more. You can also move to another room.`}
+        </Text>
+        <View style={{ gap: space[3] }}>
+          <Button
+            label="Move me to another room"
+            variant="primary"
+            onPress={() => {
+              setAfterBlock(null);
+              void moveToAnotherRoom();
+            }}
           />
-        ) : null}
-        <NoteSheet
-          visible={compose === 'note'}
-          onClose={() => setCompose(null)}
-          onPut={(text) => {
-            setCompose(null);
-            void tableItem.put({ kind: 'note', text, link: findLink(text) });
-          }}
-        />
-        <VideoSheet
-          visible={compose === 'video'}
-          onClose={() => setCompose(null)}
-          onPut={(video, title) => {
-            setCompose(null);
-            void tableItem.put({ kind: 'video', video, title }, { playing: false, position: 0, sentAt: Date.now() });
-          }}
-        />
-        <HandsSheet
-          visible={handsOpen}
-          hands={hands}
-          onClose={() => setHandsOpen(false)}
-          onLetIn={(p) => void doHost(p, 'letin')}
-          onNotNow={(p) => void doHost(p, 'notnow')}
-        />
-        <HostActionsSheet
-          person={hostPerson}
-          onClose={() => setHostPerson(null)}
-          onMute={(p) => {
-            setHostPerson(null);
-            void doHost(p, 'mute');
-          }}
-          onRemove={(p) => {
-            setHostPerson(null);
-            setTimeout(() => setRemovePerson(p), motion.slow);
-          }}
-          onMore={(p) => {
-            setHostPerson(null);
-            setTimeout(() => setProfile({ id: p.id, nickname: p.nickname }), motion.slow);
-          }}
-        />
-        <RemoveSheet
-          person={removePerson}
-          onClose={() => setRemovePerson(null)}
-          onRemove={(p, reason, alsoReport) => {
-            setRemovePerson(null);
-            void doHost(p, 'remove', reason, alsoReport);
-          }}
-        />
-        <AppealSheet
-          visible={appealOpen}
-          onClose={() => setAppealOpen(false)}
-          onSend={(text) => {
-            setAppealOpen(false);
-            if (room)
-              void appealRemoval(room.id, text)
-                .then(() => setToast('Sent to the Circles team. Thank you.'))
-                .catch(() => setToast("That didn't send. Check your connection."));
-          }}
-        />
-        <TurnsSheet
-          visible={compose === 'turns'}
-          onClose={() => setCompose(null)}
-          onPut={(topic, minutes) => {
-            setCompose(null);
-            // Everyone here, starting with you; people who arrive later join the end.
-            const order = [me.id, ...people.filter((p) => !p.isMe).map((p) => p.id)];
-            void tableItem.put({ kind: 'turns', topic, minutes }, { order: order.slice(0, 12), index: 0, startedAt: Date.now(), sentAt: Date.now() });
-          }}
-        />
-        <WordsSheet
-          visible={compose === 'words'}
-          onClose={() => setCompose(null)}
-          onPut={(words) => {
-            setCompose(null);
-            void tableItem.put({ kind: 'words', words }, { index: 0 });
-          }}
-        />
-        <QuizSheet
-          visible={compose === 'quiz'}
-          onClose={() => setCompose(null)}
-          onPut={(question, answers, correct) => {
-            setCompose(null);
-            void tableItem.put({ kind: 'quiz', question, answers, correct }, { revealed: false });
-          }}
-        />
-        <TableOptionsSheet
-          visible={tableOptionsOpen}
-          canTakeOff={tableItem.canTakeOff}
-          onClose={() => setTableOptionsOpen(false)}
-          onTakeOff={() => {
-            setTableOptionsOpen(false);
-            tableItem.takeOff();
-          }}
-          onReport={() => {
-            setTableOptionsOpen(false);
-            const item = tableItem.item;
-            setReportPerson(item && !tableItem.mine ? { id: item.by, nickname: item.byName } : null);
-            setTimeout(() => setReportOpen(true), motion.slow);
-          }}
-        />
-        <ChatSheet
-          visible={chatOpen && connected}
-          messages={chat}
-          onClose={() => setChatOpen(false)}
-          pausedReason={chatPaused}
-          onSend={voice.sendChat}
-          onPerson={(p) => {
-            setChatOpen(false);
-            setProfileFromChat(true);
-            // Let the chat slide away first: two sheets can't swap in the same moment on every phone.
-            setTimeout(() => openProfile(p), motion.slow);
-          }}
-        />
-        <HelpModal visible={helpOpen} onClose={() => setHelpOpen(false)} inRoom={connected} />
-        <Sheet visible={!!afterBlock} onClose={() => setAfterBlock(null)}>
-          <Text variant="title">{`You're both still in this room`}</Text>
-          <Text variant="body" color="textSoft">
-            {`You won't hear ${afterBlock?.nickname ?? 'them'} any more. You can also move to another room.`}
-          </Text>
-          <View style={{ gap: space[3] }}>
-            <Button
-              label="Move me to another room"
-              variant="primary"
-              onPress={() => {
-                setAfterBlock(null);
-                void moveToAnotherRoom();
-              }}
-            />
-            <Button label="Stay for now" variant="quiet" onPress={() => setAfterBlock(null)} />
-          </View>
-        </Sheet>
+          <Button label="Stay for now" variant="quiet" onPress={() => setAfterBlock(null)} />
+        </View>
+      </Sheet>
     </>
   );
 

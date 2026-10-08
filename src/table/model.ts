@@ -295,7 +295,8 @@ export function videoPositionNow(state: TableState, now: number): number {
   return base + Math.max(0, now - state.sentAt) / 1000;
 }
 
-export function cleanState(raw: unknown, kind: TableKind, photoCount: number): TableState | null {
+// `game`: for a game on the table, which one, so a score for another game is never believed.
+export function cleanState(raw: unknown, kind: TableKind, photoCount: number, game?: string): TableState | null {
   if (!raw || typeof raw !== 'object') return null;
   const r = raw as Record<string, unknown>;
   const seq = typeof r.seq === 'number' && Number.isFinite(r.seq) ? r.seq : null;
@@ -307,7 +308,7 @@ export function cleanState(raw: unknown, kind: TableKind, photoCount: number): T
   if (kind === 'game') {
     // The starter's phone checks every move; this only keeps a message from being huge.
     const g = r.g;
-    const set = cleanScore(r.set);
+    const set = game ? cleanScore(r.set, game) : undefined;
     return { seq, ...(g !== undefined && JSON.stringify(g).length <= 12_000 ? { g } : {}), ...(set ? { set } : {}) };
   }
   if (kind === 'words') {

@@ -240,7 +240,7 @@ export function WhotBody({ g, hand, gameKey, me, people, starter, pending, onMov
     <GameStage
       kind="whot"
       gameKey={gameKey}
-      score={score ? scoreLine(score, name) : null}
+      score={score ? scoreLine(score, name, 1) : null}
       turn={{ text: turnText, mine: myTurn }}
       faces={(id) => ({ dim: !g.players.includes(id) })}
       won={!!g.winner}

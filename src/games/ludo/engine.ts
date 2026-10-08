@@ -58,7 +58,7 @@ export function newGame(
   random: () => number = Math.random,
   id = `${Date.now().toString(36)}-${Math.floor(random() * 1e9).toString(36)}`,
   // Play again: the same teams, and the score carried on.
-  keep: { teams?: Record<Team, string[]> | null; set?: SetScore } = {},
+  keep: { teams?: Record<Team, string[]> | null; set?: SetScore; first?: Team } = {},
 ): LudoState {
   const shuffled = [...players];
   for (let i = shuffled.length - 1; i > 0; i -= 1) {
@@ -70,13 +70,13 @@ export function newGame(
     id,
     teams: keep.teams ?? { sun: shuffled.slice(0, half), sky: shuffled.slice(half) },
     tokens: { sun: [BASE, BASE, BASE, BASE], sky: [BASE, BASE, BASE, BASE] },
-    turn: 'sun',
+    turn: keep.first ?? 'sun',
     dice: null,
     sixes: 0,
     winner: null,
     seq: 0,
     startedBy,
-    last: 'Team Sun goes first. Anyone on the team can roll.',
+    last: `${TEAM_NAME[keep.first ?? 'sun']} goes first. Anyone on the team can roll.`,
     ...(keep.set ? { set: keep.set } : {}),
   };
 }

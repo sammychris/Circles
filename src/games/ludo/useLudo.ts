@@ -2,6 +2,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import type { RealtimeChannel } from '@supabase/supabase-js';
 import { supabase } from '../../lib/supabase';
 import { gameMode } from '../../theme/tokens';
+import { cleanScore } from '../score';
 import { apply, newGame, type LudoAction, type LudoState } from './engine';
 import { absentPlayers, preferGame, receiveAction } from './sync';
 
@@ -60,7 +61,9 @@ export function useLudo(roomId: string | null, me: string, enabled: boolean, inR
     channel.on('broadcast', { event: 'ludo' }, ({ payload }) => {
       const msg = payload as Message;
       if (msg.kind === 'start' || msg.kind === 'state') {
-        setGame((g) => preferGame(g, msg.state));
+        // A score from another phone is only believed if it's well-formed.
+        const incoming = { ...msg.state, set: cleanScore(msg.state.set, 'ludo') };
+        setGame((g) => preferGame(g, incoming));
       } else if (msg.kind === 'action') {
         const before = gameRef.current;
         const result = receiveAction(before, msg.gameId, msg.action);

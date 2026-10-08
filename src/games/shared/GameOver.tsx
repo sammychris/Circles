@@ -30,7 +30,7 @@ export function GameOver({ result, canRestart, onPlayAgain, onBackToTalking, sco
       ) : null}
       <Text variant="meta" color="textMeta" center>
         {score
-          ? "Good game. Scores are just for tonight: they're gone when the room ends."
+          ? "Good game. Scores are just for this room: they're gone when it ends."
           : 'Good game. Nothing is kept: no points, no rankings.'}
       </Text>
       {canRestart ? <TableAction label={score?.setWon ? 'Play another set' : 'Play again'} onPress={onPlayAgain} /> : null}

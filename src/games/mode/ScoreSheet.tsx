@@ -52,7 +52,7 @@ export function ScoreSheet({
         ))}
       </View>
       <Text variant="meta" color="textMeta">
-        {"Scores are just for tonight: they're gone when the room ends."}
+        {"Scores are just for this room: they're gone when it ends."}
       </Text>
       <Button label={game ? `Start ${GAME_TITLE[game]}` : 'Start'} onPress={() => onStart(target)} />
     </Sheet>

@@ -368,7 +368,7 @@ export function GameStage({ kind, gameKey, turn, score, faces, board, controls, 
               <Glow diameter={gameMode.turnLine * 6} centerX={gameMode.turnLine * 2} centerY={gameMode.turnLine / 2} />
             </Animated.View>
             {TurnIcon ? <TurnIcon size={size.icon} color={turn.iconColor ?? colors.textSoft} strokeWidth={size.iconStroke} /> : null}
-            <Text variant="heading" numberOfLines={1} accessibilityLiveRegion="polite" style={{ flexShrink: 1 }}>
+            <Text variant="heading" numberOfLines={1} accessibilityLiveRegion="polite" style={{ flexShrink: 1, minWidth: '55%' }}>
               {turn.text}
             </Text>
             {/* A clock that ticks every second: shown, but not read out each time it changes. */}

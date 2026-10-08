@@ -26,7 +26,7 @@ Talking to strangers at night should feel like sitting around a lamp with a few 
 | Warm, calm, welcoming | Loud, hyped, gamified |
 | Night-first: easy on tired eyes | Bright white, high-glare, cold blue-grey |
 | Kind and plain-spoken | Clinical, legal, or jokey about pain |
-| Private by default | Public scores, counts, rankings |
+| Private by default | Public scores, counts, rankings (a game's score for the sitting, seen only in that room and gone when it ends, is fine: Sammy, 2026-10-08, `game-mode.md`) |
 
 Seven rules that apply to every screen:
 

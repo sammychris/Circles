@@ -462,7 +462,7 @@ Built from `docs/design/pages/game-mode.md`. When a game goes on the table, ever
 Your idea (2026-10-08): keep the score while people keep playing, and celebrate the winner.
 - **Before Ludo, Draughts, Chess or Whot starts,** the person starting picks how to keep score: **Just keep count**, **First to 3 wins**, or **First to 5 wins**.
 - **During the game** the score sits at the end of the turn line: "Sun 2, Sky 1".
-- **At the end** of each game: the result, the score ("Team Sun 2, Team Sky 1") and "Good game. Scores are just for tonight: they're gone when the room ends."
+- **At the end** of each game: the result, the score ("Team Sun 2, Team Sky 1") and "Good game. Scores are just for this room: they're gone when it ends."
 - **Play again keeps the same teams** and carries the score on. Anyone who joined goes onto the smaller team. **New teams** mixes them again and starts the score from zero.
 - **Whot** scores by person ("Ada_K 2, You 1"), with **Start the score again**.
 - **Winning the set:** "Team Sun wins the set, 3 to 1", with the warm glow and the win sound, then **Play another set**.
@@ -470,8 +470,11 @@ Your idea (2026-10-08): keep the score while people keep playing, and celebrate 
 **Choices I made (open to change)**
 - **No score for Mafia or Find the Impostor.** Roles change every game, and counting who got caught can feel like picking on people.
 - **A draw counts for nobody.**
+- **The teams take turns going first** through a set, in Ludo and Draughts. In Chess, Team Sun always plays white, as now; tell me if you'd like the teams to swap colours each game.
+- **Play again never adds more people than the game allows** (6 for Draughts and Chess): anyone extra watches.
+- **If a whole team leaves,** Play again mixes new teams and the score starts over, and the room is told so.
+- **In Whot, someone who leaves the room** drops out of the score.
 - **The score is gone** when the game comes off the table, when someone taps New teams, or when the room ends. It's never saved, never on a profile, and there's no leaderboard. This keeps your rule: no scores after a room ends.
-- **If a whole team leaves,** Play again mixes new teams and the score starts over.
 
 **What you need to do:** nothing extra. It's in the same new build as game mode (part 14).
 

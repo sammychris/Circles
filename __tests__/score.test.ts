@@ -1,5 +1,5 @@
 import { FINISH, apply, newGame } from '../src/games/ludo/engine';
-import { addWin, carryOn, cleanScore, keepTeams, newScore, scoreLine, setResult } from '../src/games/score';
+import { addWin, carryOn, cleanScore, firstSide, keepTeams, newScore, replayPlan, scoreLine, setResult } from '../src/games/score';
 
 const team = (k: string) => (k === 'sun' ? 'Team Sun' : 'Team Sky');
 
@@ -52,6 +52,7 @@ describe('the score for one sitting', () => {
       wins: { sun: 1 },
       counted: 'x',
       champion: null,
+      played: 0,
     });
     expect(cleanScore({ game: 'mafia', target: null, wins: {} })).toBeUndefined();
     expect(cleanScore({ game: 'chess', target: 99, wins: {} })).toBeUndefined();
@@ -84,5 +85,65 @@ describe('Ludo keeps the score the same way on every phone', () => {
     const again = newGame(['a', 'b'], 'a', () => 0.1, 'g2', { teams: won.teams, set: carryOn(won.set) });
     expect(again.teams).toEqual(won.teams);
     expect(again.set?.wins[team]).toBe(1);
+  });
+});
+
+describe('Play again, fairly', () => {
+  it('takes turns going first through a set', () => {
+    let s = newScore('draughts', null);
+    expect(firstSide(s)).toBe('sun');
+    s = addWin(s, 'g1', 'sun');
+    expect(firstSide(s)).toBe('sky');
+    s = addWin(s, 'g2', 'draw');
+    expect(firstSide(s)).toBe('sun');
+  });
+
+  it('keeps teams, never past the game limit, newcomers last', () => {
+    const plan = replayPlan({
+      score: addWin(newScore('chess', null), 'g1', 'sun'),
+      teams: { sun: ['a', 'b', 'c'], sky: ['d', 'e', 'f'] },
+      here: ['g', 'a', 'b', 'c', 'd', 'e', 'f'],
+      max: 6,
+      fresh: false,
+    });
+    expect(plan.teams).toEqual({ sun: ['a', 'b', 'c'], sky: ['d', 'e', 'f'] });
+    expect(plan.score?.wins.sun).toBe(1);
+    expect(plan.mixed).toBe(false);
+  });
+
+  it('starts over, and says so, when a team has gone', () => {
+    const plan = replayPlan({
+      score: addWin(newScore('ludo', 3), 'g1', 'sky'),
+      teams: { sun: ['a'], sky: ['b'] },
+      here: ['a', 'c'],
+      max: 9,
+      fresh: false,
+    });
+    expect(plan).toEqual({ score: newScore('ludo', 3), teams: null, mixed: true });
+  });
+
+  it('New teams starts the score again', () => {
+    const plan = replayPlan({
+      score: addWin(newScore('ludo', 5), 'g1', 'sky'),
+      teams: { sun: ['a'], sky: ['b'] },
+      here: ['a', 'b'],
+      max: 9,
+      fresh: true,
+    });
+    expect(plan).toEqual({ score: newScore('ludo', 5), teams: null, mixed: false });
+  });
+
+  it('drops Whot players who have left', () => {
+    let s = addWin(newScore('whot', null), 'g1', 'ada');
+    s = addWin(s, 'g2', 'bayo');
+    const plan = replayPlan({ score: s, teams: undefined, here: ['ada', 'me'], max: 6, fresh: false });
+    expect(plan.score?.wins).toEqual({ ada: 1 });
+  });
+
+  it('never believes a score for another game, or a set won without a target', () => {
+    const raw = { game: 'draughts', target: null, wins: { sun: 4 }, counted: null, champion: 'sun', played: 4 };
+    expect(cleanScore(raw, 'chess')).toBeUndefined();
+    expect(cleanScore(raw, 'draughts')?.champion).toBeNull();
+    expect(cleanScore({ ...raw, wins: { someone: 2 } }, 'draughts')?.wins).toEqual({});
   });
 });
