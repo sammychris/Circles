@@ -15,6 +15,7 @@ export const START: Record<Team, number> = { sun: 0, sky: 26 };
 export const SAFE_SQUARES = new Set([0, 8, 13, 21, 26, 34, 39, 47]);
 
 export type LudoState = {
+  id: string; // which game this is, so phones never mix up two games
   teams: Record<Team, string[]>; // user ids on each team
   tokens: Record<Team, number[]>;
   turn: Team;
@@ -44,7 +45,12 @@ export function teamOf(state: LudoState, userId: string): Team | null {
 }
 
 // Splits the people in the room into two teams at random. `random` is injectable for tests.
-export function newGame(players: string[], startedBy: string, random: () => number = Math.random): LudoState {
+export function newGame(
+  players: string[],
+  startedBy: string,
+  random: () => number = Math.random,
+  id = `${Date.now().toString(36)}-${Math.floor(random() * 1e9).toString(36)}`,
+): LudoState {
   const shuffled = [...players];
   for (let i = shuffled.length - 1; i > 0; i -= 1) {
     const j = Math.floor(random() * (i + 1));
@@ -52,6 +58,7 @@ export function newGame(players: string[], startedBy: string, random: () => numb
   }
   const half = Math.ceil(shuffled.length / 2);
   return {
+    id,
     teams: { sun: shuffled.slice(0, half), sky: shuffled.slice(half) },
     tokens: { sun: [BASE, BASE, BASE, BASE], sky: [BASE, BASE, BASE, BASE] },
     turn: 'sun',
@@ -88,8 +95,9 @@ function nextTurn(state: LudoState, last: string): LudoState {
 
 // Applies one action. Anything invalid (wrong team, wrong turn, stale seq) leaves the state unchanged,
 // so two people on a team tapping at once can't break the game.
+// Leaving doesn't need (or change) the move number: it must always work, and must not
+// shift the numbers of moves sent at the same moment.
 export function apply(state: LudoState, action: LudoAction): LudoState {
-  if (action.seq !== state.seq) return state;
   const actorTeam = teamOf(state, action.by);
   const name = TEAM_NAME[state.turn];
 
@@ -100,11 +108,12 @@ export function apply(state: LudoState, action: LudoAction): LudoState {
     return {
       ...state,
       teams,
-      seq: state.seq + 1,
       winner: emptied && !state.winner ? other(actorTeam) : state.winner,
       last: emptied ? `${TEAM_NAME[actorTeam]} has nobody left, so the game ends.` : state.last,
     };
   }
+
+  if (action.seq !== state.seq) return state;
 
   if (state.winner || actorTeam !== state.turn) return state;
 

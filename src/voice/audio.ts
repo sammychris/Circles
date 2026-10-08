@@ -13,3 +13,5 @@ export async function stopAudio() {
 
 // On phones remote audio plays by itself.
 export function playRemoteAudio(_track: Track) {}
+
+export function stopRemoteAudio(_track: Track) {}

@@ -128,6 +128,14 @@ describe('moving and capturing', () => {
     expect(run(s, { type: 'roll', by: 'c', value: 6 })).toBe(s);
   });
 
+  it('leaving always works, whatever move number it carries, and keeps the numbers in step', () => {
+    let s = run(game(), { type: 'roll', by: 'a', value: 6 });
+    const before = s.seq;
+    s = apply(s, { type: 'leave', by: 'b', seq: 0 });
+    expect(s.teams.sun).toEqual(['a']);
+    expect(s.seq).toBe(before);
+  });
+
   it('a team with nobody left ends the game, and nobody is ever removed from the room', () => {
     let s = newGame(['a', 'c'], 'a', fixed);
     s = run(s, { type: 'leave', by: 'c' });

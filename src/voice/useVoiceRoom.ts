@@ -7,7 +7,7 @@ import {
   type Participant,
   type RemoteParticipant,
 } from 'livekit-client';
-import { playRemoteAudio, startAudio, stopAudio } from './audio';
+import { playRemoteAudio, startAudio, stopAudio, stopRemoteAudio } from './audio';
 import { NoHostError, PausedError, RoomFullError, getTicket, type RoomInfo, type RoomRequest } from '../rooms/api';
 import {
   micPermissionGranted,
@@ -85,6 +85,8 @@ export function useVoiceRoom() {
   const [numbers, setNumbers] = useState<JoinNumbers>(NO_NUMBERS);
   // Kept after a dropped connection, so the after-room screen (save, thank, report) still works.
   const [lastSummary, setLastSummary] = useState<RoomSummary | null>(null);
+  // Browsers can block sound until the person taps something. Then we show "Tap to hear the room".
+  const [audioBlocked, setAudioBlocked] = useState(false);
 
   const applySilence = useCallback((p: RemoteParticipant) => {
     p.setVolume(silenced.current.has(p.identity) ? 0 : 1);
@@ -189,6 +191,10 @@ export function useVoiceRoom() {
           .on(RoomEvent.Disconnected, () => {
             if (roomRef.current === lkRoom) void leaveRef.current('dropped');
           })
+          .on(RoomEvent.AudioPlaybackStatusChanged, () => setAudioBlocked(!lkRoom.canPlaybackAudio))
+          .on(RoomEvent.TrackUnsubscribed, (track) => {
+            if (track.kind === Track.Kind.Audio) stopRemoteAudio(track);
+          })
           .on(RoomEvent.TrackSubscribed, (track, _pub, participant) => {
             applySilence(participant);
             if (track.kind !== Track.Kind.Audio) return;
@@ -201,6 +207,7 @@ export function useVoiceRoom() {
         await lkRoom.connect(ticket.url, ticket.token);
         if (cancelled()) return;
         connectedAt.current = Date.now();
+        setAudioBlocked(!lkRoom.canPlaybackAudio);
         lkRoom.remoteParticipants.forEach(applySilence);
         setNumbers((n) => ({ ...n, joinMs: Date.now() - startedAt.current }));
         setStatus('connected');
@@ -253,6 +260,11 @@ export function useVoiceRoom() {
     [applySilence],
   );
 
+  const unblockAudio = useCallback(async () => {
+    await roomRef.current?.startAudio();
+    setAudioBlocked(!(roomRef.current?.canPlaybackAudio ?? true));
+  }, []);
+
   // Called when the mic is allowed after joining as a listener, so voice also survives a locked screen.
   const startBackground = useCallback(async () => {
     await requestNotificationPermission();
@@ -266,5 +278,5 @@ export function useVoiceRoom() {
     [],
   );
 
-  return { status, room, people, numbers, lastSummary, join, leave, setMic, silence, setSilencedList, startBackground };
+  return { status, room, people, numbers, lastSummary, audioBlocked, unblockAudio, join, leave, setMic, silence, setSilencedList, startBackground };
 }

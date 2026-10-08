@@ -83,7 +83,7 @@ export function RoomScreen({ me, request, onLeft, onMove }: Props) {
   const micLive = connected && people.some((p) => p.isMe && !p.isMuted);
   // Games only ever in play rooms, never in support rooms (CLAUDE.md, Never list).
   const isPlay = room?.door === 'play';
-  const ludo = useLudo(room?.id ?? null, me.id, connected && isPlay);
+  const ludo = useLudo(room?.id ?? null, me.id, connected && isPlay, people.map((p) => p.id));
 
   // --- joining: explain the microphone first, then join ---
   const startJoin = useCallback(() => {
@@ -153,9 +153,10 @@ export function RoomScreen({ me, request, onLeft, onMove }: Props) {
     if (left.current) return;
     left.current = true;
     setCountdownFrom(null);
+    ludo.leaveGame();
     const summary = (await voice.leave()) ?? voice.lastSummary;
     onLeft(summary);
-  }, [voice, onLeft]);
+  }, [voice, onLeft, ludo]);
 
   const countdown = countdownFrom === null ? null : secondsLeft(countdownFrom, now);
   useEffect(() => {
@@ -166,9 +167,10 @@ export function RoomScreen({ me, request, onLeft, onMove }: Props) {
     if (!room || left.current) return;
     left.current = true;
     setCountdownFrom(null);
+    ludo.leaveGame();
     await voice.leave();
     onMove({ kind: 'match', door: room.door, mood: room.mood, excludeRoomId: room.id });
-  }, [room, voice, onMove]);
+  }, [room, voice, onMove, ludo]);
 
   // --- mic ---
   const onAllow = useCallback(async () => {
@@ -301,7 +303,8 @@ export function RoomScreen({ me, request, onLeft, onMove }: Props) {
       <LudoTable
         state={game}
         me={me.id}
-        people={people.map((p) => ({ id: p.id, nickname: p.nickname, isMe: p.isMe }))}
+        people={people}
+        onPerson={(p) => setProfile({ id: p.id, nickname: p.nickname })}
         onRoll={ludo.roll}
         onMove={ludo.move}
         onBringOut={() => {
@@ -314,11 +317,17 @@ export function RoomScreen({ me, request, onLeft, onMove }: Props) {
       />
     ) : null;
   const inGame = !!game && (game.teams.sun.includes(me.id) || game.teams.sky.includes(me.id));
+  // The person who started the game can end it. If they've left the room, anyone can.
+  const starterHere = !!game && people.some((p) => p.id === game.startedBy);
   let tableAction = null;
   if (isPlay && phase === 'live') {
-    if (!game) tableAction = <RowButton Icon={Dice5} label="Play Ludo" onPress={() => ludo.start(people.map((p) => p.id))} />;
-    else if (game.startedBy === me.id) tableAction = <RowButton Icon={X} label="End game" onPress={ludo.endGame} />;
-    else if (inGame) tableAction = <RowButton Icon={X} label="Leave game" onPress={ludo.leaveGame} />;
+    if (!game) {
+      if (ludo.ready) tableAction = <RowButton Icon={Dice5} label="Play Ludo" onPress={() => ludo.start(people.map((p) => p.id))} />;
+    } else if (game.startedBy === me.id || !starterHere) {
+      tableAction = <RowButton Icon={X} label="End game" onPress={ludo.endGame} />;
+    } else if (inGame) {
+      tableAction = <RowButton Icon={X} label="Leave game" onPress={ludo.leaveGame} />;
+    }
   }
 
   return (
@@ -381,6 +390,10 @@ export function RoomScreen({ me, request, onLeft, onMove }: Props) {
             onSeatPress={(p) => setProfile({ id: p.id, nickname: p.nickname, isHost: p.isHost })}
           />
         )}
+
+        {connected && voice.audioBlocked ? (
+          <Button label="Tap to hear the room" onPress={() => void voice.unblockAudio()} />
+        ) : null}
 
         {status === 'reconnecting' ? (
           <Text variant="meta" color="textSoft" center accessibilityLiveRegion="polite">

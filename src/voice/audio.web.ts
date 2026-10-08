@@ -13,3 +13,8 @@ export function playRemoteAudio(track: Track) {
   el.setAttribute('data-circles', '');
   document.body.appendChild(el);
 }
+
+// Someone left or stopped talking: remove their player.
+export function stopRemoteAudio(track: Track) {
+  track.detach().forEach((el) => el.remove());
+}

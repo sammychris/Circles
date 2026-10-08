@@ -33,7 +33,7 @@ Still open from Step 1: a test with a friend in another place on their own mobil
 - **6 Ludo:** the I'm bored door, Play now, and Play Ludo in play rooms only. Two teams, the board on the table, with every phone in step through Supabase Realtime. Leave game and End game; Play again.
 - **7 Web check:** see below.
 - **Also:** Me (Blocked people, Unblock, Log out, Delete my account); delete account removes everything (app stores require it).
-- **Checks:** 56 app tests; 17 database checks that run every migration twice on a real Postgres (`npm run test:db`); the room server type-checked with Deno; screens rendered in a browser and compared with `docs/screens/`; the circles-reviewer agent after each step, with its must-fix findings fixed.
+- **Checks:** 65 app tests; 17 database checks that run every migration twice on a real Postgres (`npm run test:db`); the room server type-checked with Deno; screens rendered in a browser and compared with `docs/screens/`; the circles-reviewer agent after each step, with its must-fix findings fixed.
 
 ### Web check (Step 7)
 
@@ -77,6 +77,8 @@ Email is built but switched off (`EMAIL_ENABLED = false` in `src/config.ts`). Wh
 - Before publicising the open test: Terms and Privacy pages (the Welcome screen mentions them; people give a date of birth and maybe an email).
 - Youth helpline: `src/content/helplines.ts` is empty until Sammy gives a real, checked number. Until then the under-18 screen says to talk to a trusted adult. Any EAS build (preview or production) refuses to build while bracketed placeholder text is in `src/`.
 - Leftover accounts: people who log out without an email, or tap Back on the 18+ or nickname screen, leave an anonymous account (with its private date of birth) behind. Plan a cleanup, e.g. delete anonymous accounts with no nickname or no email after 30 days.
+- Ludo moves travel on a public Supabase Realtime channel named after the room. Someone technical with the app's public key could listen or send fake moves (game only, never voice or accounts). Before a wide launch, switch to private channels with Realtime access rules.
+- Ludo team colours are Night-theme only (the app is Night-only for now).
 - If LiveKit can't be reached, the room server treats rooms as empty (it can still match people; they just won't connect).
 - Not built yet, though they're in the designs: chat in rooms, raise hand, minimise to a room bar, notifications and reminders, Coming up and scheduled rooms, private rooms with friends, Learn together, "Talk with a trained listener", the 10-seat ring, Find the Impostor and the other games, the link-first web join.
 - The under-18 lock is per account. With phone checks later it can become per phone number, as `age-check.md` describes.

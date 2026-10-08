@@ -1,4 +1,4 @@
-import { Pressable, View } from 'react-native';
+import { Platform, Pressable, View } from 'react-native';
 import * as Haptics from 'expo-haptics';
 import { Mic, MicOff } from 'lucide-react-native';
 import { border, lift, opacity, radius, size, space, useColors } from '../theme';
@@ -44,7 +44,7 @@ export function MicControl({
       accessibilityState={{ disabled: paused }}
       disabled={paused}
       onPress={() => {
-        void Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+        if (Platform.OS !== 'web') void Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
         onPress();
       }}
       style={({ pressed }) => [

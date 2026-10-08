@@ -1,9 +1,9 @@
 import { Pressable, View } from 'react-native';
 import Svg, { Path, Rect } from 'react-native-svg';
-import { Cloud, Sun } from 'lucide-react-native';
+import { Cloud, MicOff, Sun } from 'lucide-react-native';
 import { Avatar } from '../../components/Avatar';
 import { Text } from '../../components/Text';
-import { border, ludo, radius, size, space, teamColors, type as typeScale, fonts, useColors } from '../../theme';
+import { border, fonts, ludo, opacity, radius, size, space, teamColors, type as typeScale, useColors } from '../../theme';
 import {
   BASE,
   FINISH,
@@ -20,35 +20,83 @@ import {
 const CELL = ludo.board / 15;
 const TEAM_ICON = { sun: Sun, sky: Cloud } as const;
 
-type Person = { id: string; nickname: string; isMe: boolean };
+type Person = { id: string; nickname: string; isMe: boolean; isSpeaking: boolean; isMuted: boolean };
 
-function TeamRow({ team, state, people, align }: { team: Team; state: LudoState; people: Person[]; align: 'left' | 'right' }) {
+// One person at the top of the table: team ring (or none when watching), the Speaking ring and a
+// muted badge, and a tap for save, block and report, like a seat in the room circle.
+function TableSeat({ person, team, onPress }: { person: Person; team: Team | null; onPress: (p: Person) => void }) {
   const colors = useColors();
+  const ring = person.isSpeaking ? colors.live : team ? teamColors[team].fg : colors.line;
+  const status = [person.isMe ? 'You' : person.nickname];
+  if (team) status.push(TEAM_NAME[team]);
+  else status.push('watching');
+  if (person.isSpeaking) status.push('speaking');
+  else if (person.isMuted) status.push('muted');
+  return (
+    <Pressable
+      accessibilityRole={person.isMe ? undefined : 'button'}
+      accessibilityLabel={status.join(', ')}
+      disabled={person.isMe}
+      onPress={() => onPress(person)}
+      style={{ alignItems: 'center', gap: space[1], width: size.avatarList + space[3] }}
+    >
+      <View style={{ borderRadius: radius.pill, borderWidth: border.selected, borderColor: ring, padding: border.selected }}>
+        <Avatar userId={person.id} nickname={person.nickname} diameter={size.avatarList} />
+        {person.isMuted ? (
+          <View
+            style={{
+              position: 'absolute',
+              right: -space[1],
+              bottom: -space[1],
+              width: size.avatarBadge,
+              height: size.avatarBadge,
+              borderRadius: radius.pill,
+              backgroundColor: colors.raised,
+              borderWidth: border.seatRing,
+              borderColor: colors.bg,
+              alignItems: 'center',
+              justifyContent: 'center',
+            }}
+          >
+            <MicOff size={size.iconBadge} color={colors.textSoft} strokeWidth={size.iconStroke} />
+          </View>
+        ) : null}
+      </View>
+      <Text variant="tiny" color={person.isSpeaking ? 'live' : 'textSoft'} numberOfLines={1}>
+        {person.isSpeaking ? 'Speaking' : person.isMe ? 'You' : person.nickname}
+      </Text>
+    </Pressable>
+  );
+}
+
+function TeamRow({
+  team,
+  state,
+  people,
+  onPerson,
+  align,
+}: {
+  team: Team;
+  state: LudoState;
+  people: Person[];
+  onPerson: (p: Person) => void;
+  align: 'flex-start' | 'flex-end';
+}) {
   const Icon = TEAM_ICON[team];
-  const members = state.teams[team];
+  const members = people.filter((p) => state.teams[team].includes(p.id));
   const onTurn = state.turn === team && !state.winner;
   return (
-    <View style={{ flex: 1, gap: space[2], alignItems: align === 'left' ? 'flex-start' : 'flex-end' }}>
+    <View style={{ flex: 1, gap: space[2], alignItems: align }}>
       <View style={{ flexDirection: 'row', alignItems: 'center', gap: space[1] }}>
         <Icon size={size.iconMeta} color={teamColors[team].fg} strokeWidth={size.iconStroke} />
         <Text variant="metaStrong" style={{ color: teamColors[team].fg }}>
-          {onTurn ? `${TEAM_NAME[team]}, your turn` : TEAM_NAME[team]}
+          {onTurn ? `${TEAM_NAME[team]}'s turn` : TEAM_NAME[team]}
         </Text>
       </View>
-      <View style={{ flexDirection: 'row', gap: space[1], flexWrap: 'wrap', justifyContent: align === 'left' ? 'flex-start' : 'flex-end' }}>
-        {members.map((id) => {
-          const p = people.find((x) => x.id === id);
-          return (
-            <View
-              key={id}
-              accessible
-              accessibilityLabel={`${p?.isMe ? 'You' : p?.nickname ?? 'Someone'}, ${TEAM_NAME[team]}`}
-              style={{ borderRadius: radius.pill, borderWidth: border.selected, borderColor: teamColors[team].fg, padding: border.hairline }}
-            >
-              <Avatar userId={id} nickname={p?.nickname ?? '?'} diameter={size.avatarList - space[2]} />
-            </View>
-          );
-        })}
+      <View style={{ flexDirection: 'row', gap: space[1], flexWrap: 'wrap', justifyContent: align }}>
+        {members.map((p) => (
+          <TableSeat key={p.id} person={p} team={team} onPress={onPerson} />
+        ))}
       </View>
     </View>
   );
@@ -103,7 +151,7 @@ function Board({ state, myTurn, onMove }: { state: LudoState; myTurn: boolean; o
       const n = stacked.get(key) ?? 0;
       stacked.set(key, n + 1);
       const d = pos === BASE ? ludo.baseToken : ludo.token;
-      const shift = pos === BASE ? 0 : n * (space[1] - 1);
+      const shift = pos === BASE ? 0 : n * space[1];
       tokens.push({ team, i, pos, x: cell[0] * CELL + CELL / 2 + shift, y: cell[1] * CELL + CELL / 2 - shift, d });
     }),
   );
@@ -136,27 +184,39 @@ function Board({ state, myTurn, onMove }: { state: LudoState; myTurn: boolean; o
       {tokens.map((t) => {
         const canTap = t.team === state.turn && movable.includes(t.i);
         const where = t.pos === BASE ? 'in base' : t.pos === FINISH ? 'home' : 'on the board';
+        const target = Math.max(size.minTarget, t.d);
         return (
           <Pressable
             key={`${t.team}${t.i}`}
             accessibilityRole={canTap ? 'button' : undefined}
             accessibilityLabel={`${TEAM_NAME[t.team]} token ${t.i + 1}, ${where}${canTap ? '. Tap to move' : ''}`}
             disabled={!canTap}
+            // Only tokens that can move catch taps, with a full 44 px target around them.
+            pointerEvents={canTap ? 'auto' : 'none'}
             onPress={() => onMove(t.i)}
-            hitSlop={space[3]}
             style={{
               position: 'absolute',
-              left: t.x - t.d / 2,
-              top: t.y - t.d / 2,
-              width: t.d,
-              height: t.d,
-              borderRadius: radius.pill,
-              backgroundColor: teamColors[t.team].fg,
-              borderWidth: border.selected,
-              // Movable tokens get a 2 px warm-white ring.
-              borderColor: canTap ? colors.text : colors.bgDeep,
+              left: t.x - target / 2,
+              top: t.y - target / 2,
+              width: target,
+              height: target,
+              alignItems: 'center',
+              justifyContent: 'center',
+              zIndex: canTap ? 1 : 0,
             }}
-          />
+          >
+            <View
+              style={{
+                width: t.d,
+                height: t.d,
+                borderRadius: radius.pill,
+                backgroundColor: teamColors[t.team].fg,
+                borderWidth: border.selected,
+                // Movable tokens get a 2 px warm-white ring.
+                borderColor: canTap ? colors.text : colors.bgDeep,
+              }}
+            />
+          </Pressable>
         );
       })}
     </View>
@@ -166,7 +226,9 @@ function Board({ state, myTurn, onMove }: { state: LudoState; myTurn: boolean; o
 type Props = {
   state: LudoState;
   me: string;
+  // Everyone in the room right now, playing or not.
   people: Person[];
+  onPerson: (p: Person) => void;
   onRoll: () => void;
   onMove: (token: number) => void;
   onBringOut: () => void;
@@ -175,9 +237,10 @@ type Props = {
 };
 
 // The table card: teams at the top, the board in the middle, then the dice, what happened and the action.
-export function LudoTable({ state, me, people, onRoll, onMove, onBringOut, onPlayAgain, onBackToTalking }: Props) {
+export function LudoTable({ state, me, people, onPerson, onRoll, onMove, onBringOut, onPlayAgain, onBackToTalking }: Props) {
   const colors = useColors();
   const myTeam = teamOf(state, me);
+  const watching = people.filter((p) => !teamOf(state, p.id));
   const myTurn = myTeam === state.turn && !state.winner;
   const movable = myTurn ? movableTokens(state) : [];
   const canBringOut = myTurn && state.dice === 6 && movable.some((i) => state.tokens[state.turn][i] === BASE);
@@ -200,9 +263,23 @@ export function LudoTable({ state, me, people, onRoll, onMove, onBringOut, onPla
 
   return (
     <View style={{ gap: space[4] }}>
-      <View style={{ flexDirection: 'row', gap: space[3] }}>
-        <TeamRow team="sun" state={state} people={people} align="left" />
-        <TeamRow team="sky" state={state} people={people} align="right" />
+      <View style={{ gap: space[3] }}>
+        <View style={{ flexDirection: 'row', gap: space[3] }}>
+          <TeamRow team="sun" state={state} people={people} onPerson={onPerson} align="flex-start" />
+          <TeamRow team="sky" state={state} people={people} onPerson={onPerson} align="flex-end" />
+        </View>
+        {watching.length > 0 ? (
+          <View style={{ gap: space[2] }}>
+            <Text variant="metaStrong" color="textSoft">
+              Watching and talking
+            </Text>
+            <View style={{ flexDirection: 'row', gap: space[2], flexWrap: 'wrap' }}>
+              {watching.map((p) => (
+                <TableSeat key={p.id} person={p} team={null} onPress={onPerson} />
+              ))}
+            </View>
+          </View>
+        ) : null}
       </View>
       <Board state={state} myTurn={myTurn} onMove={onMove} />
       <View style={{ flexDirection: 'row', gap: space[4], alignItems: 'center' }}>
@@ -220,13 +297,14 @@ export function LudoTable({ state, me, people, onRoll, onMove, onBringOut, onPla
           accessibilityRole="button"
           accessibilityLabel={action.label}
           onPress={action.onPress}
-          style={{
+          style={({ pressed }) => ({
+            opacity: pressed ? opacity.pressed : 1,
             height: size.tableAction,
             borderRadius: radius.pill,
             backgroundColor: colors.text,
             alignItems: 'center',
             justifyContent: 'center',
-          }}
+          })}
         >
           <Text style={{ color: colors.bg, fontFamily: fonts.extraBold, fontSize: typeScale.body.fontSize }}>{action.label}</Text>
         </Pressable>
