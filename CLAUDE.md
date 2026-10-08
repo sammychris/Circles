@@ -58,7 +58,7 @@ Sammy is not technical with terminals. So:
 - Never put games, adverts or shared photos in support rooms.
 - Never let a game vote, role or result remove or mute a real person.
 - Never keep scores, streaks or rankings after a room ends.
-- Never let someone speak before their phone is verified and they've chosen a nickname (from Step 2 on; Step 1 uses test accounts).
+- Never let someone speak before they've passed the 18+ question and chosen a nickname. During the open test (Sammy's decision, October 2026) email is optional; email and phone checks become required later, when Sammy decides.
 - Never show a real name or phone number. Only the chosen nickname.
 - Never show who saved or followed whom. Saves only connect when both people save each other, and only those two people see the connection.
 - Never leave placeholder text like `[VERIFIED NIGERIA CRISIS LINE]` in a build meant for real users. Stop and tell Sammy.

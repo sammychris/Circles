@@ -11,12 +11,12 @@ The UI design already exists. Build on it; do not redesign screens.
 | Database, login, live updates | Supabase (Postgres inside) | Same as LocalLoop. Auth, database, Realtime, Edge Functions in one place. |
 | Live voice | LiveKit Cloud | Official Expo plugin, same SDK family for Android and web, open source (can self-host later). |
 | Voice backup | Agora | Switch only if LiveKit voice is poor from Lagos in Step 1. |
-| Login codes | Supabase phone login + Send SMS hook → Termii (Nigerian SMS) | Phone-verified users. Use Supabase test phone numbers during development. |
+| Sign-up | Supabase anonymous accounts (nickname + 18+) during the open test; optional email added to the same account. Later: email required, then phone + Send SMS hook → Termii | Sammy wants the open test as easy as possible. Email and phone checks come later against bots and ban evasion. |
 | Game moves | Supabase Realtime | Turns and moves sync live between players in a room. |
 
 ## How the pieces connect
 
-1. User logs in with phone code (Supabase Auth). Only their chosen nickname is ever shown.
+1. User signs up with a nickname and the 18+ question (Supabase anonymous account); email optional, phone later. Only their chosen nickname is ever shown.
 2. User joins a room → app asks a Supabase Edge Function for a LiveKit access token.
 3. Edge Function checks the room rules (capacity, paid access, room open), then returns the token.
 4. App connects to the LiveKit room for voice.

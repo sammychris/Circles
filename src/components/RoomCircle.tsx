@@ -1,0 +1,246 @@
+import { useEffect, useRef, useState } from 'react';
+import { AccessibilityInfo, Animated, View } from 'react-native';
+import { AudioLines, MicOff, Plus } from 'lucide-react-native';
+import { ROOM_CAPACITY } from '../config';
+import { assignSeats, seatPoints, seatsOpenText } from '../lib/seats';
+import { border, effects, motion, opacity, radius, roomGlowScale, size, space, speaking, useColors } from '../theme';
+import type { Person } from '../voice/useVoiceRoom';
+import { Avatar } from './Avatar';
+import { Text } from './Text';
+
+const RADIUS = size.roomRing / 2;
+const STAGE_WIDTH = size.roomRing + size.avatarRoom;
+const LABEL_WIDTH = size.avatarRoom + space[5] + space[3];
+const LABEL_SPACE = space[7];
+const STAGE_HEIGHT = size.roomRing + size.avatarRoom + LABEL_SPACE;
+const CENTRE = { x: STAGE_WIDTH / 2, y: size.avatarRoom / 2 + RADIUS };
+
+function seatLabel(p: Person): string {
+  const name = p.isMe ? 'You' : p.nickname;
+  if (p.isSpeaking) return `${name}, speaking`;
+  if (p.isMuted) return `${name}, muted`;
+  return name;
+}
+
+function SpeakingGlow({ on, reduceMotion }: { on: boolean; reduceMotion: boolean }) {
+  const pulse = useRef(new Animated.Value(0)).current;
+
+  useEffect(() => {
+    if (!on || reduceMotion) {
+      pulse.setValue(0);
+      return;
+    }
+    const loop = Animated.loop(
+      Animated.sequence([
+        Animated.timing(pulse, { toValue: 1, duration: motion.breathe, useNativeDriver: true }),
+        Animated.timing(pulse, { toValue: 0, duration: motion.breathe, useNativeDriver: true }),
+      ]),
+    );
+    loop.start();
+    return () => loop.stop();
+  }, [on, reduceMotion, pulse]);
+
+  if (!on) return null;
+  const grown = size.avatarRoom + (speaking.gap + speaking.ring + speaking.glow) * 2;
+  return (
+    <Animated.View
+      pointerEvents="none"
+      style={{
+        position: 'absolute',
+        width: grown,
+        height: grown,
+        borderRadius: radius.pill,
+        backgroundColor: effects.liveGlow,
+        opacity: reduceMotion ? 1 : pulse.interpolate({ inputRange: [0, 1], outputRange: [opacity.glowLow, 1] }),
+        top: -(speaking.gap + speaking.ring + speaking.glow),
+        left: -(speaking.gap + speaking.ring + speaking.glow),
+      }}
+    />
+  );
+}
+
+function Seat({ person, point, reduceMotion }: { person: Person | null; point: { x: number; y: number }; reduceMotion: boolean }) {
+  const colors = useColors();
+  const left = CENTRE.x + point.x - size.avatarRoom / 2;
+  const top = CENTRE.y + point.y - size.avatarRoom / 2;
+
+  if (!person) {
+    return (
+      <View
+        accessibilityElementsHidden
+        importantForAccessibility="no-hide-descendants"
+        style={{
+          position: 'absolute',
+          left,
+          top,
+          width: size.avatarRoom,
+          height: size.avatarRoom,
+          borderRadius: radius.pill,
+          borderWidth: border.seatRing,
+          borderStyle: 'dashed',
+          borderColor: colors.seatEmpty,
+          alignItems: 'center',
+          justifyContent: 'center',
+        }}
+      >
+        <Plus size={size.icon} color={colors.seatEmpty} strokeWidth={size.iconStroke} />
+      </View>
+    );
+  }
+
+  const name = person.isMe ? 'You' : person.nickname;
+  return (
+    <View
+      accessible
+      accessibilityLabel={seatLabel(person)}
+      style={{ position: 'absolute', left, top, width: size.avatarRoom, height: size.avatarRoom }}
+    >
+      <SpeakingGlow on={person.isSpeaking} reduceMotion={reduceMotion} />
+      <View
+        style={
+          person.isSpeaking
+            ? {
+                position: 'absolute',
+                left: -(speaking.gap + speaking.ring),
+                top: -(speaking.gap + speaking.ring),
+                width: size.avatarRoom + (speaking.gap + speaking.ring) * 2,
+                height: size.avatarRoom + (speaking.gap + speaking.ring) * 2,
+                borderRadius: radius.pill,
+                borderWidth: speaking.ring,
+                borderColor: colors.live,
+                backgroundColor: colors.bg,
+                alignItems: 'center',
+                justifyContent: 'center',
+              }
+            : { position: 'absolute', left: 0, top: 0 }
+        }
+      >
+        <Avatar userId={person.id} nickname={person.nickname} />
+      </View>
+
+      {person.isMuted ? (
+        <View
+          style={{
+            position: 'absolute',
+            right: -space[1],
+            bottom: -space[1],
+            width: size.avatarBadge,
+            height: size.avatarBadge,
+            borderRadius: radius.pill,
+            backgroundColor: colors.raised,
+            borderWidth: border.seatRing,
+            borderColor: colors.bg,
+            alignItems: 'center',
+            justifyContent: 'center',
+          }}
+        >
+          <MicOff size={size.iconBadge} color={colors.textSoft} strokeWidth={size.iconStroke} />
+        </View>
+      ) : null}
+
+      <View
+        style={{
+          position: 'absolute',
+          top: size.avatarRoom + space[2],
+          left: (size.avatarRoom - LABEL_WIDTH) / 2,
+          width: LABEL_WIDTH,
+          alignItems: 'center',
+        }}
+      >
+        <Text variant="metaStrong" numberOfLines={1}>
+          {name}
+        </Text>
+        {person.isSpeaking ? (
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: space[1] }}>
+            <AudioLines size={size.iconMeta} color={colors.live} strokeWidth={size.iconStroke} />
+            <Text variant="tiny" color="live">
+              Speaking
+            </Text>
+          </View>
+        ) : null}
+      </View>
+    </View>
+  );
+}
+
+type Props = {
+  people: Person[];
+  // Shown in the middle before anyone has joined.
+  emptyHint?: string;
+};
+
+export function RoomCircle({ people, emptyHint }: Props) {
+  const colors = useColors();
+  const [reduceMotion, setReduceMotion] = useState(false);
+  useEffect(() => {
+    void AccessibilityInfo.isReduceMotionEnabled().then(setReduceMotion);
+    const sub = AccessibilityInfo.addEventListener('reduceMotionChanged', setReduceMotion);
+    return () => sub.remove();
+  }, []);
+
+  const me = people.find((p) => p.isMe) ?? null;
+  const others = people.filter((p) => !p.isMe);
+  const seats = assignSeats(me, others, ROOM_CAPACITY);
+  const points = seatPoints(ROOM_CAPACITY, RADIUS);
+  const here = people.length;
+
+  return (
+    <View
+      style={{ width: STAGE_WIDTH, height: STAGE_HEIGHT, alignSelf: 'center' }}
+    >
+      <View
+        pointerEvents="none"
+        style={{
+          position: 'absolute',
+          left: CENTRE.x - RADIUS,
+          top: CENTRE.y - RADIUS,
+          width: size.roomRing,
+          height: size.roomRing,
+          borderRadius: radius.pill,
+          borderWidth: border.seatRing,
+          borderStyle: 'dashed',
+          borderColor: colors.raised,
+        }}
+      />
+      <View
+        pointerEvents="none"
+        style={{
+          position: 'absolute',
+          left: CENTRE.x - (RADIUS * roomGlowScale.edge) / 2,
+          top: CENTRE.y - (RADIUS * roomGlowScale.edge) / 2,
+          width: RADIUS * roomGlowScale.edge,
+          height: RADIUS * roomGlowScale.edge,
+          borderRadius: radius.pill,
+          backgroundColor: effects.roomGlowEdge,
+        }}
+      />
+      <View
+        style={{
+          position: 'absolute',
+          left: CENTRE.x - (RADIUS * roomGlowScale.core) / 2,
+          top: CENTRE.y - space[6],
+          width: RADIUS * roomGlowScale.core,
+          alignItems: 'center',
+        }}
+      >
+        {here > 0 ? (
+          <>
+            <Text variant="heading" center>
+              {here} here
+            </Text>
+            <Text variant="meta" color="textMeta" center>
+              {seatsOpenText(here, ROOM_CAPACITY)}
+            </Text>
+          </>
+        ) : (
+          <Text variant="meta" color="textMeta" center>
+            {emptyHint ?? seatsOpenText(0, ROOM_CAPACITY)}
+          </Text>
+        )}
+      </View>
+      {seats.map((person, i) => (
+        <Seat key={person?.id ?? `empty-${i}`} person={person} point={points[i]} reduceMotion={reduceMotion} />
+      ))}
+    </View>
+  );
+}
