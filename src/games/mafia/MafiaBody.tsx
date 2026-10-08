@@ -5,6 +5,7 @@ import { RadioRow } from '../../components/Choice';
 import { CountdownRing } from '../../components/CountdownRing';
 import { Text } from '../../components/Text';
 import { playSound } from '../../lib/sounds';
+import { clock } from '../../rooms/phase';
 import { radius, size, space, useColors } from '../../theme';
 import type { Person } from '../../voice/useVoiceRoom';
 import { GameStage } from '../mode/GameMode';
@@ -187,13 +188,13 @@ export function MafiaBody({ g, secret, gameKey, me, people, starter, onMove, onP
       : g.winner === 'mafia'
         ? 'Mafia wins'
         : 'Game over'
-    : `${night ? 'Night' : 'Day'} ${g.round}. ${left} seconds`;
+    : `${night ? 'Night' : 'Day'} ${g.round}`;
 
   return (
     <GameStage
       kind="mafia"
       gameKey={gameKey}
-      turn={{ text: turnText, Icon: over ? undefined : night ? Moon : Sun }}
+      turn={{ text: turnText, clock: over ? undefined : clock(left), Icon: over ? undefined : night ? Moon : Sun }}
       faces={(id) => ({ dim: g.out.includes(id) })}
       night={night}
       won={over}

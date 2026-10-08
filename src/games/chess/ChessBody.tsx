@@ -29,7 +29,11 @@ const codeSide = (code: string) => (code[0] === 'w' ? 'sun' : 'sky');
 function Glyph({ code, cell }: { code: string; cell: number }) {
   const team = codeSide(code);
   return (
-    <Text style={{ fontFamily: fonts.regular, fontSize: cell * 0.72, lineHeight: cell * 0.9, color: teamColors[team].fg }}>
+    // Pieces are sized to their square, not to the phone's text size, so they never spill over.
+    <Text
+      allowFontScaling={false}
+      style={{ fontFamily: fonts.regular, fontSize: cell * 0.72, lineHeight: cell * 0.9, color: teamColors[team].fg }}
+    >
       {team === 'sun' ? OUTLINE[code[1]] : GLYPH[code[1]]}
     </Text>
   );

@@ -39,7 +39,8 @@ export type GameModeEnv = {
   mic: ReactNode;
   unread: number;
   onChat: () => void;
-  onReport: () => void;
+  // Someone in the room: their card, with Save, Block and Report (CLAUDE.md: on every person in a room).
+  onPerson: (person: Person) => void;
   // Leave game (players), Stop watching (watchers) or End game (the starter). Null when there's none.
   exit: { label: string; onPress: () => void } | null;
   onLeaveRoom: () => void;
@@ -63,7 +64,7 @@ const TEAM_ICON: Record<Side, LucideIcon> = { sun: Sun, sky: Cloud };
 // Hidden faces are remembered on this phone for the rest of that game.
 const foldedGames = new Map<string, boolean>();
 
-function Face({ person, mark, overlap, first }: { person: Person; mark: FaceMark; overlap: boolean; first: boolean }) {
+function Face({ person, mark, overlap, first }: { person: Person; mark: FaceMark; overlap: number; first: boolean }) {
   const colors = useColors();
   const team = mark.team ?? null;
   const TeamIcon = team ? TEAM_ICON[team] : null;
@@ -73,7 +74,7 @@ function Face({ person, mark, overlap, first }: { person: Person; mark: FaceMark
     <View
       style={{
         alignItems: 'center',
-        marginLeft: first ? 0 : overlap ? -gameMode.faceOverlap : space[1],
+        marginLeft: first ? 0 : overlap > 0 ? -overlap : space[1],
         opacity: mark.order === 'done' || mark.dim ? opacity.disabled : 1,
       }}
     >
@@ -147,8 +148,13 @@ function FaceStrip({
   const speaker = people.find((p) => p.isSpeaking);
   // The speaker's name always stays visible, because voice comes first.
   const line = `${people.length} here${speaker ? `. ${speaker.isMe ? "You're speaking" : `${speaker.nickname} is speaking`}` : ''}`;
-  const each = gameMode.faceAvatar + border.selected * 4 + space[1];
-  const overlap = width > 0 && people.length * each > width;
+  // Faces overlap by 8 when they don't fit, and by more in a full room, so nobody is ever cut off.
+  const face = gameMode.faceAvatar + border.selected * 4;
+  const spread = people.length * (face + space[1]) - space[1];
+  const overlap =
+    width > 0 && spread > width && people.length > 1
+      ? Math.max(gameMode.faceOverlap, (people.length * face - width) / (people.length - 1))
+      : 0;
   const describe = folded ? line : `${line}. ${people.map((p) => faceWords(p, faces?.(p.id) ?? {})).join('. ')}`;
   return (
     <View
@@ -258,7 +264,8 @@ type StageProps = {
   kind: GameKind;
   // Which game this is, so hidden faces are remembered for the rest of it.
   gameKey: string;
-  turn: { text: string; Icon?: LucideIcon; iconColor?: string; mine?: boolean };
+  // `clock` is a ticking time beside the turn ("0:22"), shown but not read out every second.
+  turn: { text: string; clock?: string; Icon?: LucideIcon; iconColor?: string; mine?: boolean };
   faces?: (id: string) => FaceMark;
   // The board, drawn at the size it gets: square (the screen width minus 16 each side, or less on a
   // short screen), centred in the space left over.
@@ -281,6 +288,7 @@ export function GameStage({ kind, gameKey, turn, faces, board, controls, note, n
   const [menuOpen, setMenuOpen] = useState(false);
   const [howOpen, setHowOpen] = useState(false);
   const [confirmLeave, setConfirmLeave] = useState(false);
+  const [peopleOpen, setPeopleOpen] = useState(false);
   const [soundOn, setSoundOn] = useSoundSetting();
   const [area, setArea] = useState<{ width: number; height: number } | null>(null);
 
@@ -339,8 +347,13 @@ export function GameStage({ kind, gameKey, turn, faces, board, controls, note, n
       <Animated.View style={{ flex: 1, opacity: enter }}>
         <View>
           <FaceStrip people={env.people} faces={faces} folded={folded} onToggle={toggleFaces} onMenu={() => setMenuOpen(true)} />
+          {night ? (
+            <View
+              pointerEvents="none"
+              style={{ position: 'absolute', left: 0, right: 0, top: 0, bottom: 0, backgroundColor: colors.scrim }}
+            />
+          ) : null}
           <View
-            accessibilityLiveRegion="polite"
             style={{
               height: gameMode.turnLine,
               flexDirection: 'row',
@@ -353,16 +366,22 @@ export function GameStage({ kind, gameKey, turn, faces, board, controls, note, n
               <Glow diameter={gameMode.turnLine * 6} centerX={gameMode.turnLine * 2} centerY={gameMode.turnLine / 2} />
             </Animated.View>
             {TurnIcon ? <TurnIcon size={size.icon} color={turn.iconColor ?? colors.textSoft} strokeWidth={size.iconStroke} /> : null}
-            <Text variant="heading" numberOfLines={1} style={{ flex: 1 }}>
+            <Text variant="heading" numberOfLines={1} accessibilityLiveRegion="polite" style={{ flexShrink: 1 }}>
               {turn.text}
             </Text>
+            {/* A clock that ticks every second: shown, but not read out each time it changes. */}
+            {turn.clock ? (
+              <Text
+                variant="heading"
+                color="textSoft"
+                style={{ fontVariant: ['tabular-nums'] }}
+                importantForAccessibility="no"
+                accessibilityElementsHidden
+              >
+                {turn.clock}
+              </Text>
+            ) : null}
           </View>
-          {night ? (
-            <View
-              pointerEvents="none"
-              style={{ position: 'absolute', left: 0, right: 0, top: 0, bottom: 0, backgroundColor: colors.scrim }}
-            />
-          ) : null}
         </View>
 
         <View
@@ -391,7 +410,13 @@ export function GameStage({ kind, gameKey, turn, faces, board, controls, note, n
           </Text>
         ) : null}
 
-        {controls ? <View style={{ paddingHorizontal: gameMode.boardInset, paddingTop: space[2], gap: space[2] }}>{controls}</View> : null}
+        {controls ? (
+          <View
+            style={{ paddingHorizontal: gameMode.boardInset, paddingTop: space[2], gap: space[2], opacity: night ? opacity.disabled : 1 }}
+          >
+            {controls}
+          </View>
+        ) : null}
       </Animated.View>
 
       <View style={{ paddingHorizontal: gameMode.boardInset, paddingTop: space[3], paddingBottom: space[3], gap: space[3] }}>
@@ -444,7 +469,7 @@ export function GameStage({ kind, gameKey, turn, faces, board, controls, note, n
             }}
           />
           <SoundRow on={soundOn} onChange={setSoundOn} />
-          <MenuRow Icon={Flag} label="Report someone" onPress={() => fromMenu(env.onReport)} />
+          <MenuRow Icon={Flag} label="Report or block someone" onPress={() => fromMenu(() => setPeopleOpen(true))} />
           {env.exit ? (
             <MenuRow
               Icon={LogOut}
@@ -457,6 +482,34 @@ export function GameStage({ kind, gameKey, turn, faces, board, controls, note, n
           ) : null}
           <View style={{ height: border.hairline, backgroundColor: colors.divider, marginVertical: space[2] }} />
           <MenuRow Icon={DoorOpen} label="Leave room" danger onPress={() => fromMenu(() => setConfirmLeave(true))} />
+        </View>
+      </Sheet>
+
+      {/* Report someone: the people list first, then their card with Save, Block and Report. */}
+      <Sheet visible={peopleOpen} onClose={() => setPeopleOpen(false)}>
+        <Text variant="title" accessibilityRole="header">
+          Who is it about?
+        </Text>
+        <View style={{ gap: space[1] }}>
+          {env.people
+            .filter((p) => !p.isMe)
+            .map((p) => (
+              <Pressable
+                key={p.id}
+                accessibilityRole="button"
+                accessibilityLabel={p.nickname}
+                onPress={() => {
+                  setPeopleOpen(false);
+                  setTimeout(() => env.onPerson(p), motion.slow);
+                }}
+                style={{ minHeight: size.minTarget + space[1], flexDirection: 'row', alignItems: 'center', gap: space[3] }}
+              >
+                <Avatar userId={p.id} nickname={p.nickname} diameter={size.avatarList} />
+                <Text variant="bodyStrong" numberOfLines={1} style={{ flex: 1 }}>
+                  {p.nickname}
+                </Text>
+              </Pressable>
+            ))}
         </View>
       </Sheet>
 
@@ -508,7 +561,12 @@ export function BackFromGame({ back, children }: { back: number; children: React
   useEffect(() => {
     if (back === 0) return;
     t.setValue(0);
-    Animated.timing(t, { toValue: 1, duration: reduceMotion ? motion.base : motion.slow, easing: Easing.out(Easing.cubic), useNativeDriver: true }).start();
+    Animated.timing(t, {
+      toValue: 1,
+      duration: reduceMotion ? motion.base : motion.slow,
+      easing: Easing.out(Easing.cubic),
+      useNativeDriver: true,
+    }).start();
   }, [back, t, reduceMotion]);
   const scale = reduceMotion ? 1 : t.interpolate({ inputRange: [0, 1], outputRange: [1.06, 1] });
   return <Animated.View style={{ opacity: t, transform: [{ scale }] }}>{children}</Animated.View>;

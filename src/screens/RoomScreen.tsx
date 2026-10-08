@@ -810,7 +810,9 @@ export function RoomScreen({ me, request, onLeft, onMove }: Props) {
   const [steppedOut, setSteppedOut] = useState<string | null>(null);
   const ludoGame = connected && isPlay && phase === 'live' && game && steppedOut !== game.id ? game : null;
   const impostorRound = connected && isPlay && phase === 'live' && !ludoGame && round && steppedOut !== round.gameId ? round : null;
-  const tableGame = connected && phase === 'live' && !ludoGame && !impostorRound && tableItem.item?.kind === 'game' ? tableItem.item : null;
+  // Games only ever in play rooms, never in support rooms (CLAUDE.md, Never list).
+  const tableGame =
+    connected && isPlay && phase === 'live' && !ludoGame && !impostorRound && tableItem.item?.kind === 'game' ? tableItem.item : null;
   // "That move didn't go through. Try again." under the board, for a few seconds.
   const failedAt = Math.max(tableItem.moveFailedAt, ludo.failedAt);
   const [failNote, setFailNote] = useState(false);
@@ -845,8 +847,9 @@ export function RoomScreen({ me, request, onLeft, onMove }: Props) {
           const first = ludoGame.tokens[ludoGame.turn].findIndex((pos) => pos === BASE);
           if (first >= 0) ludo.move(first);
         }}
+        canRestart={ludoGame.startedBy === me.id || !starterHere}
         onPlayAgain={() => ludo.start(everyone)}
-        onBackToTalking={ludo.endGame}
+        onBackToTalking={ludoGame.startedBy === me.id || !starterHere ? ludo.endGame : () => setSteppedOut(ludoGame.id)}
       />
     );
   } else if (impostorRound) {
@@ -871,6 +874,7 @@ export function RoomScreen({ me, request, onLeft, onMove }: Props) {
         onVote={(id) => void impostor.castVote(id)}
         onNextRound={() => (people.length < IMPOSTOR_MIN ? impostorTooFew() : impostor.nextRound(everyone))}
         onPlayAgain={() => (people.length < IMPOSTOR_MIN ? impostorTooFew() : impostor.startGame(everyone))}
+        starter={impostorRound.startedBy === me.id || !starterHere}
         onBackToTalking={impostorRound.startedBy === me.id || !starterHere ? impostor.endGame : () => setSteppedOut(impostorRound.gameId)}
         busy={impostor.busy}
       />
@@ -930,10 +934,7 @@ export function RoomScreen({ me, request, onLeft, onMove }: Props) {
     mic: <MicControl state={micState} pausedReason={pausedReason} onPress={() => void onMicPress()} />,
     unread,
     onChat: () => setChatOpen(true),
-    onReport: () => {
-      setReportPerson(null);
-      setReportOpen(true);
-    },
+    onPerson: onSeat,
     exit,
     onLeaveRoom: () => void leaveRoom(),
     reconnecting: status === 'reconnecting',

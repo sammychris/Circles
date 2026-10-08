@@ -48,10 +48,13 @@ function Die({ value, rolling, pulse }: { value: number | null; rolling: boolean
       spin.setValue(0);
       return;
     }
-    const tick = setInterval(() => setFace(1 + Math.floor(Math.random() * 6)), motion.fast / 2);
-    if (!reduceMotion) {
-      Animated.loop(Animated.timing(spin, { toValue: 1, duration: motion.slow, easing: Easing.linear, useNativeDriver: true })).start();
+    // With Reduce motion on, the dice holds still (blank) until the roll arrives.
+    if (reduceMotion) {
+      setFace(null);
+      return;
     }
+    const tick = setInterval(() => setFace(1 + Math.floor(Math.random() * 6)), motion.fast / 2);
+    Animated.loop(Animated.timing(spin, { toValue: 1, duration: motion.slow, easing: Easing.linear, useNativeDriver: true })).start();
     return () => clearInterval(tick);
   }, [rolling, value, spin, reduceMotion]);
   useEffect(() => {
@@ -309,6 +312,8 @@ type Props = {
   // Your move or roll is on its way.
   pending: boolean;
   rollingSince: number | null;
+  // Play again: the person who started the game (or anyone, once they've left).
+  canRestart: boolean;
   onRolled: () => void;
   onRoll: () => void;
   onMove: (token: number) => void;
@@ -318,7 +323,19 @@ type Props = {
 };
 
 // Ludo in game mode: the board fills the board area, the dice and what to do sit under it.
-export function LudoTable({ state, me, pending, rollingSince, onRolled, onRoll, onMove, onBringOut, onPlayAgain, onBackToTalking }: Props) {
+export function LudoTable({
+  state,
+  me,
+  pending,
+  rollingSince,
+  canRestart,
+  onRolled,
+  onRoll,
+  onMove,
+  onBringOut,
+  onPlayAgain,
+  onBackToTalking,
+}: Props) {
   const myTeam = teamOf(state, me);
   const myTurn = myTeam === state.turn && !state.winner;
   const busy = pending || rollingSince !== null;
@@ -390,7 +407,7 @@ export function LudoTable({ state, me, pending, rollingSince, onRolled, onRoll, 
       board={({ size: side }) => <Board state={state} side={side} myTurn={myTurn && !busy} onMove={onMove} />}
       controls={
         state.winner ? (
-          <GameOver result={turnText} canRestart onPlayAgain={onPlayAgain} onBackToTalking={onBackToTalking} />
+          <GameOver result={turnText} canRestart={canRestart} onPlayAgain={onPlayAgain} onBackToTalking={onBackToTalking} />
         ) : (
           <View style={{ gap: space[2] }}>
             <View style={{ flexDirection: 'row', gap: space[4], alignItems: 'center' }}>

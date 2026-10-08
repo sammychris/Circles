@@ -8,6 +8,7 @@ import { clock } from '../../rooms/phase';
 import { radius, size, space, tableCard, type as typeScale, useColors } from '../../theme';
 import { GameStage } from '../mode/GameMode';
 import { useTurnCue, useWinCue } from '../mode/motion';
+import { GameOver } from '../shared/GameOver';
 import { ROUNDS_PER_GAME, caught, phaseAt, seatState, type ImpostorRound, type Result } from './logic';
 
 type Person = { id: string; nickname: string; isMe: boolean; isSpeaking: boolean; isMuted: boolean };
@@ -26,6 +27,8 @@ type Props = {
   outcome: Result | null;
   onVote: (target: string) => void;
   onNextRound: () => void;
+  // Play again is for whoever started the game (or anyone, once they've left).
+  starter: boolean;
   onPlayAgain: () => void;
   onBackToTalking: () => void;
   busy: boolean;
@@ -47,6 +50,7 @@ export function ImpostorTable({
   outcome,
   onVote,
   onNextRound,
+  starter,
   onPlayAgain,
   onBackToTalking,
   busy,
@@ -73,8 +77,11 @@ export function ImpostorTable({
   const turnText = outcome
     ? `Round ${round.number} of ${ROUNDS_PER_GAME} is over`
     : phase.kind === 'speaking'
-      ? `${phase.speaker === me ? "You're talking" : `${nameOf(phase.speaker)} is talking`}. ${clock(phase.secondsLeft)}`
-      : `Time to vote. ${clock(phase.secondsLeft)}`;
+      ? phase.speaker === me
+        ? "You're talking"
+        : `${nameOf(phase.speaker)} is talking`
+      : 'Time to vote';
+  const turnClock = outcome ? undefined : clock(phase.secondsLeft);
 
   const wordBlock = () => {
     if (!playing) {
@@ -125,7 +132,7 @@ export function ImpostorTable({
     <GameStage
       kind="impostor"
       gameKey={round.gameId}
-      turn={{ text: turnText, mine: speaking && phase.kind === 'speaking' && phase.speaker === me }}
+      turn={{ text: turnText, clock: turnClock, mine: speaking && phase.kind === 'speaking' && phase.speaker === me }}
       faces={(id) => {
         if (!round.order.includes(id)) return { dim: true };
         if (outcome || phase.kind === 'voting') return {};
@@ -213,21 +220,12 @@ export function ImpostorTable({
           round.number < ROUNDS_PER_GAME ? (
             <TableAction label={busy ? 'Dealing…' : 'Next round'} disabled={busy} onPress={onNextRound} />
           ) : (
-            <View style={{ gap: space[2] }}>
-              <Text variant="heading" center>
-                Good game.
-              </Text>
-              <TableAction label={busy ? 'Dealing…' : 'Play again'} disabled={busy} onPress={onPlayAgain} />
-              <Pressable
-                accessibilityRole="button"
-                onPress={onBackToTalking}
-                style={{ minHeight: size.minTarget, alignItems: 'center', justifyContent: 'center' }}
-              >
-                <Text variant="bodyStrong" color="textSoft">
-                  Back to the room
-                </Text>
-              </Pressable>
-            </View>
+            <GameOver
+              result="That was the last round"
+              canRestart={starter && !busy}
+              onPlayAgain={onPlayAgain}
+              onBackToTalking={onBackToTalking}
+            />
           )
         ) : speaking ? (
           <View style={{ flexDirection: 'row', alignItems: 'center', gap: space[3] }}>

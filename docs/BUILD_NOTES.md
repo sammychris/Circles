@@ -414,7 +414,7 @@ Built from `docs/design/pages/game-mode.md`. When a game goes on the table, ever
 - **A bigger board.** It fills the screen width (about 41-point squares on the smallest phones, 44 or more on most).
 - **The game's own buttons** under the board.
 - **At the bottom: only the mic and Chat.** Muting is always one tap away.
-- **Everything else is in the ⋯ menu:** How to play, Hide faces, Sound on/off, Report someone, Leave game (or Stop watching, or End game), and Leave room. Leave room always asks first.
+- **Everything else is in the ⋯ menu:** How to play, Hide faces, Sound on/off, Report or block someone, Leave game (or Stop watching, or End game), and Leave room. Leave room always asks first.
 
 **How it feels**
 - **Your own move shows straight away.** It's checked on your phone first, so wrong moves never start. If the starter's phone doesn't confirm it within 3 seconds, the piece slides back and it says "That move didn't go through. Try again." Dice and dealing still come only from one phone, so nobody can cheat.
@@ -430,6 +430,9 @@ Built from `docs/design/pages/game-mode.md`. When a game goes on the table, ever
 - **The sounds are made for Circles** by a small script (`scripts/make-sounds.py`), not taken from a sound pack, so there's no licence to follow. If you'd rather have Kenney's sounds, I can swap them.
 - **Sound is on by default.** Games only run in play rooms, so Learn rooms never play game sounds.
 - **Each phone plays its own game sounds**, and the "your turn" chime only on the phones whose turn it is. The phone's echo cancelling should keep them out of your mic; the echo check below makes sure.
+- **"Report or block someone"** (the design says "Report someone"): you pick the person, then get their usual card with Save, Block and Report. Without it, Block couldn't be reached during a game, and the rules say Block and Report are on every person in a room.
+- **Play again** at the end of Ludo and Find the Impostor is for whoever started the game (anyone, once they've left). **Back to the room** closes the game on your phone only, unless you started it.
+- **Not done yet from the design:** the seats shrinking up into the face strip when a game starts (the board grows in instead), and the one-time glow on your movable pieces when your turn starts (the turn line glows).
 - **"Leave game" in Find the Impostor** takes you out of the screen on your phone only; your turn passes in silence.
 
 **What you need to do**

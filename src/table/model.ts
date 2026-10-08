@@ -83,7 +83,9 @@ export type TableMessage =
   | { k: 'pass'; id: string }
   // A game move, to the starter only; and, from the starter, someone's own hand or role, to them only.
   | { k: 'move'; id: string; move: unknown }
-  | { k: 'secret'; id: string; data: unknown };
+  | { k: 'secret'; id: string; data: unknown }
+  // From the starter, to the player only: whether their move was played (game-mode.md › Instant moves).
+  | { k: 'done'; id: string; ok: boolean };
 
 // Support rooms only ever get notes and links: no photos, videos or screens (CLAUDE.md, Never list).
 export function allowedKinds(door: Door): TableKind[] {

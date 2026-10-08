@@ -166,7 +166,8 @@ export function useDragMove({
   };
   const latest = useRef({ cell, flip, canPick, onPick, onDrop });
   latest.current = { cell, flip, canPick, onPick, onDrop };
-  const measure = () => boardRef.current?.measureInWindow((x, y) => (origin.current = { x, y }));
+  // Where the board is on the screen, in the same terms as the finger's position.
+  const measure = () => boardRef.current?.measure((_x, _y, _w, _h, pageX, pageY) => (origin.current = { x: pageX, y: pageY }));
   const squareAt = (pageX: number, pageY: number) => {
     const { cell: c, flip: f } = latest.current;
     const col = Math.floor((pageX - origin.current.x) / c);

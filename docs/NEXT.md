@@ -139,6 +139,7 @@ The full click-by-click steps are in `docs/BUILD_NOTES.md`, under "What you need
 ## 5. Known weak spots to fix before a wide launch
 
 - **Ludo moves** travel on a public Supabase Realtime channel. Switch to private channels with access rules.
+- **Ludo dice** are rolled on the phone of whoever taps Roll, so a changed app could cheat. The game-mode design says random things come only from one trusted phone (or the server). Move Ludo onto the Table's starter model, or roll on the server.
 - **The Table games' cards and roles** (Whot hands, Mafia roles) are held on the starter's phone, so a changed app could peek. Deal them from the server instead, the way Find the Impostor's words already are.
 - **Leftover anonymous accounts:** accounts with no nickname or email are never deleted. Plan a cleanup after 30 days.
 

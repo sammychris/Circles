@@ -32,11 +32,6 @@ export function useLudo(roomId: string | null, me: string, enabled: boolean, inR
   const [failedAt, setFailedAt] = useState(0);
   // Rolling: from the tap until the room's answer arrives. Dice are never guessed, so nobody can cheat.
   const [rollingSince, setRollingSince] = useState<number | null>(null);
-  const seqKey = game ? `${game.id}:${game.seq}` : '';
-  useEffect(() => {
-    setGuess(null);
-    if (guessTimer.current) clearTimeout(guessTimer.current);
-  }, [seqKey]);
   useEffect(
     () => () => {
       if (guessTimer.current) clearTimeout(guessTimer.current);
@@ -67,9 +62,20 @@ export function useLudo(roomId: string | null, me: string, enabled: boolean, inR
       if (msg.kind === 'start' || msg.kind === 'state') {
         setGame((g) => preferGame(g, msg.state));
       } else if (msg.kind === 'action') {
-        const result = receiveAction(gameRef.current, msg.gameId, msg.action);
+        const before = gameRef.current;
+        const result = receiveAction(before, msg.gameId, msg.action);
         if (result.resync) hello();
         setGame(result.state);
+        // Your own move or roll coming back from the room: it was played, or someone on your team got
+        // there first (then it slides back and says so).
+        if (msg.action.by === me && msg.action.type !== 'leave') {
+          if (guessTimer.current) clearTimeout(guessTimer.current);
+          setGuess(null);
+          if (!result.resync && result.state === before) {
+            setRollingSince(null);
+            setFailedAt(Date.now());
+          }
+        }
       } else if (msg.kind === 'end') {
         setGame((g) => (g && g.id === msg.gameId ? null : g));
       } else if (msg.kind === 'hello' && gameRef.current) {

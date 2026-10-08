@@ -162,17 +162,15 @@ export function useTable(
         const incoming = acceptItem(msg.item, from, door, photoUrlStart, now);
         if (!incoming || !keepsTable(current, incoming)) return;
         if (current && current.by === me.id && current.id !== incoming.id) setBumped(true);
+        // Something new is on the table: an old "the game ended" note no longer applies.
+        setEndedBy(null);
         const photoCount = incoming.kind === 'photos' ? incoming.photos.length : 0;
         setItem(incoming);
         setState(onLocalClock(cleanState(msg.state, incoming.kind, photoCount) ?? { seq: 0 }, now));
       } else if (msg.k === 'state') {
         if (!current || current.id !== msg.id || current.by !== from.id) return;
         const next = cleanState(msg.state, current.kind, current.kind === 'photos' ? current.photos.length : 0);
-        if (next && next.seq > stateRef.current.seq) {
-          setState(onLocalClock(next, now));
-          // The starter's phone answered: its game replaces whatever this phone guessed.
-          if (guessRef.current) setGuess(null);
-        }
+        if (next && next.seq > stateRef.current.seq) setState(onLocalClock(next, now));
       } else if (msg.k === 'answer') {
         // Only the presenter counts answers, one per person, until the reveal.
         if (!current || current.by !== me.id || current.kind !== 'quiz' || current.id !== msg.id) return;
@@ -192,7 +190,15 @@ export function useTable(
       } else if (msg.k === 'move') {
         // The starter checks every move with the game's rules.
         if (!current || current.by !== me.id || current.kind !== 'game' || current.id !== msg.id) return;
-        playMove(current.game, msg.move, from.id);
+        const ok = playMove(current.game, msg.move, from.id);
+        // Tell the player whether it was played (after the new game, so it's already on their phone).
+        if ((msg.move as { type?: unknown } | null)?.type !== 'leave') void send({ k: 'done', id: current.id, ok }, [from.id]);
+      } else if (msg.k === 'done') {
+        // The starter's answer to your move: played, or not (it slides back).
+        if (!current || current.kind !== 'game' || current.id !== msg.id || current.by !== from.id || !guessRef.current) return;
+        if (guessTimer.current) clearTimeout(guessTimer.current);
+        setGuess(null);
+        if (msg.ok !== true) setMoveFailedAt(now);
       } else if (msg.k === 'secret') {
         // Only ever believed from the starter of the game on the table.
         if (current && current.kind === 'game' && current.id === msg.id && current.by === from.id) setMySecret({ id: msg.id, data: msg.data });
@@ -323,16 +329,18 @@ export function useTable(
   commitRef.current = commitGame;
 
   // Checked with the game's own rules on the starter's phone.
-  function playMove(gameId: GameId, move: unknown, by: string) {
+  // Returns whether the move was played.
+  function playMove(gameId: GameId, move: unknown, by: string): boolean {
     const engine = GAMES[gameId];
-    if (!engine || fullGame.current === null) return;
+    if (!engine || fullGame.current === null) return false;
     // Anyone can leave a game without leaving the room (activities.md rule 4).
     if ((move as { type?: unknown } | null)?.type === 'leave') {
       if (engine.leave && by !== me.id) commitRef.current(gameId, engine.leave(fullGame.current, by));
-      return;
+      return true;
     }
     const next = engine.apply(fullGame.current, move, by, Date.now());
     if (next) commitRef.current(gameId, next);
+    return !!next;
   }
 
   // Starts a game with everyone in the room.
@@ -369,10 +377,11 @@ export function useTable(
       setGuess(mine);
       if (guessTimer.current) clearTimeout(guessTimer.current);
       guessTimer.current = setTimeout(() => {
-        if (guessRef.current === mine) {
-          setGuess(null);
-          setMoveFailedAt(Date.now());
-        }
+        if (guessRef.current !== mine) return;
+        setGuess(null);
+        // No answer at all. If the game moved on meanwhile, the starter's phone is there and the
+        // board now shows what really happened; if nothing came, say the move didn't go through.
+        if (stateRef.current.seq === mine.seq) setMoveFailedAt(Date.now());
       }, MOVE_TIMEOUT_MS);
       void send({ k: 'move', id: current.id, move }, [current.by]);
     },

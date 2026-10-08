@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState, type ReactNode } from 'react';
-import { Animated, Easing, Pressable, View } from 'react-native';
+import { Animated, Easing, Pressable, ScrollView, View } from 'react-native';
 import Svg, { Circle, Path, Polygon, Rect } from 'react-native-svg';
 import { TableAction } from '../../components/TableAction';
 import { Text } from '../../components/Text';
@@ -220,8 +220,12 @@ export function WhotBody({ g, hand, gameKey, me, people, starter, pending, onMov
   };
 
   const cards = hand ?? [];
+  // Cards overlap to fit, but each keeps at least a 44-point slice to tap; past that the hand slides sideways.
   const step =
-    cards.length > 1 && handWidth > 0 ? Math.min(CARD.w + space[2], (handWidth - CARD.w) / (cards.length - 1)) : CARD.w + space[2];
+    cards.length > 1 && handWidth > 0
+      ? Math.max(size.minTarget, Math.min(CARD.w + space[2], (handWidth - CARD.w) / (cards.length - 1)))
+      : CARD.w + space[2];
+  const handSpan = cards.length > 0 ? (cards.length - 1) * step + CARD.w : 0;
   const turnText = g.winner
     ? `${name(g.winner)} won this game`
     : myTurn
@@ -346,33 +350,38 @@ export function WhotBody({ g, hand, gameKey, me, people, starter, pending, onMov
         ) : (
           <View style={{ gap: space[2] }}>
             {/* Your hand: a fanned row, overlapping when there are many. Only you see it. */}
-            <View
+            <ScrollView
+              horizontal
+              scrollEnabled={handSpan > handWidth}
+              showsHorizontalScrollIndicator={false}
               onLayout={(e) => setHandWidth(e.nativeEvent.layout.width)}
-              style={{ height: CARD.h + LIFT, flexDirection: 'row', alignItems: 'flex-end' }}
+              style={{ height: CARD.h + LIFT, flexGrow: 0 }}
               accessibilityLabel={myTurn ? undefined : 'Your cards. Only you can see them.'}
             >
-              {cards.map((card, i) => {
-                const ok = canAct && canPlay(g, card);
-                const up = lifted === i;
-                const face = (
-                  <Pressable
-                    accessibilityRole={myTurn ? 'button' : undefined}
-                    accessibilityLabel={`${cardWords(card)}${ok ? (up ? ', tap again to play' : ', can play') : ''}`}
-                    accessibilityState={{ disabled: !ok, selected: up }}
-                    disabled={!ok}
-                    onPress={() => tapCard(card, i)}
-                    style={{ opacity: myTurn && !ok ? opacity.disabled : 1, transform: [{ translateY: up ? -LIFT : 0 }] }}
-                  >
-                    <CardFace card={card} />
-                  </Pressable>
-                );
-                return (
-                  <View key={`${card}-${i}`} style={{ position: 'absolute', left: i * step, bottom: 0, zIndex: up ? 1 : 0 }}>
-                    {arrivedFrom !== null && i >= arrivedFrom ? <Arriving index={i - arrivedFrom}>{face}</Arriving> : face}
-                  </View>
-                );
-              })}
-            </View>
+              <View style={{ width: handSpan, height: CARD.h + LIFT }}>
+                {cards.map((card, i) => {
+                  const ok = canAct && canPlay(g, card);
+                  const up = lifted === i;
+                  const face = (
+                    <Pressable
+                      accessibilityRole={myTurn ? 'button' : undefined}
+                      accessibilityLabel={`${cardWords(card)}${ok ? (up ? ', tap again to play' : ', can play') : ''}`}
+                      accessibilityState={{ disabled: !ok, selected: up }}
+                      disabled={!ok}
+                      onPress={() => tapCard(card, i)}
+                      style={{ opacity: myTurn && !ok ? opacity.disabled : 1, transform: [{ translateY: up ? -LIFT : 0 }] }}
+                    >
+                      <CardFace card={card} />
+                    </Pressable>
+                  );
+                  return (
+                    <View key={`${card}-${i}`} style={{ position: 'absolute', left: i * step, bottom: 0, zIndex: up ? 1 : 0 }}>
+                      {arrivedFrom !== null && i >= arrivedFrom ? <Arriving index={i - arrivedFrom}>{face}</Arriving> : face}
+                    </View>
+                  );
+                })}
+              </View>
+            </ScrollView>
             {myTurn ? <TableAction label="Go to market" disabled={pending} onPress={() => onMove({ type: 'market' })} /> : null}
           </View>
         )
