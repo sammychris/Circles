@@ -501,6 +501,7 @@ Your idea (2026-10-08): keep the score while people keep playing, and celebrate 
 - **Adding an email never says whether it's already on another account.** If it is, the app still shows the code screen ("If this email isn't already on another Circles account, we sent it a code"), so nobody can use Circles to find out who's on it.
 
 **What you need to do.** Until you do: your own team's addresses get a link instead of a code, so they get stuck on the code screen; everyone else sees "We couldn't send the code" and can tap **Continue without email**.
+**Order matters:** Supabase only lets you edit the email messages (step 1) after custom SMTP is switched on, so do step 3 (Brevo) first, then steps 1 and 2.
 1. **Put the code in two emails.** In Supabase, open **Authentication**, then **Emails** (Templates).
    1. Open **Magic Link**. Replace the message with:
       `Your Circles code is {{ .Token }}. It works for 1 hour. If you didn't ask for it, ignore this email.`
