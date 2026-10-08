@@ -26,6 +26,13 @@ Still open from Step 1: a test with a friend in another place on their own mobil
 
 ## Steps done
 
+### The Table and over-the-air updates (2026-10-08), not yet tested on phones
+
+- **Over-the-air updates:** `expo-updates` linked to Expo project `dc307e92-…`, build channels in `eas.json`, runtime version follows the app version (raise it whenever a phone feature is added). Me shows when the last update arrived.
+- **The Table** (designs 18 and 19): a note or link, Watch together (YouTube and Vimeo, presenter-led, Back to live), photo slides (up to 20, private storage, deleted after 3 hours unless reported), Share my screen (live, 720p at 5 fps, tap to see), and the games. Support rooms: notes only. The state lives on the presenter's phone and travels on the LiveKit topic `table`.
+- **Voice:** `autoSubscribe` is off, so microphones are subscribed explicitly (on join, publish and reconnect) and video only when someone taps.
+- New phone features in the last build: react-native-webview, expo-image-picker, expo-image-manipulator, and LiveKit's screen-share service.
+
 ### Five features (2026-10-08), not yet tested on phones
 
 - **Privacy Policy and Terms** in plain words (`src/content/legal.ts`), from Welcome and Me. Needs a contact email from Sammy before a wide launch.
