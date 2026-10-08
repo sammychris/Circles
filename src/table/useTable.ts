@@ -2,6 +2,8 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { utf8Decode, utf8Encode } from '../rooms/chat';
 import type { DataListener } from '../voice/useVoiceRoom';
 import { GAMES } from '../games/registry';
+import { addWin, type SetScore } from '../games/score';
+import type { Side } from '../games/tableGame';
 import { gameMode } from '../theme/tokens';
 import type { GameId } from '../games/tableGame';
 import {
@@ -319,7 +321,11 @@ export function useTable(
           if (secret !== null && secret !== undefined) void send({ k: 'secret', id: current.id, data: secret }, [person]);
         }
       }
-      const next = { ...stateRef.current, g: engine.publicView(full), seq: stateRef.current.seq + 1 };
+      // A finished game counts once towards the score for the sitting.
+      const winner = engine.winnerKey?.(full) ?? null;
+      const prev = stateRef.current.set;
+      const set = prev && winner !== null ? addWin(prev, current.id, winner) : prev;
+      const next = { ...stateRef.current, g: engine.publicView(full), ...(set ? { set } : {}), seq: stateRef.current.seq + 1 };
       setState(next);
       void send({ k: 'state', id: current.id, state: next });
     },
@@ -343,14 +349,15 @@ export function useTable(
     return !!next;
   }
 
-  // Starts a game with everyone in the room.
+  // Starts a game with everyone in the room. Play again can keep the teams and carry the score on.
   const startGame = useCallback(
-    async (gameId: GameId) => {
+    async (gameId: GameId, opts: { set?: SetScore; teams?: Record<Side, string[]> | null } = {}) => {
       const engine = GAMES[gameId];
       if (!engine) return false;
       const names = Object.fromEntries(namesRef.current);
-      const full = engine.setup(peopleRef.current.slice(0, engine.max), me.id, Math.random, names);
-      const ok = await put({ kind: 'game', game: gameId }, { g: engine.publicView(full) });
+      let full = engine.setup(peopleRef.current.slice(0, engine.max), me.id, Math.random, names);
+      if (opts.teams && full && typeof full === 'object' && 'teams' in full) full = { ...full, teams: opts.teams };
+      const ok = await put({ kind: 'game', game: gameId }, { g: engine.publicView(full), ...(opts.set ? { set: opts.set } : {}) });
       if (ok === false) return false;
       fullGame.current = full;
       commitRef.current(gameId, full);

@@ -3,6 +3,7 @@
 // photos, which are deleted a few hours after the room. These rules run on every phone.
 
 import { GAME_IDS, GAME_NAMES, type GameId } from '../games/tableGame';
+import { cleanScore, type SetScore } from '../games/score';
 import { CHAT_MAX_LINES } from '../rooms/chat';
 
 export const TABLE_TOPIC = 'table';
@@ -71,6 +72,8 @@ export type TableState = {
   counts?: number[];
   // A game's public state (never anyone's hand or role).
   g?: unknown;
+  // The score while people keep playing this game (only for this sitting; src/games/score.ts).
+  set?: SetScore;
 };
 
 export type TableMessage =
@@ -304,7 +307,8 @@ export function cleanState(raw: unknown, kind: TableKind, photoCount: number): T
   if (kind === 'game') {
     // The starter's phone checks every move; this only keeps a message from being huge.
     const g = r.g;
-    return g !== undefined && JSON.stringify(g).length <= 12_000 ? { seq, g } : { seq };
+    const set = cleanScore(r.set);
+    return { seq, ...(g !== undefined && JSON.stringify(g).length <= 12_000 ? { g } : {}), ...(set ? { set } : {}) };
   }
   if (kind === 'words') {
     // index: how many words are showing.

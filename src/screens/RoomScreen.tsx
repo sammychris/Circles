@@ -36,7 +36,9 @@ import { NIGHT_SECONDS, type MafiaPublic, type MafiaSecret } from '../games/mafi
 import type { WhotPublic } from '../games/whot/engine';
 import type { ChessGame } from '../games/chess/engine';
 import type { DraughtsGame } from '../games/draughts/engine';
-import { GAME_IDS, type GameId } from '../games/tableGame';
+import { GAME_IDS, type GameId, type Side } from '../games/tableGame';
+import { SCORED_GAMES, TEAM_SCORED, carryOn, keepTeams, newScore, type ScoreGame } from '../games/score';
+import { ScoreSheet } from '../games/mode/ScoreSheet';
 import { GAMES } from '../games/registry';
 import { AppealSheet, HandsSheet, HostActionsSheet, REMOVAL_REASONS, RemoveSheet } from '../components/host/HostSheets';
 import { utf8Decode, utf8Encode } from '../rooms/chat';
@@ -602,13 +604,41 @@ export function RoomScreen({ me, request, onLeft, onMove }: Props) {
   }
 
   // Starts a Table game when there are enough people for it.
-  function playTableGame(id: GameId) {
+  // Starts a Table game when there are enough people for it. `keep` carries the score on (and the
+  // teams), for Play again.
+  function playTableGame(id: GameId, keep: Parameters<typeof tableItem.startGame>[1] = {}) {
     const engine = GAMES[id];
     if (engine && people.length < engine.min) {
       setToast(id === 'mafia' ? 'Mafia needs at least 5 people: a narrator and 4 players.' : `${engine.name} needs at least ${engine.min} people.`);
       return;
     }
-    void tableItem.startGame(id);
+    void tableItem.startGame(id, keep);
+  }
+
+  // --- the score for this sitting (src/games/score.ts): asked once, then carried on by Play again ---
+  const [scoreAsk, setScoreAsk] = useState<ScoreGame | null>(null);
+  function startScored(game: ScoreGame, target: number | null) {
+    setScoreAsk(null);
+    const set = newScore(game, target);
+    if (tableItem.item) tableItem.takeOff();
+    if (game === 'ludo') ludo.start(everyone, { set });
+    else playTableGame(game, { set });
+  }
+  // Play again: the same teams and the score carried on. With `fresh`, new teams and a new score.
+  function replayTableGame(id: GameId, fresh = false) {
+    const set = tableItem.state.set;
+    const g = tableItem.state.g as { teams?: Record<Side, string[]> } | undefined;
+    const teams = !fresh && g?.teams ? keepTeams(g.teams, everyone) : null;
+    if (!set) return playTableGame(id);
+    const restart = fresh || (TEAM_SCORED.includes(set.game) && !teams);
+    playTableGame(id, { set: restart ? newScore(set.game, set.target) : carryOn(set), teams });
+  }
+  function replayLudo(fresh = false) {
+    const g = ludo.game;
+    const set = g?.set;
+    const teams = !fresh && g ? keepTeams(g.teams, everyone) : null;
+    if (!set) return ludo.start(everyone);
+    ludo.start(everyone, { set: fresh || !teams ? newScore('ludo', set.target) : carryOn(set), teams });
   }
 
   function onTablePick(choice: TableChoice) {
@@ -620,6 +650,11 @@ export function RoomScreen({ me, request, onLeft, onMove }: Props) {
           playTableGame(choice as GameId);
           return;
         }
+        // Games with a score ask how to keep it first.
+        if (SCORED_GAMES.includes(choice as ScoreGame)) {
+          setTimeout(() => setScoreAsk(choice as ScoreGame), motion.slow);
+          return;
+        }
         if (tableItem.item) tableItem.takeOff();
         void tableItem.startGame(choice as GameId);
       } else if (choice === 'ludo' || choice === 'impostor') {
@@ -628,10 +663,13 @@ export function RoomScreen({ me, request, onLeft, onMove }: Props) {
           impostorTooFew();
           return;
         }
+        if (choice === 'ludo') {
+          setTimeout(() => setScoreAsk('ludo'), motion.slow);
+          return;
+        }
         if (tableItem.item) tableItem.takeOff();
         setWordHidden(false);
-        if (choice === 'ludo') ludo.start(everyone);
-        else impostor.startGame(everyone);
+        impostor.startGame(everyone);
       } else if (choice === 'note' || choice === 'video' || choice === 'turns' || choice === 'quiz' || choice === 'words') {
         setTimeout(() => setCompose(choice), motion.slow);
       } else if (choice === 'photos') {
@@ -848,7 +886,8 @@ export function RoomScreen({ me, request, onLeft, onMove }: Props) {
           if (first >= 0) ludo.move(first);
         }}
         canRestart={ludoGame.startedBy === me.id || !starterHere}
-        onPlayAgain={() => ludo.start(everyone)}
+        onPlayAgain={() => replayLudo()}
+        onFresh={ludoGame.set ? () => replayLudo(true) : undefined}
         onBackToTalking={ludoGame.startedBy === me.id || !starterHere ? ludo.endGame : () => setSteppedOut(ludoGame.id)}
       />
     );
@@ -892,7 +931,9 @@ export function RoomScreen({ me, request, onLeft, onMove }: Props) {
       me: me.id,
       people,
       starter: tableItem.mine,
-      onPlayAgain: () => playTableGame(tableGame.game),
+      onPlayAgain: () => replayTableGame(tableGame.game),
+      score: tableItem.state.set,
+      onFresh: tableItem.state.set ? () => replayTableGame(tableGame.game, true) : undefined,
       onBackToTalking: tableItem.mine ? tableItem.takeOff : tableItem.hideItem,
     };
     gameView = !g ? (
@@ -970,6 +1011,7 @@ export function RoomScreen({ me, request, onLeft, onMove }: Props) {
   // Sheets and dialogs, the same in the room and in game mode.
   const sheets = (
     <>
+        <ScoreSheet game={scoreAsk} onClose={() => setScoreAsk(null)} onStart={(target) => scoreAsk && startScored(scoreAsk, target)} />
         <MicAskSheet visible={askOpen} onAllow={() => void onAllow()} onListen={onListen} />
         <MicBlockedSheet
           visible={blockedOpen}

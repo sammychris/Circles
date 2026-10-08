@@ -11,6 +11,7 @@ import type { Person } from '../../voice/useVoiceRoom';
 import { GameStage } from '../mode/GameMode';
 import { DragBoard, SlideIn, Vanish, gridSpot, useGridMove, useTurnCue, useWinCue } from '../mode/motion';
 import { GameOver } from '../shared/GameOver';
+import { scoreLine, setWinnerLine, type SetScore } from '../score';
 import { SIDE_NAME, sideOf } from '../tableGame';
 import { AGREE_SECONDS, chessGame, targets, turnOf, type ChessGame, type ChessMove } from './engine';
 
@@ -49,11 +50,26 @@ type Props = {
   onMove: (move: ChessMove, guess: (g: unknown) => { g: unknown } | null) => void;
   onPlayAgain: () => void;
   onBackToTalking: () => void;
+  // The score for this sitting, and a fresh start (new teams, or the score from zero).
+  score?: SetScore;
+  onFresh?: () => void;
 };
 
 // Chess in teams in game mode: someone on your team taps a piece and a square to suggest a move;
 // teammates agree, or it's played after a minute.
-export function ChessBody({ g, gameKey, me, people, starter, pending: movePending, onMove, onPlayAgain, onBackToTalking }: Props) {
+export function ChessBody({
+  g,
+  gameKey,
+  me,
+  people,
+  starter,
+  pending: movePending,
+  onMove,
+  onPlayAgain,
+  onBackToTalking,
+  score,
+  onFresh,
+}: Props) {
   const colors = useColors();
   const [picked, setPicked] = useState<string | null>(null);
   const [suggesting, setSuggesting] = useState(false);
@@ -119,6 +135,7 @@ export function ChessBody({ g, gameKey, me, people, starter, pending: movePendin
     <GameStage
       kind="chess"
       gameKey={gameKey}
+      score={score ? scoreLine(score, (k: string) => (k === 'sun' ? 'Sun' : 'Sky')) : null}
       turn={{ text: turnText, Icon: g.winner ? undefined : TEAM_ICON[side], iconColor: teamColors[side].fg, mine: myTurn }}
       faces={(id) => ({ team: sideOf(g.teams, id) })}
       won={!!g.winner}
@@ -262,7 +279,18 @@ export function ChessBody({ g, gameKey, me, people, starter, pending: movePendin
       }}
       controls={
         g.winner ? (
-          <GameOver result={g.last} canRestart={starter} onPlayAgain={onPlayAgain} onBackToTalking={onBackToTalking} />
+          <GameOver
+            result={setWinnerLine(score, (k: string) => (k === 'sun' ? 'Team Sun' : 'Team Sky')) ?? g.last}
+            score={
+              score
+                ? { line: scoreLine(score, (k: string) => (k === 'sun' ? 'Team Sun' : 'Team Sky')), setWon: !!score.champion }
+                : undefined
+            }
+            fresh={onFresh ? { label: 'New teams', onPress: onFresh } : undefined}
+            canRestart={starter}
+            onPlayAgain={onPlayAgain}
+            onBackToTalking={onBackToTalking}
+          />
         ) : pending ? (
           <View style={{ gap: space[2] }}>
             <Text

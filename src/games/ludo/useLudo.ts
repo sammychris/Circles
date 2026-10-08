@@ -115,11 +115,11 @@ export function useLudo(roomId: string | null, me: string, enabled: boolean, inR
   }, [inRoomKey, game?.id, me, send]);
 
   const start = useCallback(
-    (players: string[]) => {
+    (players: string[], keep: Parameters<typeof newGame>[4] = {}) => {
       const g = gameRef.current;
       // Never replace a game that's still being played.
       if (g && !g.winner) return;
-      send({ kind: 'start', state: newGame(players, me) });
+      send({ kind: 'start', state: newGame(players, me, Math.random, undefined, keep) });
     },
     [send, me],
   );

@@ -102,6 +102,7 @@ export const chessGame: TableGame<ChessGame> = {
     return null;
   },
   publicView: (g) => ({ ...g, sentAt: Date.now() }),
+  winnerKey: (g) => g.winner,
   tick(g, now) {
     if (g.winner || !g.pending) return null;
     return now - g.pending.at >= AGREE_SECONDS * 1000 ? play(g, g.pending) : null;

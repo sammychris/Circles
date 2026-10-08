@@ -170,6 +170,7 @@ export const whot: TableGame<WhotGame> = {
     if (card.shape === 'whot') return { ...next, turn: after, last: `${name(g, by)} wants ${m.shape}s` };
     return { ...next, turn: after, last: `${name(g, by)} played ${card.shape} ${card.n}` };
   },
+  winnerKey: (g) => g.winner,
   publicView(g): WhotPublic {
     const counts: Record<string, number> = {};
     for (const p of g.players) counts[p] = g.hands[p]?.length ?? 0;

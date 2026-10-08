@@ -8,6 +8,7 @@ import type { Person } from '../../voice/useVoiceRoom';
 import { GameStage } from '../mode/GameMode';
 import { DragBoard, SlideIn, Vanish, gridSpot, useGridMove, useTurnCue, useWinCue } from '../mode/motion';
 import { GameOver } from '../shared/GameOver';
+import { scoreLine, setWinnerLine, type SetScore } from '../score';
 import { SIDE_NAME, sideOf, type Side } from '../tableGame';
 import { colOf, draughts, legalMoves, pieceSide, rowOf, type DraughtsGame, type DraughtsMove } from './engine';
 
@@ -22,6 +23,9 @@ type Props = {
   onMove: (move: DraughtsMove, guess: (g: unknown) => { g: unknown } | null) => void;
   onPlayAgain: () => void;
   onBackToTalking: () => void;
+  // The score for this sitting, and a fresh start (new teams, or the score from zero).
+  score?: SetScore;
+  onFresh?: () => void;
 };
 
 const TEAM_ICON = { sun: Sun, sky: Cloud } as const;
@@ -53,7 +57,7 @@ function Piece({ code, cell, ring }: { code: string; cell: number; ring: boolean
 
 // Draughts in game mode: your team talks it over, then anyone on it taps (or picks up) a piece and
 // where it goes. Your move shows straight away; the starter's phone confirms it.
-export function DraughtsBody({ g, gameKey, me, people, starter, pending, onMove, onPlayAgain, onBackToTalking }: Props) {
+export function DraughtsBody({ g, gameKey, me, people, starter, pending, onMove, onPlayAgain, onBackToTalking, score, onFresh }: Props) {
   const colors = useColors();
   const [picked, setPicked] = useState<number | null>(null);
   const mySide = sideOf(g.teams, me);
@@ -110,6 +114,7 @@ export function DraughtsBody({ g, gameKey, me, people, starter, pending, onMove,
     <GameStage
       kind="draughts"
       gameKey={gameKey}
+      score={score ? scoreLine(score, (k: string) => (k === 'sun' ? 'Sun' : 'Sky')) : null}
       turn={{ text: turnText, Icon: g.winner ? undefined : TurnIcon, iconColor: teamColors[g.turn].fg, mine: myTurn }}
       faces={(id) => ({ team: sideOf(g.teams, id) })}
       won={!!g.winner}
@@ -203,7 +208,18 @@ export function DraughtsBody({ g, gameKey, me, people, starter, pending, onMove,
       }}
       controls={
         g.winner ? (
-          <GameOver result={turnText} canRestart={starter} onPlayAgain={onPlayAgain} onBackToTalking={onBackToTalking} />
+          <GameOver
+            result={setWinnerLine(score, (k: string) => (k === 'sun' ? 'Team Sun' : 'Team Sky')) ?? turnText}
+            score={
+              score
+                ? { line: scoreLine(score, (k: string) => (k === 'sun' ? 'Team Sun' : 'Team Sky')), setWon: !!score.champion }
+                : undefined
+            }
+            fresh={onFresh ? { label: 'New teams', onPress: onFresh } : undefined}
+            canRestart={starter}
+            onPlayAgain={onPlayAgain}
+            onBackToTalking={onBackToTalking}
+          />
         ) : (
           <View style={{ gap: space[1] }}>
             <Text variant="bodyStrong" numberOfLines={2}>

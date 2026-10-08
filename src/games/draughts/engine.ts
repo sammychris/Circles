@@ -133,6 +133,7 @@ export const draughts: TableGame<DraughtsGame> = {
     return { ...base, last: `${SIDE_NAME[g.turn]} ${jumped ? 'captured' : 'moved'}${crowned ? ' and made a king' : ''}` };
   },
   publicView: (g) => g,
+  winnerKey: (g) => g.winner,
   leave(g, person) {
     const teams = { sun: g.teams.sun.filter((p) => p !== person), sky: g.teams.sky.filter((p) => p !== person) };
     // A team with nobody left loses, so the game never gets stuck.

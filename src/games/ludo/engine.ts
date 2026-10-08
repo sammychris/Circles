@@ -4,6 +4,8 @@
 //   BASE (-1) = still at home base, 0..50 = on the shared track, 51..55 = home column, 56 = finished.
 // The whole game is a pure reducer, so every phone applies the same actions in the same order.
 
+import { addWin, type SetScore } from '../score';
+
 export type Team = 'sun' | 'sky';
 export const TEAMS: Team[] = ['sun', 'sky'];
 // One person on each team.
@@ -27,6 +29,9 @@ export type LudoState = {
   seq: number; // how many actions have been applied; an action must carry the current seq
   startedBy: string;
   last: string; // what just happened, in words
+  // The score while people keep playing (only for this sitting; src/games/score.ts). Every phone adds a
+  // win the same way, in apply, so they all agree.
+  set?: SetScore;
 };
 
 export type LudoAction =
@@ -52,6 +57,8 @@ export function newGame(
   startedBy: string,
   random: () => number = Math.random,
   id = `${Date.now().toString(36)}-${Math.floor(random() * 1e9).toString(36)}`,
+  // Play again: the same teams, and the score carried on.
+  keep: { teams?: Record<Team, string[]> | null; set?: SetScore } = {},
 ): LudoState {
   const shuffled = [...players];
   for (let i = shuffled.length - 1; i > 0; i -= 1) {
@@ -61,7 +68,7 @@ export function newGame(
   const half = Math.ceil(shuffled.length / 2);
   return {
     id,
-    teams: { sun: shuffled.slice(0, half), sky: shuffled.slice(half) },
+    teams: keep.teams ?? { sun: shuffled.slice(0, half), sky: shuffled.slice(half) },
     tokens: { sun: [BASE, BASE, BASE, BASE], sky: [BASE, BASE, BASE, BASE] },
     turn: 'sun',
     dice: null,
@@ -70,6 +77,7 @@ export function newGame(
     seq: 0,
     startedBy,
     last: 'Team Sun goes first. Anyone on the team can roll.',
+    ...(keep.set ? { set: keep.set } : {}),
   };
 }
 
@@ -100,6 +108,13 @@ function nextTurn(state: LudoState, last: string): LudoState {
 // Leaving doesn't need (or change) the move number: it must always work, and must not
 // shift the numbers of moves sent at the same moment.
 export function apply(state: LudoState, action: LudoAction): LudoState {
+  const next = play(state, action);
+  // A win counts once towards the score for the sitting.
+  if (next.winner && !state.winner && next.set) return { ...next, set: addWin(next.set, next.id, next.winner) };
+  return next;
+}
+
+function play(state: LudoState, action: LudoAction): LudoState {
   const actorTeam = teamOf(state, action.by);
   const name = TEAM_NAME[state.turn];
 

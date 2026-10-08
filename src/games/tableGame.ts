@@ -25,6 +25,9 @@ export interface TableGame<G> {
   tick?(g: G, now: number, here: string[]): G | null;
   // Someone left the room.
   leave?(g: G, person: string): G;
+  // Who won, once the game is over: a team, a person, or 'draw'. Null while it's going. Only for games
+  // with a score for the sitting (src/games/score.ts).
+  winnerKey?(g: G): string | null;
 }
 
 export function shuffle<T>(list: T[], random: () => number): T[] {

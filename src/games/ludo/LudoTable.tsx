@@ -11,6 +11,7 @@ import { border, gameMode, ludo, motion, radius, size, space, teamColors, useCol
 import { GameStage } from '../mode/GameMode';
 import { useTurnCue, useWinCue } from '../mode/motion';
 import { GameOver } from '../shared/GameOver';
+import { scoreLine, setWinnerLine } from '../score';
 import {
   BASE,
   FINISH,
@@ -320,6 +321,8 @@ type Props = {
   onBringOut: () => void;
   onPlayAgain: () => void;
   onBackToTalking: () => void;
+  // Mix the teams again: the score starts over.
+  onFresh?: () => void;
 };
 
 // Ludo in game mode: the board fills the board area, the dice and what to do sit under it.
@@ -335,7 +338,9 @@ export function LudoTable({
   onBringOut,
   onPlayAgain,
   onBackToTalking,
+  onFresh,
 }: Props) {
+  const score = state.set;
   const myTeam = teamOf(state, me);
   const myTurn = myTeam === state.turn && !state.winner;
   const busy = pending || rollingSince !== null;
@@ -401,13 +406,21 @@ export function LudoTable({
     <GameStage
       kind="ludo"
       gameKey={state.id}
+      score={score ? scoreLine(score, (k) => (k === 'sun' ? 'Sun' : 'Sky')) : null}
       turn={{ text: turnText, Icon: state.winner ? undefined : TurnIcon, iconColor: teamColors[state.turn].fg, mine: myTurn }}
       faces={(id) => ({ team: teamOf(state, id) })}
       won={!!state.winner}
       board={({ size: side }) => <Board state={state} side={side} myTurn={myTurn && !busy} onMove={onMove} />}
       controls={
         state.winner ? (
-          <GameOver result={turnText} canRestart={canRestart} onPlayAgain={onPlayAgain} onBackToTalking={onBackToTalking} />
+          <GameOver
+            result={setWinnerLine(score, (k) => TEAM_NAME[k as Team]) ?? turnText}
+            score={score ? { line: scoreLine(score, (k) => TEAM_NAME[k as Team]), setWon: !!score.champion } : undefined}
+            canRestart={canRestart}
+            onPlayAgain={onPlayAgain}
+            onBackToTalking={onBackToTalking}
+            fresh={onFresh ? { label: 'New teams', onPress: onFresh } : undefined}
+          />
         ) : (
           <View style={{ gap: space[2] }}>
             <View style={{ flexDirection: 'row', gap: space[4], alignItems: 'center' }}>

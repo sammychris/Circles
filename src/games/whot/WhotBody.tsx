@@ -11,6 +11,7 @@ import type { Person } from '../../voice/useVoiceRoom';
 import { GameStage } from '../mode/GameMode';
 import { useTurnCue, useWinCue } from '../mode/motion';
 import { GameOver } from '../shared/GameOver';
+import { scoreLine, setWinnerLine, type SetScore } from '../score';
 import { SHAPES, TURN_SECONDS, canPlay, parse, type Card, type Shape, type WhotMove, type WhotPublic } from './engine';
 
 const CARD = gameMode.card;
@@ -138,11 +139,14 @@ type Props = {
   onMove: (move: WhotMove, guess?: (g: unknown, secret: unknown) => { g: unknown; secret: unknown } | null) => void;
   onPlayAgain: () => void;
   onBackToTalking: () => void;
+  // The score for this sitting, and a fresh start (new teams, or the score from zero).
+  score?: SetScore;
+  onFresh?: () => void;
 };
 
 // Whot in game mode: the pile and the market in the middle, and your own hand at the bottom, seen only
 // by you (play.md › Whot). Tap a card to lift it, tap it again to play it.
-export function WhotBody({ g, hand, gameKey, me, people, starter, pending, onMove, onPlayAgain, onBackToTalking }: Props) {
+export function WhotBody({ g, hand, gameKey, me, people, starter, pending, onMove, onPlayAgain, onBackToTalking, score, onFresh }: Props) {
   const colors = useColors();
   const [choosing, setChoosing] = useState(false);
   const [lifted, setLifted] = useState<number | null>(null);
@@ -236,6 +240,7 @@ export function WhotBody({ g, hand, gameKey, me, people, starter, pending, onMov
     <GameStage
       kind="whot"
       gameKey={gameKey}
+      score={score ? scoreLine(score, name) : null}
       turn={{ text: turnText, mine: myTurn }}
       faces={(id) => ({ dim: !g.players.includes(id) })}
       won={!!g.winner}
@@ -306,7 +311,14 @@ export function WhotBody({ g, hand, gameKey, me, people, starter, pending, onMov
       )}
       controls={
         g.winner ? (
-          <GameOver result={turnText} canRestart={starter} onPlayAgain={onPlayAgain} onBackToTalking={onBackToTalking} />
+          <GameOver
+            result={setWinnerLine(score, name) ?? turnText}
+            score={score ? { line: scoreLine(score, name), setWon: !!score.champion } : undefined}
+            fresh={onFresh ? { label: 'Start the score again', onPress: onFresh } : undefined}
+            canRestart={starter}
+            onPlayAgain={onPlayAgain}
+            onBackToTalking={onBackToTalking}
+          />
         ) : !playing || !hand ? (
           <Text variant="meta" color="textSoft">
             {"You're watching this game. You can still talk."}

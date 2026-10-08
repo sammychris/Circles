@@ -145,6 +145,12 @@ Uses the built-in React Native `Animated` with the native driver (transform and 
 - **Waiting for the starter's phone** (after reconnecting): the board is greyed, with "Getting the game back…" under it (`meta`).
 - **The starter has left:** "The game ended because Tolu left." and **Back to the room**.
 - **Game over:** the result, "Good game. Nothing is kept: no points, no rankings.", **Play again** (starter, only with enough people), and **Back to the room** (everyone).
+- **Score for the sitting** (Sammy, 2026-10-08): Ludo, Draughts, Chess in teams and Whot keep a score while people keep playing in the room.
+  - Before the game starts, the starter picks **Just keep count**, **First to 3 wins** or **First to 5 wins**.
+  - Team games score by team, and **Play again** keeps the same teams; **New teams** mixes them and starts the score again. Whot scores by person (**Start the score again**).
+  - The score sits at the end of the turn line ("Sun 2, Sky 1") and on the game-over screen ("Team Sun 2, Team Sky 1"), which then says "Good game. Scores are just for tonight: they're gone when the room ends."
+  - Reaching the target: "Team Sun wins the set, 3 to 1", the warm glow and the win sound, then **Play another set**.
+  - Gone when the game comes off the table or the room ends. Never saved, never on a profile, no leaderboards. Not for Mafia or Find the Impostor (roles change every game, and a count of who got caught can feel like picking on people).
 
 ## Accessibility
 - **Labels:** every square and card has a label ("e4, Team Sun knight, can move"). The turn line is a live region.

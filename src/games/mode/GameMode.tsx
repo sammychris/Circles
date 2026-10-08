@@ -266,6 +266,8 @@ type StageProps = {
   gameKey: string;
   // `clock` is a ticking time beside the turn ("0:22"), shown but not read out every second.
   turn: { text: string; clock?: string; Icon?: LucideIcon; iconColor?: string; mine?: boolean };
+  // The score for this sitting, at the end of the turn line: "Team Sun 2, Team Sky 1".
+  score?: string | null;
   faces?: (id: string) => FaceMark;
   // The board, drawn at the size it gets: square (the screen width minus 16 each side, or less on a
   // short screen), centred in the space left over.
@@ -279,7 +281,7 @@ type StageProps = {
   won?: boolean;
 };
 
-export function GameStage({ kind, gameKey, turn, faces, board, controls, note, night, won }: StageProps) {
+export function GameStage({ kind, gameKey, turn, score, faces, board, controls, note, night, won }: StageProps) {
   const env = useContext(Env);
   const colors = useColors();
   const reduceMotion = useReduceMotion();
@@ -379,6 +381,16 @@ export function GameStage({ kind, gameKey, turn, faces, board, controls, note, n
                 accessibilityElementsHidden
               >
                 {turn.clock}
+              </Text>
+            ) : null}
+            {score ? (
+              <Text
+                variant="metaStrong"
+                color="textSoft"
+                numberOfLines={1}
+                style={{ marginLeft: 'auto', flexShrink: 1, fontVariant: ['tabular-nums'] }}
+              >
+                {score}
               </Text>
             ) : null}
           </View>
