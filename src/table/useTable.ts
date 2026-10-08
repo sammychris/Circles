@@ -52,7 +52,7 @@ export function useTable(
   me: { id: string; nickname: string },
   door: Door | null,
   connected: boolean,
-  people: { id: string; isHost: boolean }[],
+  people: { id: string; isHost: boolean; nickname?: string }[],
   photoUrlStart: string,
   // Bumped after a full reconnect: ask again what's on the table.
   reconnects = 0,
@@ -74,6 +74,8 @@ export function useTable(
   }, []);
   const peopleRef = useRef<string[]>([]);
   peopleRef.current = people.map((p) => p.id);
+  const namesRef = useRef(new Map<string, string>());
+  namesRef.current = new Map(people.map((p) => [p.id, p.nickname ?? 'Someone']));
   const hostsRef = useRef(new Set<string>());
   hostsRef.current = new Set(people.filter((p) => p.isHost).map((p) => p.id));
   const iAmHost = people.some((p) => p.id === me.id && p.isHost);
@@ -289,7 +291,8 @@ export function useTable(
     async (gameId: GameId) => {
       const engine = GAMES[gameId];
       if (!engine) return false;
-      const full = engine.setup(peopleRef.current.slice(0, engine.max), me.id, Math.random);
+      const names = Object.fromEntries(namesRef.current);
+      const full = engine.setup(peopleRef.current.slice(0, engine.max), me.id, Math.random, names);
       const ok = await put({ kind: 'game', game: gameId }, { g: engine.publicView(full) });
       if (ok === false) return false;
       fullGame.current = full;

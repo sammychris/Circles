@@ -14,7 +14,7 @@ export interface TableGame<G> {
   min: number;
   max: number;
   // A fresh game for the people in the room.
-  setup(players: string[], startedBy: string, random: () => number): G;
+  setup(players: string[], startedBy: string, random: () => number, names?: Record<string, string>): G;
   // A move from one person, checked by the rules. The new game, or null when it isn't allowed.
   apply(g: G, move: unknown, by: string, now: number): G | null;
   // What everyone may see.

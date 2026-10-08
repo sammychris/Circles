@@ -27,6 +27,8 @@ import { NoteSheet, QuizSheet, TurnsSheet, VideoSheet, WordsSheet } from '../com
 import { WordsBody } from '../components/table/WordsBody';
 import { DraughtsBody } from '../games/draughts/DraughtsBody';
 import { ChessBody } from '../games/chess/ChessBody';
+import { WhotBody } from '../games/whot/WhotBody';
+import type { WhotPublic } from '../games/whot/engine';
 import type { ChessGame } from '../games/chess/engine';
 import type { DraughtsGame } from '../games/draughts/engine';
 import { GAME_IDS, type GameId } from '../games/tableGame';
@@ -632,6 +634,18 @@ export function RoomScreen({ me, request, onLeft, onMove }: Props) {
               starter={tableItem.mine}
               onMove={tableItem.sendMove}
               onPlayAgain={() => void tableItem.startGame('chess')}
+              onBackToTalking={tableItem.takeOff}
+            />
+          ) : null}
+          {item.kind === 'game' && item.game === 'whot' && tableItem.state.g ? (
+            <WhotBody
+              g={tableItem.state.g as WhotPublic}
+              hand={Array.isArray(tableItem.mySecret) ? (tableItem.mySecret as string[]) : null}
+              me={me.id}
+              people={people}
+              starter={tableItem.mine}
+              onMove={tableItem.sendMove}
+              onPlayAgain={() => void tableItem.startGame('whot')}
               onBackToTalking={tableItem.takeOff}
             />
           ) : null}
