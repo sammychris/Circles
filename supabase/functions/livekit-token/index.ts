@@ -32,8 +32,19 @@ Deno.serve(async (req) => {
   const { data: userData, error: userError } = await supabase.auth.getUser();
   if (userError || !userData.user) return json({ error: 'Please sign in' }, 401);
   const user = userData.user;
-  const nickname = String(user.user_metadata?.nickname ?? '').trim().slice(0, 20);
+  // Nobody speaks before their email is confirmed and they have chosen a nickname (CLAUDE.md, Never list).
+  if (user.is_anonymous || !user.email_confirmed_at) return json({ error: 'Please confirm your email first' }, 403);
+
+  const { data: profile } = await supabase.from('profiles').select('nickname').eq('id', user.id).maybeSingle();
+  const nickname = profile?.nickname ?? '';
   if (!nickname) return json({ error: 'Choose a nickname first' }, 403);
+
+  const { data: birth } = await supabase.from('birth_dates').select('date_of_birth').eq('id', user.id).maybeSingle();
+  const eighteenYearsAgo = new Date();
+  eighteenYearsAgo.setFullYear(eighteenYearsAgo.getFullYear() - 18);
+  if (!birth?.date_of_birth || new Date(birth.date_of_birth) > eighteenYearsAgo) {
+    return json({ error: 'Circles is for adults' }, 403);
+  }
 
   // 2. Which room, and is it open?
   let roomId = '';

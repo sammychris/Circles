@@ -203,7 +203,7 @@ export function RoomScreen({ nickname }: { nickname: string }) {
               </Text>
             )}
             {room.status !== 'connecting' ? (
-              <Button label="Switch test person" variant="quiet" onPress={() => void supabase.auth.signOut()} />
+              <Button label="Log out" variant="quiet" onPress={() => void supabase.auth.signOut()} />
             ) : null}
           </>
         )}

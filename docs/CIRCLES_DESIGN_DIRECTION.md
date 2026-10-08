@@ -84,7 +84,7 @@ The order of building is decided by `docs/CIRCLES_BUILD_PLAN.md`, not by this li
 - Never put games, adverts or the Table's photos in support rooms.
 - Never let a game vote, a game role or a game result remove or mute a real person.
 - Never keep scores, streaks or rankings after a room ends.
-- Never let someone speak before they've verified their phone and chosen a nickname, in the app or in the browser.
+- Never let someone speak before they've verified their email (phone later) and chosen a nickname, in the app or in the browser.
 
 ---
 

@@ -6,10 +6,8 @@ export const LIVEKIT_URL = process.env.EXPO_PUBLIC_LIVEKIT_URL ?? '';
 export const TEST_ROOM_ID = 'test-room';
 export const ROOM_CAPACITY = 6;
 
-// Step 1 only: shows how long joining took and how good the connection is.
+// Test builds only: shows how long joining took and how good the connection is. Turn off before real users.
 export const SHOW_TEST_NUMBERS = true;
-
-export const TEST_ACCOUNTS = ['Tolu', 'Ada_K', 'Bayo'] as const;
 
 export function missingConfig(): string[] {
   const missing: string[] = [];

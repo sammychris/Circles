@@ -28,7 +28,7 @@ export function Button({
   const colors = useColors();
   const primary = variant === 'primary';
   const quiet = variant === 'quiet';
-  const textColor = primary ? 'onEmber' : quiet ? 'textSoft' : 'text';
+  const textColor = disabled ? 'textMeta' : primary ? 'onEmber' : quiet ? 'textSoft' : 'text';
   const height = primary ? size.buttonPrimary : size.minTarget;
 
   return (
@@ -51,10 +51,10 @@ export function Button({
           justifyContent: 'center',
           flexDirection: 'row',
           gap: space[2],
-          backgroundColor: primary ? colors.ember : quiet ? 'transparent' : colors.raised,
-          opacity: disabled ? opacity.disabled : pressed ? opacity.pressed : 1,
+          backgroundColor: disabled && !quiet ? colors.raised : primary ? colors.ember : quiet ? 'transparent' : colors.raised,
+          opacity: disabled && quiet ? opacity.disabled : pressed ? opacity.pressed : 1,
         },
-        primary && {
+        primary && !disabled && {
           shadowColor: colors.ember,
           shadowOpacity: 1,
           shadowRadius: lift.radius,

@@ -22,7 +22,7 @@ Sammy's checklist: 2–3 phones (or friends) join the same room, talk, lock the 
 
 ## Step 2 — Real login
 
-Phone code login (Supabase + Termii), choose a nickname, nickname is the only name shown.
+Email code login (Supabase), 18+ age check, choose a nickname, nickname is the only name shown. Phone verification (Supabase + Termii) comes later, to keep out bots and stop banned people returning.
 
 ## Step 3 — Finding a room
 
