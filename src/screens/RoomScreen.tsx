@@ -25,6 +25,9 @@ import { ROUNDS_PER_GAME, phaseAt as impostorPhase } from '../games/impostor/log
 import { useImpostor } from '../games/impostor/useImpostor';
 import { NoteSheet, QuizSheet, TurnsSheet, VideoSheet, WordsSheet } from '../components/table/ComposeSheets';
 import { WordsBody } from '../components/table/WordsBody';
+import { DraughtsBody } from '../games/draughts/DraughtsBody';
+import type { DraughtsGame } from '../games/draughts/engine';
+import { GAME_IDS, type GameId } from '../games/tableGame';
 import { AppealSheet, HandsSheet, HostActionsSheet, REMOVAL_REASONS, RemoveSheet } from '../components/host/HostSheets';
 import { utf8Decode, utf8Encode } from '../rooms/chat';
 import { appealRemoval, hostAction, type RemovalReason } from '../rooms/api';
@@ -583,7 +586,10 @@ export function RoomScreen({ me, request, onLeft, onMove }: Props) {
   function onTablePick(choice: TableChoice) {
     setPutOpen(false);
     confirmReplace(() => {
-      if (choice === 'ludo' || choice === 'impostor') {
+      if (GAME_IDS.includes(choice as GameId)) {
+        if (tableItem.item) tableItem.takeOff();
+        void tableItem.startGame(choice as GameId);
+      } else if (choice === 'ludo' || choice === 'impostor') {
         if (tableItem.item) tableItem.takeOff();
         setWordHidden(false);
         if (choice === 'ludo') ludo.start(everyone);
@@ -605,6 +611,17 @@ export function RoomScreen({ me, request, onLeft, onMove }: Props) {
         <SeatRow people={people} onPerson={onSeat} />
         <TableCard item={item} me={me.id} onOptions={() => setTableOptionsOpen(true)}>
           {item.kind === 'note' ? <NoteBody item={item} /> : null}
+          {item.kind === 'game' && item.game === 'draughts' && tableItem.state.g ? (
+            <DraughtsBody
+              g={tableItem.state.g as DraughtsGame}
+              me={me.id}
+              people={people}
+              starter={tableItem.mine}
+              onMove={tableItem.sendMove}
+              onPlayAgain={() => void tableItem.startGame('draughts')}
+              onBackToTalking={tableItem.takeOff}
+            />
+          ) : null}
           {item.kind === 'words' ? (
             <WordsBody key={item.id} item={item} state={tableItem.state} mine={tableItem.mine} onPresent={tableItem.present} />
           ) : null}
@@ -705,6 +722,10 @@ export function RoomScreen({ me, request, onLeft, onMove }: Props) {
       if (round.startedBy === me.id || !roundStarterHere) tableAction = <RowButton Icon={X} label="End game" onPress={impostor.endGame} />;
     }
   }
+  // A game on the table: whoever started it can end it (play.md › Ludo on the table).
+  if (!tableAction && connected && tableItem.item?.kind === 'game' && tableItem.canTakeOff) {
+    tableAction = <RowButton Icon={X} label="End game" onPress={tableItem.takeOff} />;
+  }
   if (!tableAction && connected) tableAction = <RowButton Icon={SquarePlus} label="Table" onPress={openTable} />;
 
   // Your screen is shared only while it's your item on the table. If sharing stops from the phone's own
@@ -737,7 +758,7 @@ export function RoomScreen({ me, request, onLeft, onMove }: Props) {
   }, [bumped, clearBumped]);
 
   // Raise hand, except during a game: game seats don't show hands.
-  const inAnyGame = !!ludo.game || !!impostor.round;
+  const inAnyGame = !!ludo.game || !!impostor.round || tableItem.item?.kind === 'game';
   const handButton = (
     <RowButton
       Icon={Hand}

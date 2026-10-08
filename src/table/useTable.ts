@@ -1,6 +1,8 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { utf8Decode, utf8Encode } from '../rooms/chat';
 import type { DataListener } from '../voice/useVoiceRoom';
+import { GAMES } from '../games/registry';
+import type { GameId } from '../games/tableGame';
 import {
   TABLE_TOPIC,
   acceptItem,
@@ -83,6 +85,9 @@ export function useTable(
   const [answeredCount, setAnsweredCount] = useState(0);
   // This person's own quiz answer.
   const [myAnswer, setMyAnswer] = useState<number | null>(null);
+  // Games: the whole game, on the starter's phone only; and this person's own hand or role.
+  const fullGame = useRef<unknown>(null);
+  const [mySecret, setMySecret] = useState<unknown>(null);
   const answered = useRef(new Map<string, number>());
 
   const send = useCallback(
@@ -109,6 +114,12 @@ export function useTable(
         if (current && current.by === me.id && now - last > ANSWER_EVERY_MS) {
           answered.current.set(from.id, now);
           void send(putMessage(current, stateRef.current), [from.id]);
+          // A player coming back gets their hand or role again.
+          if (current.kind === 'game') {
+            const engine = GAMES[current.game];
+            const secret = engine?.secretFor && fullGame.current ? engine.secretFor(fullGame.current, from.id) : null;
+            if (secret !== null && secret !== undefined) void send({ k: 'secret', id: current.id, data: secret }, [from.id]);
+          }
         }
       } else if (msg.k === 'put') {
         const incoming = acceptItem(msg.item, from, door, photoUrlStart, now);
@@ -137,6 +148,13 @@ export function useTable(
         const next = { ...st, index, startedAt: Date.now(), sentAt: Date.now(), seq: st.seq + 1 };
         setState(next);
         void send({ k: 'state', id: current.id, state: next });
+      } else if (msg.k === 'move') {
+        // The starter checks every move with the game's rules.
+        if (!current || current.by !== me.id || current.kind !== 'game' || current.id !== msg.id) return;
+        playMove(current.game, msg.move, from.id);
+      } else if (msg.k === 'secret') {
+        // Only ever believed from the starter of the game on the table.
+        if (current && current.kind === 'game' && current.id === msg.id && current.by === from.id) setMySecret(msg.data);
       } else if (msg.k === 'off') {
         // Only the presenter, or a trained host, can take something off the table.
         if (current && current.id === msg.id && (current.by === from.id || hostsRef.current.has(from.id))) {
@@ -233,9 +251,103 @@ export function useTable(
     [setItem, setState],
   );
 
-  // A new item: forget the last quiz answer.
+  // --- games ---
+  // The starter's phone: a new game state goes to everyone, and each player's own part only to them.
+  const commitGame = useCallback(
+    (gameId: GameId, full: unknown) => {
+      const current = itemRef.current;
+      const engine = GAMES[gameId];
+      if (!current || current.kind !== 'game' || !engine) return;
+      fullGame.current = full;
+      const next = { ...stateRef.current, g: engine.publicView(full), seq: stateRef.current.seq + 1 };
+      setState(next);
+      void send({ k: 'state', id: current.id, state: next });
+      if (engine.secretFor) {
+        setMySecret(engine.secretFor(full, me.id));
+        for (const person of peopleRef.current) {
+          if (person === me.id) continue;
+          const secret = engine.secretFor(full, person);
+          if (secret !== null && secret !== undefined) void send({ k: 'secret', id: current.id, data: secret }, [person]);
+        }
+      }
+    },
+    [me.id, send, setState],
+  );
+  const commitRef = useRef(commitGame);
+  commitRef.current = commitGame;
+
+  // Checked with the game's own rules on the starter's phone.
+  function playMove(gameId: GameId, move: unknown, by: string) {
+    const engine = GAMES[gameId];
+    if (!engine || fullGame.current === null) return;
+    const next = engine.apply(fullGame.current, move, by, Date.now());
+    if (next) commitRef.current(gameId, next);
+  }
+
+  // Starts a game with everyone in the room.
+  const startGame = useCallback(
+    async (gameId: GameId) => {
+      const engine = GAMES[gameId];
+      if (!engine) return false;
+      const full = engine.setup(peopleRef.current.slice(0, engine.max), me.id, Math.random);
+      const ok = await put({ kind: 'game', game: gameId }, { g: engine.publicView(full) });
+      if (ok === false) return false;
+      fullGame.current = full;
+      commitRef.current(gameId, full);
+      return true;
+    },
+    [me.id, put],
+  );
+
+  // A move: played straight away on the starter's phone, otherwise sent to it.
+  const sendMove = useCallback(
+    (move: unknown) => {
+      const current = itemRef.current;
+      if (!current || current.kind !== 'game') return;
+      if (current.by === me.id) playMove(current.game, move, me.id);
+      else void send({ k: 'move', id: current.id, move }, [current.by]);
+    },
+    // playMove only uses refs.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [me.id, send],
+  );
+
+  // The starter's phone: timers (a chess vote, a Mafia night) and people leaving.
+  const gameItem = item && item.kind === 'game' && item.by === me.id ? item : null;
+  const playersKey = people.map((p) => p.id).join(',');
+  const lastPeople = useRef<string[]>([]);
+  useEffect(() => {
+    if (!gameItem) return;
+    const engine = GAMES[gameItem.game];
+    if (!engine || fullGame.current === null) return;
+    const gone = lastPeople.current.filter((id) => !peopleRef.current.includes(id));
+    lastPeople.current = [...peopleRef.current];
+    if (gone.length > 0 && engine.leave) {
+      let full: unknown = fullGame.current;
+      for (const id of gone) full = engine.leave(full, id);
+      commitRef.current(gameItem.game, full);
+    }
+    // playersKey stands in for people.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [gameItem?.id, playersKey]);
+  useEffect(() => {
+    if (!gameItem) return;
+    const engine = GAMES[gameItem.game];
+    if (!engine?.tick) return;
+    const timer = setInterval(() => {
+      if (fullGame.current === null) return;
+      const next = engine.tick?.(fullGame.current, Date.now(), peopleRef.current);
+      if (next) commitRef.current(gameItem.game, next);
+    }, 1000);
+    return () => clearInterval(timer);
+  }, [gameItem]);
+
+  // A new item: forget the last quiz answer and any hand or role.
   const itemId = item?.id;
-  useEffect(() => setMyAnswer(null), [itemId]);
+  useEffect(() => {
+    setMyAnswer(null);
+    if (itemRef.current?.by !== me.id) setMySecret(null);
+  }, [itemId, me.id]);
 
   // Quiz: send your answer to the presenter only. You can change it until the reveal.
   const answer = useCallback(
@@ -322,5 +434,8 @@ export function useTable(
     answer,
     reveal,
     passTurn,
+    mySecret,
+    startGame,
+    sendMove,
   };
 }

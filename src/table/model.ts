@@ -2,6 +2,7 @@
 // put it there (the presenter) holds it on their phone and tells the others; nothing is stored, except
 // photos, which are deleted a few hours after the room. These rules run on every phone.
 
+import { GAME_IDS, GAME_NAMES, type GameId } from '../games/tableGame';
 import { CHAT_MAX_LINES } from '../rooms/chat';
 
 export const TABLE_TOPIC = 'table';
@@ -14,7 +15,7 @@ export const ANSWER_MAX = 60;
 export const TURN_MINUTES = [1, 2, 3] as const;
 
 export type Door = 'talk' | 'play' | 'support' | 'learn';
-export type TableKind = 'note' | 'video' | 'photos' | 'screen' | 'turns' | 'quiz' | 'words';
+export type TableKind = 'note' | 'video' | 'photos' | 'screen' | 'turns' | 'quiz' | 'words' | 'game';
 export const WORDS_MAX = 10;
 export const WORD_MAX = 40;
 export const MEANING_MAX = 80;
@@ -52,6 +53,8 @@ export type TableItem = Common &
     | { kind: 'quiz'; question: string; answers: string[]; correct: number | null }
     // Words (Learn rooms): up to 10 words or phrases with meanings, shown one at a time.
     | { kind: 'words'; words: WordPair[] }
+    // A game (Draughts, Chess, Whot, Mafia), held and checked on the starter's phone.
+    | { kind: 'game'; game: GameId }
   );
 
 // Where the presenter is: the photo they're showing, the video's play state, whose turn it is, or a
@@ -66,6 +69,8 @@ export type TableState = {
   startedAt?: number;
   revealed?: boolean;
   counts?: number[];
+  // A game's public state (never anyone's hand or role).
+  g?: unknown;
 };
 
 export type TableMessage =
@@ -75,14 +80,19 @@ export type TableMessage =
   | { k: 'hello' }
   // To the presenter only: a quiz answer, or the speaker passing their turn.
   | { k: 'answer'; id: string; choice: number }
-  | { k: 'pass'; id: string };
+  | { k: 'pass'; id: string }
+  // A game move, to the starter only; and, from the starter, someone's own hand or role, to them only.
+  | { k: 'move'; id: string; move: unknown }
+  | { k: 'secret'; id: string; data: unknown };
 
 // Support rooms only ever get notes and links: no photos, videos or screens (CLAUDE.md, Never list).
 export function allowedKinds(door: Door): TableKind[] {
   if (door === 'support') return ['note'];
   // Learn rooms: notes, words, turns and quizzes (design direction › Rules by kind of room).
   if (door === 'learn') return ['note', 'words', 'turns', 'quiz'];
-  return ['note', 'turns', 'quiz', 'video', 'photos', 'screen'];
+  const all: TableKind[] = ['note', 'turns', 'quiz', 'video', 'photos', 'screen'];
+  // Games only in game rooms (play.md › Rules), never in support rooms.
+  return door === 'play' ? [...all, 'game'] : all;
 }
 
 const INVISIBLE = /[\u0000-\u0009\u000B\u000C\u000E-\u001F\u007F\u200B-\u200F\u202A-\u202E\u2060-\u2064\u2066-\u2069\uFEFF]/g;
@@ -198,6 +208,9 @@ export function acceptItem(
     return { ...common, kind, photos };
   }
   if (kind === 'screen') return { ...common, kind };
+  if (kind === 'game') {
+    return GAME_IDS.includes(r.game as GameId) ? { ...common, kind, game: r.game as GameId } : null;
+  }
   if (kind === 'words') {
     const words = Array.isArray(r.words)
       ? r.words
@@ -286,6 +299,11 @@ export function cleanState(raw: unknown, kind: TableKind, photoCount: number): T
     const index = typeof r.index === 'number' ? Math.round(r.index) : 0;
     return { seq, index: Math.min(Math.max(index, 0), Math.max(photoCount - 1, 0)) };
   }
+  if (kind === 'game') {
+    // The starter's phone checks every move; this only keeps a message from being huge.
+    const g = r.g;
+    return g !== undefined && JSON.stringify(g).length <= 12_000 ? { seq, g } : { seq };
+  }
   if (kind === 'words') {
     // index: how many words are showing.
     const index = typeof r.index === 'number' ? Math.min(Math.max(Math.round(r.index), 0), WORDS_MAX) : 0;
@@ -315,6 +333,7 @@ export function cleanState(raw: unknown, kind: TableKind, photoCount: number): T
 export function describeItem(item: TableItem): string {
   if (item.kind === 'note') return `On the table, a note by ${item.byName}: "${item.text}"`;
   if (item.kind === 'video') return `On the table, a ${item.video.provider} video by ${item.byName}: ${item.video.id}${item.title ? ` (${item.title})` : ''}`;
+  if (item.kind === 'game') return `On the table, a game of ${GAME_NAMES[item.game]} started by ${item.byName}`;
   if (item.kind === 'words') return `On the table, words by ${item.byName}: ${item.words.map((p) => `${p.w} = ${p.m}`).join('; ')}`;
   if (item.kind === 'turns') return `On the table, ${item.byName} started taking turns${item.topic ? `: "${item.topic}"` : ''}`;
   if (item.kind === 'quiz') return `On the table, a quiz by ${item.byName}: "${item.question}" (${item.answers.join(' / ')})`;

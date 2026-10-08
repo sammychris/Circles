@@ -1,15 +1,25 @@
 import type { ComponentType } from 'react';
 import { Platform, Pressable, View } from 'react-native';
-import { CircleHelp, Dice5, FileText, Images, Languages, ListOrdered, MonitorPlay, MonitorUp, Search } from 'lucide-react-native';
+import { CircleHelp, Crown, Dice5, FileText, Grid3x3, Images, Languages, ListOrdered, MonitorPlay, MonitorUp, Search, Spade, VenetianMask } from 'lucide-react-native';
 import type { Door, TableKind } from '../../table/model';
+import { GAMES } from '../../games/registry';
+import type { GameId } from '../../games/tableGame';
 import { allowedKinds } from '../../table/model';
 import { doorColors, moodColors, opacity, radius, size, space, useColors } from '../../theme';
 import { Sheet } from '../Sheet';
 import { Text } from '../Text';
 
-export type TableChoice = TableKind | 'ludo' | 'impostor';
+export type TableChoice = TableKind | 'ludo' | 'impostor' | GameId;
 
 type Icon = ComponentType<{ size: number; color: string; strokeWidth: number }>;
+
+const GAME_ICON: Record<GameId, Icon> = { draughts: Grid3x3, chess: Crown, whot: Spade, mafia: VenetianMask };
+const GAME_TINT: Record<GameId, { fg: string; bg: string }> = {
+  draughts: moodColors.down,
+  chess: moodColors.advice,
+  whot: moodColors.bored,
+  mafia: doorColors.people,
+};
 
 function Row({
   Icon,
@@ -145,6 +155,21 @@ export function PutOnTableSheet({ visible, door, gamesReady, onClose, onPick }: 
             disabled={!gamesReady}
             onPress={() => onPick('ludo')}
           />
+          {(Object.keys(GAMES) as GameId[]).map((id) => {
+            const game = GAMES[id]!;
+            const Icon = GAME_ICON[id];
+            return (
+              <Row
+                key={id}
+                Icon={Icon}
+                tint={GAME_TINT[id]}
+                title={game.name}
+                line={gamesReady ? game.line : 'Starts once three people are here'}
+                disabled={!gamesReady}
+                onPress={() => onPick(id)}
+              />
+            );
+          })}
         </View>
       ) : null}
     </Sheet>
