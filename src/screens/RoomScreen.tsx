@@ -473,6 +473,8 @@ export function RoomScreen({ me, request, onLeft, onMove }: Props) {
     message = { title: 'That name can’t be used', body: 'Go back and pick another name. Room names can’t have phone numbers or links, or look like the Circles team or a support room.' };
   } else if (status === 'ended') {
     message = { title: 'This room has ended', body: 'Everyone has gone home. There are other rooms open now.' };
+  } else if (status === 'notYet') {
+    message = { title: "This room isn't open yet", body: 'It opens 5 minutes before it starts. Try again then.' };
   } else if (status === 'paused') {
     message = { title: 'Your account is paused', body: 'You can’t join rooms right now.' };
   } else if (status === 'error') {

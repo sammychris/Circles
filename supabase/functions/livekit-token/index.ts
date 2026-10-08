@@ -9,6 +9,8 @@
 //   { action: 'host', roomId, personId, act, reason? }  a trained host lowers a hand, mutes or removes someone
 //   { action: 'hand', roomId, up }                    raises or lowers your hand in a room you're in
 //   { action: 'preview', roomId }                     a room link's title and seat count, before signing up
+//   { action: 'schedule', door, title, ..., startsAt | weekly }  sets a room for later, or a weekly group
+//   { action: 'go_in', scheduledId }                  opens (or joins) the room for a scheduled time
 // Secrets (set in Supabase, never in the app): LIVEKIT_API_KEY, LIVEKIT_API_SECRET, LIVEKIT_URL.
 import { createClient } from 'npm:@supabase/supabase-js@2';
 import { AccessToken, RoomServiceClient, TrackSource } from 'npm:livekit-server-sdk@2';
@@ -176,6 +178,44 @@ function customRoomEnded(
   const created = room.created_at ? new Date(room.created_at).getTime() : 0;
   const active = room.active_at ? new Date(room.active_at).getTime() : 0;
   return now - Math.max(created, active) > CUSTOM_EMPTY_MINUTES * 60 * 1000;
+}
+// Scheduled rooms (Start something › Once or every week). A room can be set from 5 minutes to 7 days
+// ahead; a weekly group meets on 1 to 7 days at one time. People can go in from 5 minutes before the
+// start until 2 hours after.
+const SCHEDULE_MIN_MS = 5 * 60 * 1000;
+const SCHEDULE_MAX_MS = 7 * 24 * 60 * 60 * 1000;
+const GO_IN_EARLY_MS = 5 * 60 * 1000;
+const GO_IN_LATE_MS = 2 * 60 * 60 * 1000;
+
+type When = { kind: 'once'; startsAt: string } | { kind: 'weekly'; days: number[]; time: string; timeZone: string };
+
+// What someone asked for, checked. Null when it can't be used.
+function cleanWhen(body: Record<string, unknown>, now = Date.now()): When | null {
+  if (typeof body.startsAt === 'string') {
+    const at = Date.parse(body.startsAt);
+    if (!Number.isFinite(at) || at < now + SCHEDULE_MIN_MS || at > now + SCHEDULE_MAX_MS) return null;
+    return { kind: 'once', startsAt: new Date(at).toISOString() };
+  }
+  const weekly = body.weekly as { days?: unknown; time?: unknown; timeZone?: unknown } | undefined;
+  if (!weekly || typeof weekly !== 'object') return null;
+  const days = Array.isArray(weekly.days) ? [...new Set(weekly.days)] : [];
+  if (days.length < 1 || days.length > 7 || !days.every((d) => Number.isInteger(d) && (d as number) >= 0 && (d as number) <= 6)) return null;
+  if (typeof weekly.time !== 'string' || !/^([01]\d|2[0-3]):[0-5]\d$/.test(weekly.time)) return null;
+  const timeZone = typeof weekly.timeZone === 'string' && weekly.timeZone.length <= 64 ? weekly.timeZone : 'Africa/Lagos';
+  try {
+    new Intl.DateTimeFormat('en', { timeZone });
+  } catch {
+    return null;
+  }
+  return { kind: 'weekly', days: (days as number[]).sort(), time: weekly.time, timeZone };
+}
+
+// Can people go into a scheduled room yet? From 5 minutes before until 2 hours after the start.
+function goInWindow(startsAt: string, now = Date.now()): 'not_yet' | 'open' | 'ended' {
+  const at = Date.parse(startsAt);
+  if (now < at - GO_IN_EARLY_MS) return 'not_yet';
+  if (now > at + GO_IN_LATE_MS) return 'ended';
+  return 'open';
 }
 // END MATCHING
 
@@ -441,7 +481,9 @@ Deno.serve(async (req) => {
     return json({ error: 'Unknown host action' }, 400);
   }
 
-  if (action !== 'match' && action !== 'join' && action !== 'create') return json({ error: 'Unknown action' }, 400);
+  if (action !== 'match' && action !== 'join' && action !== 'create' && action !== 'schedule' && action !== 'go_in') {
+    return json({ error: 'Unknown action' }, 400);
+  }
 
   // --- voice: nobody speaks before the 18+ question and a nickname (CLAUDE.md, Never list) ---
   const { data: ban } = await admin.from('bans').select('until').eq('user_id', user.id).maybeSingle();
@@ -456,6 +498,67 @@ Deno.serve(async (req) => {
   eighteenYearsAgo.setFullYear(eighteenYearsAgo.getFullYear() - 18);
   if (!birth?.date_of_birth || new Date(birth.date_of_birth) > eighteenYearsAgo) {
     return json({ error: 'Circles is for adults' }, 403);
+  }
+
+  // Schedule a room for later, or a weekly group (Start something › Once or every week). Never a support
+  // room. A few a day, so nobody floods Explore. The person who sets it is a regular and gets a reminder.
+  if (action === 'schedule') {
+    const door: Door | null = body.door === 'talk' || body.door === 'play' || body.door === 'learn' ? body.door : null;
+    const title = cleanTitle(body.title);
+    const when = cleanWhen(body);
+    if (!door) return json({ error: 'Rooms you start can be Talk, Play or Learn', status: 'bad_room' }, 400);
+    if (!title) return json({ error: 'That title can’t be used', status: 'bad_title' }, 400);
+    if (!when) return json({ error: 'Pick a time from 5 minutes to 7 days ahead', status: 'bad_time' }, 400);
+    const topic = door === 'talk' && TOPICS.includes(String(body.topic)) ? String(body.topic) : null;
+    const language = door === 'learn' && SUBJECTS[String(body.language)] ? String(body.language) : null;
+    const level = door === 'learn' && LEVELS.includes(String(body.level)) ? String(body.level) : null;
+    if (door === 'learn' && (!language || !level)) return json({ error: 'Choose a language and level', status: 'bad_room' }, 400);
+    const sizes = door === 'learn' ? [...SIZES, CAPACITY.learn] : SIZES;
+    const capacity = sizes.includes(Number(body.capacity)) ? Number(body.capacity) : CAPACITY[door];
+    const isPrivate = body.private === true;
+    if (when.kind === 'once') {
+      const { count } = await admin
+        .from('scheduled_rooms')
+        .select('id', { count: 'exact', head: true })
+        .is('group_id', null)
+        .eq('created_by', user.id)
+        .gte('created_at', new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString());
+      if ((count ?? 0) >= 5) return json({ error: 'You’ve scheduled a few rooms already today', status: 'too_many' }, 429);
+      const { data: made, error } = await admin
+        .from('scheduled_rooms')
+        .insert({ door, title, topic, language, level, capacity, starts_at: when.startsAt, private: isPrivate, created_by: user.id })
+        .select('id, starts_at')
+        .single();
+      if (error || !made) return json({ error: 'Could not schedule the room' }, 500);
+      await admin.from('reminders').insert({ user_id: user.id, scheduled_id: made.id });
+      return json({ status: 'ok', scheduledId: made.id, startsAt: made.starts_at });
+    }
+    const { count: groups } = await admin
+      .from('groups')
+      .select('id', { count: 'exact', head: true })
+      .eq('created_by', user.id)
+      .is('ended_at', null);
+    if ((groups ?? 0) >= 3) return json({ error: 'You already run three weekly groups', status: 'too_many' }, 429);
+    const { data: group, error } = await admin
+      .from('groups')
+      .insert({
+        name: title,
+        door,
+        topic,
+        language,
+        level,
+        capacity,
+        days: when.days,
+        start_time: when.time,
+        time_zone: when.timeZone,
+        private: isPrivate,
+        created_by: user.id,
+      })
+      .select('id')
+      .single();
+    if (error || !group) return json({ error: 'Could not start the group' }, 500);
+    await admin.from('group_members').insert({ group_id: group.id, user_id: user.id });
+    return json({ status: 'ok', groupId: group.id });
   }
 
   // Unfinished Find the Impostor rounds are cleared after two hours, even if nobody plays again
@@ -557,6 +660,87 @@ Deno.serve(async (req) => {
       .single();
     if (error || !created) return json({ error: 'Could not open a room' }, 500);
     room = created as RoomRow;
+  } else if (action === 'go_in') {
+    // A scheduled room: from 5 minutes before its time, the first person in opens its room, and everyone
+    // after joins that same room.
+    const { data: s } = await admin
+      .from('scheduled_rooms')
+      .select('id, group_id, door, title, topic, language, level, capacity, starts_at, private, created_by, room_id, cancelled')
+      .eq('id', String(body.scheduledId ?? ''))
+      .maybeSingle();
+    if (!s || s.cancelled) return json({ error: 'This room has ended', status: 'ended' }, 410);
+    if (s.group_id) {
+      const { data: g } = await admin.from('groups').select('ended_at').eq('id', s.group_id).maybeSingle();
+      if (!g || g.ended_at) return json({ error: 'This room has ended', status: 'ended' }, 410);
+    }
+    // Private ones: only the person who set it, its regulars, and people with a reminder for it.
+    if (s.private && s.created_by !== user.id) {
+      const [{ data: member }, { data: reminder }] = await Promise.all([
+        s.group_id
+          ? admin.from('group_members').select('user_id').eq('group_id', s.group_id).eq('user_id', user.id).maybeSingle()
+          : Promise.resolve({ data: null }),
+        admin.from('reminders').select('user_id').eq('scheduled_id', s.id).eq('user_id', user.id).maybeSingle(),
+      ]);
+      if (!member && !reminder) return json({ error: 'This room has ended', status: 'ended' }, 410);
+    }
+    if (avoid.has(s.created_by as string)) return json({ error: 'This room has ended', status: 'ended' }, 410);
+    const window = goInWindow(s.starts_at as string);
+    if (window === 'not_yet') return json({ error: 'Not open yet', status: 'not_yet', startsAt: s.starts_at }, 409);
+    if (window === 'ended') return json({ error: 'This room has ended', status: 'ended' }, 410);
+
+    if (s.room_id) {
+      const { data } = await admin.from('rooms').select(ROOM_FIELDS).eq('id', s.room_id).maybeSingle();
+      if (data && data.status === 'open') room = data as RoomRow;
+    }
+    if (!room) {
+      const id = crypto.randomUUID();
+      const { data: created, error } = await admin
+        .from('rooms')
+        .insert({
+          id,
+          door: s.door,
+          mood: null,
+          topic: s.topic,
+          language: s.language,
+          level: s.level,
+          kind: 'peer',
+          title: s.title,
+          capacity: s.capacity,
+          status: 'open',
+          custom: true,
+          private: s.private,
+          created_by: s.created_by,
+          livekit_room_name: `circles-${id}`,
+        })
+        .select(ROOM_FIELDS)
+        .single();
+      if (error || !created) return json({ error: 'Could not open a room' }, 500);
+      // Two people at the same moment: only one room wins, and the other is closed straight away.
+      const { data: claimed } = await admin
+        .from('scheduled_rooms')
+        .update({ room_id: id })
+        .eq('id', s.id)
+        .or(s.room_id ? `room_id.is.null,room_id.eq.${s.room_id}` : 'room_id.is.null')
+        .select('room_id');
+      if (claimed && claimed.length > 0) {
+        room = created as RoomRow;
+      } else {
+        await admin.from('rooms').update({ status: 'closed' }).eq('id', id);
+        const { data: again } = await admin.from('scheduled_rooms').select('room_id').eq('id', s.id).maybeSingle();
+        const { data: winner } = again?.room_id
+          ? await admin.from('rooms').select(ROOM_FIELDS).eq('id', again.room_id).maybeSingle()
+          : { data: null };
+        if (!winner) return json({ error: 'Could not open a room' }, 500);
+        room = winner as RoomRow;
+      }
+    }
+    if (removedFrom.has(room.id)) {
+      return json({ error: "You can't rejoin this room", status: 'removed', reason: removedWhy.get(room.id) ?? null }, 403);
+    }
+    const people = (await peopleOrNone([room.livekit_room_name])).get(room.livekit_room_name) ?? [];
+    const others = people.filter((p: string) => p !== user.id);
+    if (others.length >= room.capacity) return json({ error: 'This room is full' }, 409);
+    if (others.some((p: string) => avoid.has(p))) return json({ error: 'This room is full' }, 409);
   } else if (action === 'join') {
     const { data } = await admin
       .from('rooms')

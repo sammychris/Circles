@@ -24,6 +24,8 @@ export type RoomRequest =
   | { kind: 'match'; door: Door; mood: Mood | null; excludeRoomId?: string; language?: string; level?: LearnLevel }
   // door: where they found the room, so "Find me another room" looks behind the same door.
   | { kind: 'join'; roomId: string; door?: 'talk' | 'play' }
+  // A scheduled room or a weekly group's meeting: open from 5 minutes before its time.
+  | { kind: 'scheduled'; scheduledId: string }
   // Start something: a room with your own title. Invite-only rooms are only opened by their link.
   | {
       kind: 'create';
@@ -76,6 +78,15 @@ export class RemovedError extends Error {
   }
 }
 
+// A scheduled room that doesn't open until 5 minutes before its time.
+export class NotYetError extends Error {
+  startsAt: string | null;
+  constructor(startsAt: string | null = null) {
+    super('Not open yet');
+    this.startsAt = startsAt;
+  }
+}
+
 export class PausedError extends Error {
   constructor() {
     super('Your account is paused');
@@ -87,13 +98,14 @@ async function call<T>(body: Record<string, unknown>): Promise<T> {
   if (error) {
     const context = (error as { context?: Response }).context;
     const status = context?.status;
-    let payload: { status?: string; error?: string; reason?: string | null } = {};
+    let payload: { status?: string; error?: string; reason?: string | null; startsAt?: string } = {};
     try {
       payload = (await context?.json()) ?? {};
     } catch {
       // not JSON
     }
     if (payload.status === 'no_host') throw new NoHostError();
+    if (payload.status === 'not_yet') throw new NotYetError(payload.startsAt ?? null);
     if (payload.status === 'ended') throw new RoomEndedError();
     if (payload.status === 'too_many') throw new TooManyRoomsError();
     if (payload.status === 'removed') throw new RemovedError(payload.reason ?? null);
@@ -127,11 +139,27 @@ export async function getTicket(request: RoomRequest): Promise<RoomTicket> {
             language: request.language,
             level: request.level,
           }
-        : { action: 'join', roomId: request.roomId },
+        : request.kind === 'scheduled'
+          ? { action: 'go_in', scheduledId: request.scheduledId }
+          : { action: 'join', roomId: request.roomId },
   );
   if (data.status === 'no_host') throw new NoHostError();
   if (!data.token || !data.url || !data.room) throw new Error('The room ticket was incomplete');
   return data as RoomTicket;
+}
+
+// Start something › Later or Every week: sets a room for a time, or a weekly group.
+export type ScheduleRequest = {
+  door: 'talk' | 'play' | 'learn';
+  title: string;
+  topic: Topic | null;
+  capacity: number;
+  language?: string;
+  level?: LearnLevel;
+} & ({ startsAt: string } | { weekly: { days: number[]; time: string; timeZone: string } });
+
+export async function scheduleRoom(request: ScheduleRequest): Promise<{ scheduledId?: string; groupId?: string; startsAt?: string }> {
+  return call<{ scheduledId?: string; groupId?: string; startsAt?: string }>({ action: 'schedule', ...request });
 }
 
 export type OpenRoom = {
