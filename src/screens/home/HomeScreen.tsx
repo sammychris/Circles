@@ -68,15 +68,25 @@ function DoorTile({
 
 type Props = { me: { id: string; nickname: string }; onOpen: (door: DoorName) => void; onEnter: (r: RoomRequest) => void };
 
-// Rows for "Go back in" and "For you": a room row with the reason under it.
-function Suggestion({ room, reason, onEnter }: { room: ListedRoom; reason: string; onEnter: (r: RoomRequest) => void }) {
+// Rows for "Go back in" and "For you": a room row with the reason as its line.
+function Suggestion({
+  room,
+  reason,
+  action,
+  onEnter,
+}: {
+  room: ListedRoom;
+  reason: string;
+  action?: string;
+  onEnter: (r: RoomRequest) => void;
+}) {
   return (
-    <View>
-      <RoomRow room={room} onJoin={() => onEnter({ kind: 'join', roomId: room.id, ...(room.door === 'learn' ? {} : { door: room.door }) })} />
-      <Text variant="meta" color="textSoft" style={{ marginTop: -space[2] }}>
-        {reason}
-      </Text>
-    </View>
+    <RoomRow
+      room={room}
+      reason={reason}
+      action={action}
+      onJoin={() => onEnter({ kind: 'join', roomId: room.id, ...(room.door === 'learn' ? {} : { door: room.door }) })}
+    />
   );
 }
 
@@ -98,7 +108,7 @@ export function HomeScreen({ me, onOpen, onEnter }: Props) {
       setPeople(null);
     }
     try {
-      const visits = await loadVisits();
+      const visits = await loadVisits(me.id);
       const doors = [...new Set(visits.map((v) => v.door))].filter((d): d is 'talk' | 'play' | 'learn' => d !== 'support');
       const open = doors.length > 0 ? await listOpenRoomsAt(doors) : [];
       const again = goBackRoom(visits, open);
@@ -107,7 +117,7 @@ export function HomeScreen({ me, onOpen, onEnter }: Props) {
     } catch {
       // Suggestions are only a nice extra: nothing shows when they can't load.
     }
-  }, []);
+  }, [me.id]);
 
   useEffect(() => {
     void load();
@@ -223,6 +233,7 @@ export function HomeScreen({ me, onOpen, onEnter }: Props) {
             <Suggestion
               room={back}
               reason={`${back.here} ${back.here === 1 ? 'person' : 'people'} still here`}
+              action="Go back in"
               onEnter={onEnter}
             />
           </View>

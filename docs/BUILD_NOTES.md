@@ -539,7 +539,7 @@ Built from `docs/design/pages/tabs.md` (your decision, 2026-10-08), the first ha
 - **The bar** sits at the bottom of Home, Explore, Groups and Me, and of the door pages. It's hidden in rooms, after a room, in Start something and while adding an email. The selected tab has a small pill above it as well as brighter colour. Tapping the tab you're on scrolls back to the top. Android's back button goes to Home, and from Home it leaves the app.
 - **Home** keeps the support line and the four doors. Your avatar has moved to the Me tab. Two new sections, only when they apply:
   - **Go back in:** a room you left in the last hour that's still open, with "3 people still here".
-  - **For you:** up to 2 open rooms like ones you joined before, with the reason ("Igbo, Beginner, like you"). It uses your last 5 rooms, kept only on your phone. Support rooms are never kept or suggested.
+  - **For you:** up to 2 open rooms like ones you joined before, with the reason ("Igbo, Beginner, like you"). It uses your last 5 rooms, kept only on your phone and only for your account: logging out or deleting your account wipes it, so nobody else on the same phone sees it. Support rooms are never kept or suggested.
 - **Explore** shows **Live now**: every open room (never support rooms), filters for Talk, Play, Learn and each topic, free seats first, then the busiest. When it's quiet it says so and offers **Start a room**. "Tonight" and "Every week" come with part C.
 - **Groups** shows **My people** (faces of people who saved each other with you) and **Start a room with friends**. "Your groups and reminders" says they're coming next.
 - **Me** has your nickname, then groups: Your people, Account (your email, or Add your email; Log out), Sound, Privacy (and blocked people), Help and safety (Help, Room rules, Privacy Policy, Terms), the app version, and Delete my account at the very bottom.
@@ -549,6 +549,8 @@ Built from `docs/design/pages/tabs.md` (your decision, 2026-10-08), the first ha
 - **Editing your nickname** isn't there yet (the design has an Edit button); it needs the "change once every 30 days" rule built first.
 - **The privacy switches** ("Show friends when I'm online", "Show which room I'm in") come with friends being able to see each other online, which isn't built yet.
 - **Explore's chips** filter by door and topic, not by mood. The moods are in the "I want to talk" door.
+- **Offline,** Explore keeps the last list but greys out Join ("You're offline. Rooms need a connection.").
+- **"Saved each other"** in Me, and "and 4 more" in Groups, open the full My people list.
 
 **What you need to do:** nothing in Supabase. It comes with the next build (it's app-only, so an over-the-air update would also do).
 

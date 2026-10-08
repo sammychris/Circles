@@ -1,6 +1,6 @@
-import { forYou, goBackRoom, type Visit } from '../src/lib/roomHistory';
+import { forYou, forgetVisits, goBackRoom, loadVisits, rememberVisit, type Visit } from '../src/lib/roomHistory';
 import { matchesFilter, sortLive } from '../src/rooms/explore';
-import type { ListedRoom } from '../src/rooms/api';
+import type { ListedRoom, RoomInfo } from '../src/rooms/api';
 
 jest.mock('../src/rooms/moods', () => ({
   MOOD_STYLE: { chat: { label: 'Just chat' }, laugh: { label: 'Want to laugh' }, advice: { label: 'Need advice' } },
@@ -72,5 +72,22 @@ describe('Home: Go back in and For you', () => {
     const visits = [visit('t', 'talk', NOW, { mood: 'chat' })];
     const picks = forYou(visits, [room('back', 'talk', 2, { mood: 'chat' }), room('full', 'talk', 6, { mood: 'chat' })], 'back', NOW);
     expect(picks).toEqual([]);
+  });
+});
+
+describe('room history stays private and never holds support rooms', () => {
+  const info = (id: string, door: RoomInfo['door']): RoomInfo => ({ id, door, mood: null, title: id, capacity: 6 });
+
+  it('never keeps a support room', async () => {
+    await rememberVisit('me', info('s1', 'support'));
+    await rememberVisit('me', info('t1', 'talk'));
+    expect((await loadVisits('me')).map((v) => v.id)).toEqual(['t1']);
+  });
+
+  it('keeps each person separate, and forgets on log out', async () => {
+    await rememberVisit('me', info('t2', 'talk'));
+    expect(await loadVisits('someone-else')).toEqual([]);
+    await forgetVisits('me');
+    expect(await loadVisits('me')).toEqual([]);
   });
 });

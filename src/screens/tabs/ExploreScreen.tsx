@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { Pressable, RefreshControl, ScrollView, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Check } from 'lucide-react-native';
@@ -54,7 +54,8 @@ function FilterChip({ label, selected, onPress }: { label: string; selected: boo
   );
 }
 
-type Props = { onEnter: (r: RoomRequest) => void; onStart: () => void };
+// onStart: Start something behind the door being looked at (Talk for All and topics).
+type Props = { onEnter: (r: RoomRequest) => void; onStart: (door: 'talk' | 'play' | 'learn') => void };
 
 export function ExploreScreen({ onEnter, onStart }: Props) {
   const colors = useColors();
@@ -66,19 +67,19 @@ export function ExploreScreen({ onEnter, onStart }: Props) {
   const [refreshing, setRefreshing] = useState(false);
   const [filter, setFilter] = useState<Filter>('all');
   const [all, setAll] = useState(false);
+  const [retrying, setRetrying] = useState(false);
+  const loaded = useRef(false);
 
   const load = useCallback(async () => {
     try {
       setRooms(sortLive(await listOpenRoomsAt(['talk', 'play', 'learn'])));
+      loaded.current = true;
       setFailed(false);
       setOffline(false);
     } catch {
-      // Keep the last list if there is one, and say so.
-      setRooms((last) => {
-        if (last) setOffline(true);
-        else setFailed(true);
-        return last;
-      });
+      // Keep the last list if there is one, and say so; joining waits for the connection.
+      if (loaded.current) setOffline(true);
+      else setFailed(true);
     }
   }, []);
 
@@ -147,7 +148,7 @@ export function ExploreScreen({ onEnter, onStart }: Props) {
           </Text>
           {rooms && rooms.length > 0 ? (
             <View style={{ flexDirection: 'row', alignItems: 'center', gap: space[2] }}>
-              <View style={{ width: space[2], height: space[2], borderRadius: radius.pill, backgroundColor: colors.live }} />
+              <View style={{ width: size.newDot, height: size.newDot, borderRadius: radius.pill, backgroundColor: colors.live }} />
               <Text variant="meta" color="textSoft">
                 {`${people} ${people === 1 ? 'person' : 'people'} in ${rooms.length} ${rooms.length === 1 ? 'room' : 'rooms'}`}
               </Text>
@@ -155,7 +156,7 @@ export function ExploreScreen({ onEnter, onStart }: Props) {
           ) : null}
           {offline ? (
             <Text variant="meta" color="textMeta">
-              {"You're offline. This is the last list we had."}
+              {"You're offline. Rooms need a connection."}
             </Text>
           ) : null}
 
@@ -164,7 +165,15 @@ export function ExploreScreen({ onEnter, onStart }: Props) {
               <Text variant="body" color="textSoft">
                 {"We couldn't load what's happening. Check that you're online."}
               </Text>
-              <Button label="Try again" onPress={() => void load()} />
+              <Button
+                label="Try again"
+                loading={retrying}
+                onPress={async () => {
+                  setRetrying(true);
+                  await load();
+                  setRetrying(false);
+                }}
+              />
             </View>
           ) : rooms === null ? (
             // Loading: rows in the shape of the content.
@@ -186,7 +195,7 @@ export function ExploreScreen({ onEnter, onStart }: Props) {
               <Text variant="body" color="textSoft">
                 {filter === 'all' ? "It's quiet right now. Start a room and people can join you." : `No ${label} rooms are open right now.`}
               </Text>
-              <Button label="Start a room" onPress={onStart} />
+              <Button label="Start a room" onPress={() => onStart(filter === 'play' || filter === 'learn' ? filter : 'talk')} />
               {filter !== 'all' ? <Button label="Show all rooms" variant="quiet" onPress={() => setFilter('all')} /> : null}
             </View>
           ) : (
@@ -195,6 +204,7 @@ export function ExploreScreen({ onEnter, onStart }: Props) {
                 <RoomRow
                   key={r.id}
                   room={r}
+                  disabled={offline}
                   onJoin={() => onEnter({ kind: 'join', roomId: r.id, ...(r.door === 'learn' ? {} : { door: r.door }) })}
                 />
               ))}

@@ -30,7 +30,6 @@ import { SupportDoorScreen } from './src/screens/home/SupportDoorScreen';
 import { StartScreen } from './src/screens/StartScreen';
 import { LearnSubjectScreen } from './src/screens/home/LearnSubjectScreen';
 import { TalkDoorScreen } from './src/screens/home/TalkDoorScreen';
-import { Toast } from './src/components/Toast';
 import { myBan, type Ban } from './src/lib/safety';
 import { deleteMyAccount, type RoomRequest } from './src/rooms/api';
 import { LegalModal } from './src/components/LegalModal';
@@ -41,7 +40,7 @@ import { SignInFlow } from './src/screens/SignInFlow';
 import { TabBar, TabsProvider, type Tab } from './src/navigation/TabBar';
 import { ExploreScreen } from './src/screens/tabs/ExploreScreen';
 import { GroupsScreen } from './src/screens/tabs/GroupsScreen';
-import { rememberVisit } from './src/lib/roomHistory';
+import { forgetVisits, rememberVisit } from './src/lib/roomHistory';
 import { UnderAgeScreen } from './src/screens/UnderAgeScreen';
 import { space, useColors } from './src/theme';
 
@@ -54,8 +53,14 @@ function Centered({ children }: { children?: React.ReactNode }) {
   );
 }
 
+// Logging out (or after deleting the account): this account's room history leaves the phone too.
 function signOut() {
-  void supabase.auth.signOut();
+  void supabase.auth
+    .getSession()
+    .then(async ({ data }) => {
+      if (data.session) await forgetVisits(data.session.user.id);
+    })
+    .finally(() => void supabase.auth.signOut());
 }
 
 function confirmDeleteAccount() {
@@ -103,7 +108,7 @@ type Screen =
   | { name: 'explore' }
   | { name: 'groups' }
   | { name: 'addEmail' }
-  | { name: 'start'; door: 'talk' | 'play' | 'learn'; subject?: string; draft?: Extract<RoomRequest, { kind: 'create' }> }
+  | { name: 'start'; door: 'talk' | 'play' | 'learn'; subject?: string; draft?: Extract<RoomRequest, { kind: 'create' }>; fromExplore?: boolean }
   | { name: 'learn'; subject: string }
   | { name: 'room'; request: RoomRequest; visit: number }
   | { name: 'after'; summary: RoomSummary };
@@ -124,7 +129,6 @@ function SignedIn({
   const [ban, setBan] = useState<Ban | null>(null);
   // A room link waits until we know whether the account is paused.
   const [banChecked, setBanChecked] = useState(false);
-  const [toast, setToast] = useState<string | null>(null);
   const hasEmail = !!session.user.email;
   const colors = useColors();
   // Each main page registers how to scroll itself to the top, for a second tap on its tab.
@@ -170,7 +174,9 @@ function SignedIn({
     const sub = BackHandler.addEventListener('hardwareBackPress', () => {
       if (screen.name === 'home') return false;
       if (screen.name === 'room') return true;
-      if (screen.name === 'start') setScreen(screen.door === 'learn' ? { name: 'learn', subject: screen.subject ?? '' } : { name: 'door', door: screen.door });
+      // Back returns to where you came from.
+      if (screen.name === 'start' && screen.fromExplore) setScreen({ name: 'explore' });
+      else if (screen.name === 'start') setScreen(screen.door === 'learn' ? { name: 'learn', subject: screen.subject ?? '' } : { name: 'door', door: screen.door });
       else if (screen.name === 'learn') setScreen({ name: 'door', door: 'learn' });
       else if (screen.name === 'addEmail') setScreen({ name: 'me' });
       else setScreen({ name: 'home' });
@@ -242,7 +248,7 @@ function SignedIn({
             onLeft={(summary) => {
               const request = screen.request;
               // For Home's "Go back in" and "For you", kept on this phone (never support rooms).
-              if (summary) void rememberVisit(summary.room);
+              if (summary) void rememberVisit(me.id, summary.room);
               if (summary) setScreen({ name: 'after', summary });
               // A room that never started: back to the form, with what they typed still there.
               else if (request.kind === 'create') setScreen({ name: 'start', door: request.door, draft: request });
@@ -262,7 +268,7 @@ function SignedIn({
             me={me}
             email={session.user.email ?? null}
             notice={screen.notice}
-            onOpenPeople={() => setScreen({ name: 'groups' })}
+            onOpenPeople={() => setScreen({ name: 'door', door: 'people' })}
             onAddEmail={() => setScreen({ name: 'addEmail' })}
             onLogOut={() => confirmSignOut(hasEmail, true)}
             onDelete={confirmDeleteAccount}
@@ -292,9 +298,11 @@ function SignedIn({
             draft={screen.draft}
             onBack={() =>
               setScreen(
-                screen.door === 'learn'
-                  ? { name: 'learn', subject: screen.subject ?? screen.draft?.language ?? '' }
-                  : { name: 'door', door: screen.door },
+                screen.fromExplore
+                  ? { name: 'explore' }
+                  : screen.door === 'learn'
+                    ? { name: 'learn', subject: screen.subject ?? screen.draft?.language ?? '' }
+                    : { name: 'door', door: screen.door },
               )
             }
             onStart={enter}
@@ -313,14 +321,26 @@ function SignedIn({
         if (screen.door === 'people') return <PeopleScreen nickname={me.nickname} onBack={home} onEnter={enter} />;
         return <LearnScreen onBack={home} onEnter={enter} onOpenSubject={(subject) => setScreen({ name: 'learn', subject })} />;
       case 'explore':
-        return <ExploreScreen onEnter={enter} onStart={() => setScreen({ name: 'start', door: 'talk' })} />;
+        return (
+          <ExploreScreen
+            onEnter={enter}
+            // Learn rooms start from a language or skill, so that one opens the Learn door.
+            onStart={(door) => setScreen(door === 'learn' ? { name: 'door', door: 'learn' } : { name: 'start', door, fromExplore: true })}
+          />
+        );
       case 'groups':
-        return <GroupsScreen nickname={me.nickname} onEnter={enter} onExplore={() => setScreen({ name: 'explore' })} />;
+        return (
+          <GroupsScreen
+            nickname={me.nickname}
+            onEnter={enter}
+            onExplore={() => setScreen({ name: 'explore' })}
+            onOpenPeople={() => setScreen({ name: 'door', door: 'people' })}
+          />
+        );
       default:
         return (
           <>
             <HomeScreen me={me} onOpen={(door) => setScreen({ name: 'door', door })} onEnter={enter} />
-            <Toast message={toast} onDone={() => setToast(null)} />
           </>
         );
     }

@@ -10,6 +10,8 @@ type Props = {
   title: string;
   line?: string;
   onBack: () => void;
+  // What Back says to screen readers: "Back to Home", or where it really goes.
+  backLabel?: string;
   children?: ReactNode;
   // The door's one ember "now" button and its helper line, pinned to the bottom.
   footer?: ReactNode;
@@ -19,7 +21,7 @@ type Props = {
 };
 
 // Every door page has one shape (docs/design/pages/doors.md › Door pages).
-export function DoorLayout({ title, line, onBack, children, footer, header, refreshing, onRefresh }: Props) {
+export function DoorLayout({ title, line, onBack, backLabel = 'Back to Home', children, footer, header, refreshing, onRefresh }: Props) {
   const colors = useColors();
   const edges = useScreenEdges();
   return (
@@ -27,7 +29,7 @@ export function DoorLayout({ title, line, onBack, children, footer, header, refr
       <View style={{ minHeight: size.minTarget, paddingHorizontal: space[3], justifyContent: 'center' }}>
         <Pressable
           accessibilityRole="button"
-          accessibilityLabel="Back to Home"
+          accessibilityLabel={backLabel}
           onPress={onBack}
           style={{ width: size.iconButton, height: size.iconButton, alignItems: 'center', justifyContent: 'center' }}
         >

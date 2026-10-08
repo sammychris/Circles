@@ -74,7 +74,7 @@ export function TabBar({
             key={t.id}
             accessibilityRole="tab"
             accessibilityState={{ selected: on }}
-            accessibilityLabel={`${t.label}, tab, ${i + 1} of ${TABS.length}${t.id === 'groups' && groupsDot ? ', something new' : ''}`}
+            accessibilityLabel={`${t.label}, ${i + 1} of ${TABS.length}${t.id === 'groups' && groupsDot ? ', something new' : ''}`}
             onPress={() => (on ? onReselect(t.id) : onSelect(t.id))}
             style={{ flex: 1, alignItems: 'center', justifyContent: 'center', gap: space[1], minHeight: size.bottomNav }}
           >
@@ -89,7 +89,7 @@ export function TabBar({
             />
             <View>
               {t.id === 'me' ? (
-                <View style={{ borderRadius: radius.pill, borderWidth: on ? border.selected : 0, borderColor: colors.text }}>
+                <View style={{ borderRadius: radius.pill, borderWidth: border.selected, borderColor: on ? colors.text : 'transparent' }}>
                   <Avatar userId={me.id} nickname={me.nickname} diameter={size.icon} />
                 </View>
               ) : (

@@ -52,7 +52,7 @@ export function LearnSubjectScreen({
 
   if (!subject) {
     return (
-      <DoorLayout title="Learn together" onBack={onBack}>
+      <DoorLayout title="Learn together" onBack={onBack} backLabel="Back to Learn together">
         <Text variant="body" color="textSoft">
           {"We couldn't find this subject. Go back and pick another."}
         </Text>
@@ -71,6 +71,7 @@ export function LearnSubjectScreen({
       title={subject.name}
       line={subject.line}
       onBack={onBack}
+      backLabel="Back to Learn together"
       footer={
         <>
           <Button

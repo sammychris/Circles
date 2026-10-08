@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from 'react';
-import { RefreshControl, ScrollView, View } from 'react-native';
+import { Pressable, RefreshControl, ScrollView, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { CalendarClock, Lock } from 'lucide-react-native';
 import { Avatar } from '../../components/Avatar';
@@ -20,10 +20,13 @@ export function GroupsScreen({
   nickname,
   onEnter,
   onExplore,
+  onOpenPeople,
 }: {
   nickname: string;
   onEnter: (r: RoomRequest) => void;
   onExplore: () => void;
+  // The full My people list.
+  onOpenPeople: () => void;
 }) {
   const colors = useColors();
   const edges = useScreenEdges();
@@ -109,9 +112,17 @@ export function GroupsScreen({
                   </Text>
                 </View>
               ))}
-              {people.length > FACES ? <Text variant="metaStrong" color="textSoft">{`and ${people.length - FACES} more`}</Text> : null}
             </View>
           )}
+          {people && people.length > FACES ? (
+            <Pressable accessibilityRole="button" onPress={onOpenPeople} style={{ minHeight: size.minTarget, justifyContent: 'center' }}>
+              <Text
+                variant="metaStrong"
+                color="textSoft"
+                style={{ textDecorationLine: 'underline' }}
+              >{`and ${people.length - FACES} more`}</Text>
+            </Pressable>
+          ) : null}
           <Button
             label="Start a room with friends"
             disabled={!WEB_URL}
