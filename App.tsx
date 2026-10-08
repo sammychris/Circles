@@ -31,6 +31,7 @@ import { StartScreen, type StartWhen } from './src/screens/StartScreen';
 import { GroupScreen } from './src/screens/GroupScreen';
 import { canGoIn, type Group } from './src/rooms/schedule';
 import { clearReminders, onReminderTap } from './src/lib/reminders';
+import { forgetPush, registerPush } from './src/lib/push';
 import { LearnSubjectScreen } from './src/screens/home/LearnSubjectScreen';
 import { TalkDoorScreen } from './src/screens/home/TalkDoorScreen';
 import { myBan, type Ban } from './src/lib/safety';
@@ -64,6 +65,7 @@ function signOut() {
   void supabase.auth
     .getSession()
     .then(async ({ data }) => {
+      if (data.session) await forgetPush();
       if (data.session) await forgetVisits(data.session.user.id);
       if (data.session) await forgetInvitationsSeen(data.session.user.id);
       await clearReminders(data.session?.user.id ?? null);
@@ -162,11 +164,14 @@ function SignedIn({
 
   useEffect(
     () =>
-      onReminderTap((scheduledId, startsAt) => {
-        // Before it opens (the reminder comes 15 minutes early): Groups, where Next up shows Go in when it's time.
-        if (startsAt && !canGoIn(startsAt)) setScreen((now) => (now.name === 'room' || now.name === 'after' ? now : { name: 'groups' }));
-        else setReminderRequest({ kind: 'scheduled', scheduledId });
-      }),
+      onReminderTap(
+        (scheduledId, startsAt) => {
+          // Before it opens (the reminder comes 15 minutes early): Groups, where Next up shows Go in when it's time.
+          if (startsAt && !canGoIn(startsAt)) setScreen((now) => (now.name === 'room' || now.name === 'after' ? now : { name: 'groups' }));
+          else setReminderRequest({ kind: 'scheduled', scheduledId });
+        },
+        () => setScreen((now) => (now.name === 'room' || now.name === 'after' ? now : { name: 'groups' })),
+      ),
     [],
   );
 
@@ -193,6 +198,11 @@ function SignedIn({
     setScreen({ name: 'room', request: pendingRequest, visit: Date.now() });
     onPendingUsed();
   }, [ready, busy, pendingRequest, onPendingUsed]);
+  // Once ready: this phone's address for invitation alerts, if notifications are already allowed.
+  useEffect(() => {
+    if (ready) void registerPush();
+  }, [ready]);
+
   // The dot on the Groups tab: a new invitation since Groups was last opened. Checked every minute.
   const [groupsDot, setGroupsDot] = useState(false);
   const clearGroupsDot = useCallback(() => setGroupsDot(false), []);

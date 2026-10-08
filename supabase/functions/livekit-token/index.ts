@@ -512,6 +512,30 @@ Deno.serve(async (req) => {
     return json({ error: 'Circles is for adults' }, 403);
   }
 
+  // Lock-screen alerts through Expo's push service (it passes them on to Firebase for Android).
+  // Phones that no longer have Circles are forgotten.
+  async function sendAlerts(userIds: string[], body: string, data: Record<string, unknown>) {
+    const { data: rows } = await admin.from('push_tokens').select('token').in('user_id', userIds);
+    const messages = (rows ?? []).map((r) => ({
+      to: r.token as string,
+      title: 'Circles',
+      body,
+      data,
+      sound: 'default',
+      channelId: 'invitations',
+      priority: 'high',
+    }));
+    if (messages.length === 0) return;
+    const res = await fetch('https://exp.host/--/api/v2/push/send', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
+      body: JSON.stringify(messages.slice(0, 100)),
+    });
+    const out = (await res.json().catch(() => null)) as { data?: { details?: { error?: string } }[] } | null;
+    const gone = (out?.data ?? []).flatMap((t, i) => (t?.details?.error === 'DeviceNotRegistered' ? [messages[i].to] : []));
+    if (gone.length > 0) await admin.from('push_tokens').delete().in('token', gone);
+  }
+
   // Invite people to the room you're in, a scheduled room, or a group you're in. Only people who saved
   // each other with you get one (the database skips anyone else without saying). Never a support room.
   if (action === 'invite') {
@@ -529,6 +553,8 @@ Deno.serve(async (req) => {
       const here = (await peopleOrNone([r.livekit_room_name as string])).get(r.livekit_room_name as string) ?? [];
       if (!here.includes(user.id)) return json({ error: 'This room has ended', status: 'ended' }, 410);
     }
+    // Invitations made from here on are the new ones (a little slack for clock differences).
+    const since = new Date(Date.now() - 5000).toISOString();
     const { error } = await admin.rpc('send_invitations', {
       p_from: user.id,
       p_to: to,
@@ -542,6 +568,32 @@ Deno.serve(async (req) => {
         return json({ error: 'This room has ended', status: 'ended' }, 410);
       }
       return json({ error: 'Could not send the invitations' }, 500);
+    }
+    // An alert on the lock screen for each person newly invited ("Ada_K invited you to Ludo night"),
+    // through Expo's push service. Only phones that turned alerts on have an address. An alert that
+    // can't be sent is only a missed nudge: the invitation is still in Groups.
+    try {
+      const [column, value] = roomId ? ['room_id', roomId] : scheduledId ? ['scheduled_id', scheduledId] : ['group_id', groupId];
+      const { data: fresh } = await admin
+        .from('invitations')
+        .select('to_user')
+        .eq('from_user', user.id)
+        .eq(column, value)
+        .in('to_user', to)
+        .is('dismissed_at', null)
+        .gte('created_at', since);
+      const invited = (fresh ?? []).map((r) => r.to_user as string);
+      if (invited.length > 0) {
+        const { data: named } = roomId
+          ? await admin.from('rooms').select('title').eq('id', roomId).maybeSingle()
+          : scheduledId
+            ? await admin.from('scheduled_rooms').select('title').eq('id', scheduledId).maybeSingle()
+            : await admin.from('groups').select('title:name').eq('id', groupId).maybeSingle();
+        const what = (named?.title as string | undefined) ?? 'a room';
+        await sendAlerts(invited, `${nickname} invited you to ${what}`, { kind: 'invitation' });
+      }
+    } catch {
+      // See above.
     }
     // Never how many went out: that would hint at who saved you, or who left Circles.
     return json({ status: 'ok' });

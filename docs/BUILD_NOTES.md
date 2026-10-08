@@ -678,6 +678,31 @@ Some button names may be slightly different on your screen; Google and Expo chan
 12. Tell me when A and B are done. Then make the new app build from part 14 (in PowerShell, in your `Circles_app` folder: `git pull origin claude/dreamy-meitner-mjoykp`, then `npx eas-cli build --profile preview --platform android`).
 13. I'll add the code that sends the alerts. It comes to the phones as a normal update, no reinstall.
 
+## 21. Invitation alerts on the lock screen
+
+Now that Firebase is set up (part 20), an invitation also shows as an alert: **"Ada_K invited you to Ludo night"**, even when Circles is closed. Tapping it opens **Groups**, where the invitation is.
+- **Only phones that allowed notifications get alerts.** Circles never asks just for this out of the blue. It asks when you set a reminder, or when you tap **Turn on** next to "Get an alert when your people invite you" (Groups › My people, shown only if you have people who could invite you).
+- **Each phone's address for alerts** (a code from Expo, not a phone number) is kept by the room server only. Nobody can read it from the app, not even their own. Logging out removes it from that phone. Deleting the account removes all of them.
+- **Never about a support room:** nobody can be invited to one, so no alert can ever mention one.
+- Alerts go through Expo's free push service, which passes them to Firebase. No new keys or accounts.
+
+**What you need to do**
+1. **Database:** in Supabase, **SQL Editor**, **New query**: run `supabase/migrations/20261013000000_push_tokens.sql`. It should say **Success**.
+2. **Room server:** replace the code in the **livekit-token** Edge Function with the new `supabase/functions/livekit-token/index.ts`, then **Deploy**.
+3. **App:** this works only on the new build from part 14 (it has Firebase inside). Once that's installed, this comes by a normal update:
+   ```
+   git pull origin claude/dreamy-meitner-mjoykp
+   npx eas-cli update --channel preview --environment development --message "Invitation alerts"
+   ```
+   Then open Circles on each phone, close it fully, and open it again.
+
+**Phone checklist** (two phones whose people saved each other)
+- [ ] Phone B: Groups › My people › **Turn on** (or set any reminder). Allow notifications when the phone asks.
+- [ ] Phone B: close Circles completely.
+- [ ] Phone A: start a room with friends and invite phone B's person.
+- [ ] Phone B: within a few seconds, "… invited you to …" shows on the lock screen. Tap it: Circles opens on Groups with the invitation.
+- [ ] Phone B: log out. Invite again from phone A: no alert comes to phone B.
+
 ---
 
 ## What you need to do now (for parts 6 to 12)

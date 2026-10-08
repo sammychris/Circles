@@ -78,7 +78,7 @@ Short version:
 3. ~~Bottom bar and the Home, Explore, Groups and Me pages (B).~~ Done for what works with today's rooms (2026-10-08; `docs/BUILD_NOTES.md` part 17). Still to come with C: Explore's Tonight and Every week, Groups' Next up, invitations, your groups and reminders, the bell on Home, Coming up, and Start a group.
 4. ~~Scheduled and weekly rooms and reminders (C).~~ Done (2026-10-08; `docs/BUILD_NOTES.md` part 18). Reminders are set by the phone itself, so no server job or Firebase account was needed.
 5. ~~Invitations (the rest of C).~~ Done inside the app (2026-10-08; `docs/BUILD_NOTES.md` part 19). Push alerts wait for Firebase.
-5b. **Firebase for alerts:** Sammy agreed (2026-10-08). His steps are in `docs/BUILD_NOTES.md` part 20 (Firebase project, upload the FCM V1 key and `GOOGLE_SERVICES_JSON` file variable on expo.dev, then the new build). `app.config.js` already reads the file. **Next for Claude, once he's done:** save each phone's Expo push token (new table, RLS), and have the room server send "… invited you to …" alerts through Expo's push service. It ships by update. Never send an alert about a support room.
+5b. **Firebase for alerts:** Sammy agreed (2026-10-08). His steps are in `docs/BUILD_NOTES.md` part 20 (Firebase project, upload the FCM V1 key and `GOOGLE_SERVICES_JSON` file variable on expo.dev, then the new build). `app.config.js` already reads the file. Sammy finished Firebase and expo.dev (2026-10-08). Invitation alerts are built (`docs/BUILD_NOTES.md` part 21): run migration `20261013000000_push_tokens.sql`, redeploy the room server, then send an update once the new build is installed.
 6. Group page extras from `circle-detail.md`: **Report group** first (group names are written by people), then Share, a description, the host's picture, and "Remind me if a spot opens".
 
 After each part: tests, the `circles-reviewer` agent, then update BUILD_NOTES, PROGRESS and this file.
@@ -92,14 +92,14 @@ The full click-by-click steps are in `docs/BUILD_NOTES.md`, under "What you need
 1. **Database:**
    1. In Supabase, open SQL Editor and paste in `supabase/migrations/20261010000000_open_test_extras.sql`.
    2. Run it. It should say Success, and it's safe to run again.
-   3. Then do the same with `supabase/migrations/20261011000000_scheduled_rooms.sql` (scheduled rooms and groups), then `supabase/migrations/20261012000000_invitations.sql` (invitations).
+   3. Then do the same with `supabase/migrations/20261011000000_scheduled_rooms.sql` (scheduled rooms and groups), `supabase/migrations/20261012000000_invitations.sql` (invitations) and `supabase/migrations/20261013000000_push_tokens.sql` (invitation alerts).
 2. **Room server:**
    1. Paste `supabase/functions/livekit-token/index.ts` into the `livekit-token` Edge Function.
    2. Click Deploy.
 3. **One new app build,** because new phone features were added: the video viewer, the photo picker, screen sharing, and now game sounds and (for later) reminders. Build from the branch `claude/dreamy-meitner-mjoykp` (steps in `docs/BUILD_NOTES.md` part 14). After that, most changes arrive by over-the-air update.
    - Build: `npx eas-cli build --profile preview --platform android`
    - Update: `npx eas-cli update --channel preview --environment development --message "..."`
-4. **Phone test** with 3 to 5 phones, using the checklists in `docs/BUILD_NOTES.md`, parts 6 to 19.
+4. **Phone test** with 3 to 5 phones, using the checklists in `docs/BUILD_NOTES.md`, parts 6 to 21.
 5. **Still open from Step 1:** a friend somewhere else, on their own mobile data, to check the Lagos voice quality and echo.
 
 ---

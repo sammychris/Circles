@@ -16,6 +16,7 @@ import type { InviteTarget, RoomRequest } from '../../rooms/api';
 import { dismissInvitation, markInvitationsSeen, myInvitations, type Invitation } from '../../rooms/invitations';
 import { canGoIn, cancelScheduled, setReminder, type Group, type ScheduledRoom } from '../../rooms/schedule';
 import { allowReminders, reminderNote } from '../../lib/reminders';
+import { alertsAllowed, turnOnAlerts } from '../../lib/push';
 import { useSchedule } from '../../rooms/useSchedule';
 import { opacity, radius, size, space, useColors } from '../../theme';
 
@@ -80,6 +81,11 @@ export function GroupsScreen({
       },
     ]);
   const [invites, setInvites] = useState<Invitation[]>([]);
+  // Alerts when your people invite you: offered once there's someone who could.
+  const [alertsOn, setAlertsOn] = useState(true);
+  useEffect(() => {
+    void alertsAllowed().then(setAlertsOn);
+  }, []);
   const [inviting, setInviting] = useState<{ target: InviteTarget; title: string } | null>(null);
   const loadInvites = useCallback(async () => {
     try {
@@ -299,6 +305,24 @@ export function GroupsScreen({
               ? 'Save people after a room to invite them.'
               : 'Only people you invite can join. It opens now, with you in it.'}
           </Text>
+          {!alertsOn && people && people.length > 0 ? (
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: space[3] }}>
+              <Bell size={size.icon} color={colors.textSoft} strokeWidth={size.iconStroke} />
+              <Text variant="meta" color="textSoft" style={{ flex: 1 }}>
+                Get an alert when your people invite you.
+              </Text>
+              <Button
+                label="Turn on"
+                onPress={() =>
+                  void turnOnAlerts().then((on) => {
+                    setAlertsOn(on);
+                    if (!on) setToast("Your phone said no. You can allow notifications for Circles in your phone's settings.");
+                  })
+                }
+                style={{ width: size.rowAction }}
+              />
+            </View>
+          ) : null}
           <View style={{ flexDirection: 'row', alignItems: 'center', gap: space[3] }}>
             <Lock size={size.icon} color={colors.textMeta} strokeWidth={size.iconStroke} />
             <Text variant="meta" color="textMeta" style={{ flex: 1 }}>

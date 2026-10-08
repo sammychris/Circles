@@ -2,6 +2,7 @@ import { Platform } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as Notifications from 'expo-notifications';
 import type { ScheduledRoom } from '../rooms/schedule';
+import { registerPush } from './push';
 
 // Reminders on this phone (Remind me, and a weekly group's meetings): the phone itself shows "Ludo
 // night starts in 15 minutes", so nothing has to be sent from a server. Tapping it opens the room.
@@ -28,9 +29,10 @@ export async function allowReminders(): Promise<boolean> {
       await Notifications.setNotificationChannelAsync(CHANNEL, { name: 'Reminders', importance: Notifications.AndroidImportance.DEFAULT });
     }
     const now = await Notifications.getPermissionsAsync();
-    if (now.granted) return true;
-    if (!now.canAskAgain) return false;
-    return (await Notifications.requestPermissionsAsync()).granted;
+    const granted = now.granted || (now.canAskAgain && (await Notifications.requestPermissionsAsync()).granted);
+    // Allowed: invitation alerts can reach this phone too.
+    if (granted) void registerPush();
+    return granted;
   } catch {
     return false;
   }
@@ -121,11 +123,17 @@ async function clearNow(userId: string | null): Promise<void> {
 }
 
 // Tapping a reminder (also when it opened the app): the scheduled room it's about, and when it starts.
-export function onReminderTap(open: (scheduledId: string, startsAt: Date | null) => void): () => void {
+// Tapping an invitation alert: Groups, where the invitation is.
+export function onReminderTap(open: (scheduledId: string, startsAt: Date | null) => void, onInvitation?: () => void): () => void {
   if (!supported) return () => {};
   const take = (response: Notifications.NotificationResponse | null) => {
     const data = response?.notification.request.content.data;
     const at = typeof data?.startsAt === 'string' ? new Date(data.startsAt) : null;
+    if (data?.kind === 'invitation') {
+      Notifications.clearLastNotificationResponse();
+      onInvitation?.();
+      return;
+    }
     if (typeof data?.scheduledId !== 'string') return;
     // Handled once: logging in again (or as someone else) never reopens it.
     Notifications.clearLastNotificationResponse();
