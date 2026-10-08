@@ -1,8 +1,8 @@
 import { supabase } from '../../lib/supabase';
 import type { Result } from './logic';
 
-export async function startRound(roomId: string, players: string[]): Promise<{ roundId: string; order: string[] }> {
-  const { data, error } = await supabase.rpc('start_impostor_round', { p_room: roomId, p_players: players });
+export async function startRound(roomId: string, gameId: string, players: string[]): Promise<{ roundId: string; order: string[] }> {
+  const { data, error } = await supabase.rpc('start_impostor_round', { p_room: roomId, p_game: gameId, p_players: players });
   if (error) throw error;
   const row = (data as { round_id: string; speaking_order: string[] }[])[0];
   return { roundId: row.round_id, order: row.speaking_order };
@@ -33,4 +33,9 @@ export async function result(roundId: string): Promise<{ ready: false; myVote: s
     myVote: rows[0].my_vote,
     counts: rows.map((r) => ({ target: r.target as string, votes: Number(r.votes) })),
   };
+}
+
+// The game is over: the server deletes its rounds and votes (nothing is kept).
+export async function endGame(gameId: string): Promise<void> {
+  await supabase.rpc('end_impostor_game', { p_game: gameId });
 }

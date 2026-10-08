@@ -12,12 +12,13 @@ This page is everything **you** need to do, in order. Each part is short. It sho
 
 Open your project at https://supabase.com/dashboard. On GitHub, switch to the branch `claude/gallant-faraday-7s2l1w`.
 
-### 1a. Two database updates
+### 1a. Three database updates
 
-Do this twice, once for each file below, in this order:
+Do this three times, once for each file below, in this order:
 
 1. `supabase/migrations/20261009000000_step2b_safety.sql` (reports, blocks, removing people)
 2. `supabase/migrations/20261009010000_step3_rooms.sql` (rooms, saves, hosts)
+3. `supabase/migrations/20261009020000_impostor.sql` (Find the Impostor: secret cards and votes)
 
 For each one:
 
@@ -117,6 +118,14 @@ Tick each one. If something is wrong, tell me what you tapped and what you saw.
 - [ ] Teams Sun and Sky appear. Only the team whose turn it is can roll, and everyone sees the same board.
 - [ ] A 6 lets you bring out a token. Landing on the other team sends them back to base.
 - [ ] **End game** (for whoever started it) or **Leave game** works, and everyone keeps talking.
+
+**Find the Impostor**
+- [ ] In a game room with 3 or more people, tap **Play a game**, then **Find the Impostor**.
+- [ ] Everyone but one sees the same word ("Your word, only you see it"). One phone says "You're the impostor".
+- [ ] The row at the top shows who's talking, who's next and who's done. Each person gets 30 seconds.
+- [ ] After everyone has spoken, everyone votes. The answer only shows once everyone has voted (or after a minute).
+- [ ] Nobody is muted or removed by the vote. **Next round** gives a new word, up to 3 rounds.
+- [ ] **Hide word** covers your word if someone is sitting near you.
 
 **Lagos mobile data**
 - [ ] A friend somewhere else, on their own mobile data, joins a room with you. Is there any delay or dropping out? Note the "You joined in…" number.

@@ -178,3 +178,6 @@ export const glowStops = Object.assign(
   ],
   { color: night.ember },
 );
+
+// The table card: lifted like a sheet, with a faint ember glow, "lit by the lamp" (design direction › The table slot).
+export const tableCard = { shadowRadius: 48, shadowOpacity: 0.1, elevation: 6 } as const;

@@ -4,7 +4,7 @@ import { Button } from '../../components/Button';
 import { DoorLayout } from '../../components/DoorLayout';
 import { Text } from '../../components/Text';
 import type { RoomRequest } from '../../rooms/api';
-import { border, moodColors, opacity, radius, size, space, useColors } from '../../theme';
+import { moodColors, opacity, radius, size, space, useColors } from '../../theme';
 
 // "Let's play" (docs/screens/10-lets-play.png, doors.md › I'm bored). Games not yet available are not shown.
 export function PlayDoorScreen({ onBack, onEnter }: { onBack: () => void; onEnter: (r: RoomRequest) => void }) {
@@ -15,7 +15,7 @@ export function PlayDoorScreen({ onBack, onEnter }: { onBack: () => void; onEnte
       <View style={{ gap: space[3] }}>
         <Button label="Play now" variant="primary" onPress={playNow} />
         <Text variant="meta" color="textMeta" center>
-          We'll find you a game room with free seats
+          We'll find you a game with free seats
         </Text>
       </View>
 
@@ -40,8 +40,8 @@ export function PlayDoorScreen({ onBack, onEnter }: { onBack: () => void; onEnte
         >
           <View
             style={{
-              width: size.iconButton,
-              height: size.iconButton,
+              width: size.tileIconBox,
+              height: size.tileIconBox,
               borderRadius: radius.small,
               backgroundColor: moodColors.laugh.bg,
               alignItems: 'center',
@@ -82,7 +82,7 @@ export function PlayDoorScreen({ onBack, onEnter }: { onBack: () => void; onEnte
             </Text>
           </Pressable>
           {/* Keeps Ludo half width, as in the design's 2 × 2 grid; more games fill this space later. */}
-          <View style={{ flex: 1, borderRadius: radius.card, borderWidth: border.hairline, borderColor: 'transparent' }} />
+          <View style={{ flex: 1 }} />
         </View>
         <Text variant="meta" color="textMeta">
           In a game room, tap Play a game and pick one once three people are there.

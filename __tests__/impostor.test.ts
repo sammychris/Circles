@@ -1,4 +1,4 @@
-import { SPEAK_SECONDS, VOTE_SECONDS, caught, phaseAt, seatState, type ImpostorRound } from '../src/games/impostor/logic';
+import { SPEAK_SECONDS, VOTE_SECONDS, caught, phaseAt, preferRound, seatState, type ImpostorRound } from '../src/games/impostor/logic';
 
 const round: ImpostorRound = { roundId: 'r', number: 1, order: ['a', 'b', 'c'], startedAt: 0, gameId: 'g', startedBy: 'a' };
 const at = (s: number) => s * 1000;
@@ -30,5 +30,42 @@ describe('caught', () => {
     expect(caught({ ...base, counts: [{ target: 'b', votes: 1 }, { target: 'c', votes: 1 }] })).toBe(false);
     expect(caught({ ...base, counts: [{ target: 'c', votes: 2 }, { target: 'b', votes: 1 }] })).toBe(false);
     expect(caught({ ...base, counts: [{ target: 'b', votes: 0 }] })).toBe(false);
+  });
+});
+
+describe('every phone agrees on one round', () => {
+  const r = (gameId: string, number: number, roundId: string, replaces?: string): ImpostorRound => ({
+    ...round,
+    gameId,
+    number,
+    roundId,
+    replaces,
+  });
+  const none = new Set<string>();
+  const both = (a: ImpostorRound, b: ImpostorRound, retired = none) => [
+    preferRound(preferRound(null, a, retired), b, retired),
+    preferRound(preferRound(null, b, retired), a, retired),
+  ];
+
+  it('Play again replaces the finished game on every phone', () => {
+    const old = r('g1', 3, 'x');
+    const again = r('g9', 1, 'y', 'g1');
+    expect(both(old, again).map((x) => x?.gameId)).toEqual(['g9', 'g9']);
+  });
+
+  it('two people tapping Next round at once end up on the same round', () => {
+    const a = r('g', 2, 'round-a');
+    const b = r('g', 2, 'round-b');
+    expect(both(a, b).map((x) => x?.roundId)).toEqual(['round-a', 'round-a']);
+  });
+
+  it('two people tapping Play again at once end up on the same game', () => {
+    const a = r('g5', 1, 'a', 'g1');
+    const b = r('g7', 1, 'b', 'g1');
+    expect(both(a, b).map((x) => x?.gameId)).toEqual(['g5', 'g5']);
+  });
+
+  it('an ended game never comes back', () => {
+    expect(preferRound(null, r('gone', 2, 'z'), new Set(['gone']))).toBeNull();
   });
 });

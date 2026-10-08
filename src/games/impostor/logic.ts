@@ -13,6 +13,8 @@ export type ImpostorRound = {
   startedAt: number; // ms, when the first person started describing
   gameId: string;
   startedBy: string;
+  // Play again: the game this one replaces. Lets every phone move on from the finished game.
+  replaces?: string;
 };
 
 export type RoundPhase =
@@ -52,4 +54,22 @@ export function caught(result: Result): boolean {
   if (sorted.length === 0 || sorted[0].votes === 0) return false;
   if (sorted[1] && sorted[1].votes === sorted[0].votes) return false;
   return sorted[0].target === result.impostor;
+}
+
+// The same rule on every phone, so all phones end up on the same round whatever order messages
+// arrive in:
+// - rounds from games that have ended or been replaced are ignored;
+// - within one game, the later round wins; two versions of the same round: the smaller round id;
+// - a game that says it replaces the current one wins (Play again);
+// - two different games otherwise: the smaller game id.
+export function preferRound(current: ImpostorRound | null, incoming: ImpostorRound, retired: Set<string>): ImpostorRound | null {
+  if (retired.has(incoming.gameId)) return current;
+  if (!current) return incoming;
+  if (incoming.gameId === current.gameId) {
+    if (incoming.number !== current.number) return incoming.number > current.number ? incoming : current;
+    return incoming.roundId < current.roundId ? incoming : current;
+  }
+  if (incoming.replaces === current.gameId) return incoming;
+  if (current.replaces === incoming.gameId) return current;
+  return incoming.gameId < current.gameId ? incoming : current;
 }

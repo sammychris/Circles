@@ -5,7 +5,7 @@ import { RadioRow } from '../../components/Choice';
 import { TableAction } from '../../components/TableAction';
 import { Text } from '../../components/Text';
 import { clock } from '../../rooms/phase';
-import { border, fonts, opacity, radius, size, space, type as typeScale, useColors } from '../../theme';
+import { border, fonts, opacity, radius, size, space, tableCard, type as typeScale, useColors } from '../../theme';
 import { ROUNDS_PER_GAME, caught, phaseAt, seatState, type ImpostorRound, type Result, type SeatState } from './logic';
 
 type Person = { id: string; nickname: string; isMe: boolean; isSpeaking: boolean; isMuted: boolean };
@@ -77,6 +77,16 @@ export function ImpostorTable({
 }: Props) {
   const colors = useColors();
   const phase = phaseAt(round, now);
+  const cardStyle = {
+    backgroundColor: colors.raised,
+    borderRadius: radius.card,
+    padding: space[5],
+    shadowColor: colors.ember,
+    shadowOpacity: tableCard.shadowOpacity,
+    shadowRadius: tableCard.shadowRadius,
+    shadowOffset: { width: 0, height: 0 },
+    elevation: tableCard.elevation,
+  } as const;
   const byId = new Map(people.map((p) => [p.id, p]));
   const nameOf = (id: string) => (id === me ? 'You' : byId.get(id)?.nickname ?? 'Someone who left');
   const speakerName = phase.kind === 'speaking' ? nameOf(phase.speaker) : '';
@@ -114,7 +124,7 @@ export function ImpostorTable({
     if (card === '') {
       return (
         <Text style={{ ...typeScale.title, color: colors.emberText, textAlign: 'center' }} accessibilityRole="header">
-          You're the impostor
+          You're the impostor.
         </Text>
       );
     }
@@ -129,10 +139,6 @@ export function ImpostorTable({
 
   return (
     <View style={{ gap: space[5] }}>
-      <Text variant="metaStrong" color="textSoft" center>
-        {`Find the Impostor, round ${round.number} of ${ROUNDS_PER_GAME}`}
-      </Text>
-
       <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: space[1], paddingHorizontal: space[1] }}>
         {round.order.map((id) => (
           <OrderSeat
@@ -175,7 +181,7 @@ export function ImpostorTable({
       ) : null}
 
       {outcome ? (
-        <View style={{ backgroundColor: colors.raised, borderRadius: radius.card, padding: space[5], gap: space[3] }} accessibilityLiveRegion="polite">
+        <View style={{ ...cardStyle, gap: space[3] }} accessibilityLiveRegion="polite">
           <Text variant="title" center>
             {`${nameOf(outcome.impostor)} ${outcome.impostor === me ? 'were' : 'was'} the impostor`}
           </Text>
@@ -219,12 +225,13 @@ export function ImpostorTable({
           )}
         </View>
       ) : (
-        <View style={{ backgroundColor: colors.raised, borderRadius: radius.card, padding: space[5], gap: space[4] }}>
+        <View style={{ ...cardStyle, gap: space[4] }}>
           {playing ? (
             <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: space[2] }}>
               <Lock size={size.iconMeta} color={colors.textSoft} strokeWidth={size.iconStroke} />
               <Text variant="metaStrong" color="textSoft">
-                {card === '' ? 'Your card, only you see it' : 'Your word, only you see it'}
+                {/* The same words for everyone while hidden, so nobody nearby can tell who the impostor is. */}
+                {hidden || card !== '' ? 'Your word, only you see it' : 'Your card, only you see it'}
               </Text>
             </View>
           ) : null}
@@ -232,12 +239,14 @@ export function ImpostorTable({
           <Text variant="body" color="textSoft" center>
             {!playing
               ? 'You can still talk. You can play from the next game.'
-              : card === ''
-                ? "Everyone else has a secret word. Listen, and blend in so they don't find you."
-                : "Describe it without saying it. One of you doesn't know it."}
+              : hidden
+                ? 'Tap above when nobody can see your screen.'
+                : card === ''
+                  ? 'Listen and blend in.'
+                  : "Describe it without saying it. One of you doesn't know it."}
           </Text>
           <View style={{ height: border.hairline, backgroundColor: colors.line }} />
-          <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
+          <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }} accessibilityLiveRegion="polite">
             <Text variant="body" color="textSoft">
               {footer.left}
             </Text>
@@ -256,7 +265,9 @@ export function ImpostorTable({
 
       {!outcome && phase.kind === 'voting' && playing ? (
         <View style={{ gap: space[2] }}>
-          <Text variant="heading">Who's faking it?</Text>
+          <Text variant="heading" accessibilityRole="header" accessibilityLiveRegion="polite">
+            Who's faking it?
+          </Text>
           {round.order
             .filter((id) => id !== me)
             .map((id) => (

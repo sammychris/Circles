@@ -19,7 +19,7 @@ import { BASE } from '../games/ludo/engine';
 import { LudoTable } from '../games/ludo/LudoTable';
 import { useLudo } from '../games/ludo/useLudo';
 import { ImpostorTable } from '../games/impostor/ImpostorTable';
-import { phaseAt as impostorPhase } from '../games/impostor/logic';
+import { ROUNDS_PER_GAME, phaseAt as impostorPhase } from '../games/impostor/logic';
 import { useImpostor } from '../games/impostor/useImpostor';
 import { GameSheet } from '../components/GameSheet';
 import { SHOW_TEST_NUMBERS } from '../config';
@@ -91,6 +91,9 @@ export function RoomScreen({ me, request, onLeft, onMove }: Props) {
   const impostor = useImpostor(room?.id ?? null, me.id, connected && isPlay);
   const [gameSheetOpen, setGameSheetOpen] = useState(false);
   const [wordHidden, setWordHidden] = useState(false);
+  // A new round starts with the word showing.
+  const impostorRoundId = impostor.round?.roundId;
+  useEffect(() => setWordHidden(false), [impostorRoundId]);
 
   // --- joining: explain the microphone first, then join ---
   const startJoin = useCallback(() => {
@@ -270,7 +273,11 @@ export function RoomScreen({ me, request, onLeft, onMove }: Props) {
   // --- what to show ---
   const { joinMs, firstVoiceMs, quality } = voice.numbers;
   const mood = room?.mood ? MOOD_STYLE[room.mood] : null;
-  const title = room?.title ?? (status === 'connecting' ? 'Finding your room' : 'Circles');
+  // During Find the Impostor the header shows the game and the round (docs/screens/12).
+  const impostorOn = connected && room?.door === 'play' && phase === 'live' && !ludo.game && !!impostor.round;
+  const title = impostorOn
+    ? 'Find the Impostor'
+    : room?.title ?? (status === 'connecting' ? 'Finding your room' : 'Circles');
 
   let message: { title: string; body: string } | null = null;
   if (status === 'noHost') {
@@ -416,7 +423,9 @@ export function RoomScreen({ me, request, onLeft, onMove }: Props) {
           <Text variant="display" accessibilityRole="header">
             {title}
           </Text>
-          {mood || (isSupport && hostPresent) ? (
+          {impostorOn && impostor.round ? (
+            <Text variant="bodyStrong" color="textSoft">{`Round ${impostor.round.number} of ${ROUNDS_PER_GAME}`}</Text>
+          ) : mood || (isSupport && hostPresent) ? (
             <View style={{ flexDirection: 'row', gap: space[2], flexWrap: 'wrap' }}>
               {mood ? <Chip Icon={mood.Icon} label={mood.label} fg={mood.fg} bg={mood.bg} /> : null}
               {isSupport && hostPresent ? (

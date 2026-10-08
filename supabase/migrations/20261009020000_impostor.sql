@@ -1,12 +1,14 @@
 -- Find the Impostor (docs/design/pages/play.md). The server deals the cards so nobody's phone can
 -- peek: everyone but one person gets the same Naija word; the impostor gets nothing.
 -- Votes count only for the game. Nobody is ever removed or muted by a vote (CLAUDE.md, Never list).
--- No scores are kept: a round only stores what it needs to be played, and old rounds are deleted.
+-- No scores are kept: a round only stores what it needs to be played. Rounds and votes are deleted
+-- when the game ends, and anything older than two hours is swept away by every call below.
 -- Safe to run more than once.
 
 create table if not exists public.impostor_rounds (
   id uuid primary key default gen_random_uuid(),
   room_id text not null,
+  game_id text not null default '',
   word text not null,
   impostor uuid not null,
   players uuid[] not null,
@@ -22,6 +24,8 @@ create table if not exists public.impostor_votes (
   primary key (round_id, voter)
 );
 
+alter table public.impostor_rounds add column if not exists game_id text not null default '';
+
 alter table public.impostor_rounds enable row level security;
 alter table public.impostor_votes enable row level security;
 -- No policies: the cards and votes are only reachable through the functions below.
@@ -34,8 +38,20 @@ language sql
 immutable
 as $$ select 30, 60 $$;
 
--- Starts a round: picks a word and an impostor at random, and a speaking order.
-create or replace function public.start_impostor_round(p_room text, p_players uuid[])
+-- Clears every round older than two hours, with its votes. Called by the functions below.
+create or replace function public.sweep_impostor_rounds()
+returns void
+language sql
+security definer
+set search_path = ''
+as $$
+  delete from public.impostor_rounds where created_at < now() - interval '2 hours';
+$$;
+
+drop function if exists public.start_impostor_round(text, uuid[]);
+
+-- Starts a round: picks a word and an impostor at random, and a speaking order. Play rooms only.
+create or replace function public.start_impostor_round(p_room text, p_game text, p_players uuid[])
 returns table (round_id uuid, speaking_order uuid[])
 language plpgsql
 security definer
@@ -56,6 +72,10 @@ begin
   if uid is null then
     raise exception 'not_signed_in';
   end if;
+  -- Never in support rooms (CLAUDE.md, Never list): games only in play rooms.
+  if not exists (select 1 from public.rooms where id = p_room and door = 'play') then
+    raise exception 'not_a_play_room';
+  end if;
   select array_agg(distinct p) into players from unnest(p_players) p;
   if players is null or not (uid = any (players)) then
     raise exception 'not_a_player';
@@ -66,9 +86,12 @@ begin
 
   select array_agg(p order by random()) into chosen_order from unnest(players) p;
 
-  insert into public.impostor_rounds (room_id, word, impostor, players, speaking_order, created_by)
+  perform public.sweep_impostor_rounds();
+
+  insert into public.impostor_rounds (room_id, game_id, word, impostor, players, speaking_order, created_by)
   values (
     p_room,
+    left(coalesce(p_game, ''), 64),
     words[1 + floor(random() * array_length(words, 1))::int],
     players[1 + floor(random() * array_length(players, 1))::int],
     players,
@@ -76,9 +99,6 @@ begin
     uid
   )
   returning id into new_id;
-
-  -- Rounds are only needed while they're played. Clear anything older than a day.
-  delete from public.impostor_rounds where created_at < now() - interval '1 day';
 
   return query select new_id, chosen_order;
 end;
@@ -119,6 +139,19 @@ begin
   if not (p_target = any (r.players)) or p_target = auth.uid() then
     raise exception 'invalid_vote';
   end if;
+  -- Votes only while voting is open: after everyone has spoken (a few seconds' grace for slow
+  -- phones), and before the answer is out.
+  if now() < r.created_at + make_interval(secs => (select speak_seconds from public.impostor_timing()) * array_length(r.players, 1) - 5) then
+    raise exception 'not_voting_yet';
+  end if;
+  if (select count(*) from public.impostor_votes v where v.round_id = p_round and v.voter <> auth.uid()) >= array_length(r.players, 1) - 1
+     and exists (select 1 from public.impostor_votes v where v.round_id = p_round and v.voter = auth.uid()) then
+    raise exception 'voting_closed';
+  end if;
+  if now() > r.created_at + make_interval(secs =>
+       (select speak_seconds * array_length(r.players, 1) + vote_seconds from public.impostor_timing())) then
+    raise exception 'voting_closed';
+  end if;
   insert into public.impostor_votes (round_id, voter, target)
   values (p_round, auth.uid(), p_target)
   on conflict (round_id, voter) do update set target = excluded.target;
@@ -141,7 +174,7 @@ declare
   over_at timestamptz;
 begin
   select * into r from public.impostor_rounds where id = p_round;
-  if r.id is null or not (auth.uid() = any (r.players)) then
+  if r.id is null or auth.uid() is null then
     raise exception 'not_a_player';
   end if;
   select * into t from public.impostor_timing();
@@ -163,11 +196,30 @@ begin
 end;
 $$;
 
-revoke all on function public.start_impostor_round(text, uuid[]) from public, anon;
+-- The game is over: delete its rounds and votes straight away. Only a player of that game can.
+create or replace function public.end_impostor_game(p_game text)
+returns void
+language plpgsql
+security definer
+set search_path = ''
+as $$
+begin
+  if auth.uid() is null then
+    raise exception 'not_signed_in';
+  end if;
+  delete from public.impostor_rounds where game_id = p_game and auth.uid() = any (players);
+  perform public.sweep_impostor_rounds();
+end;
+$$;
+
+revoke all on function public.sweep_impostor_rounds() from public, anon, authenticated;
+revoke all on function public.end_impostor_game(text) from public, anon;
+grant execute on function public.end_impostor_game(text) to authenticated;
+revoke all on function public.start_impostor_round(text, text, uuid[]) from public, anon;
 revoke all on function public.my_impostor_card(uuid) from public, anon;
 revoke all on function public.cast_impostor_vote(uuid, uuid) from public, anon;
 revoke all on function public.impostor_result(uuid) from public, anon;
-grant execute on function public.start_impostor_round(text, uuid[]) to authenticated;
+grant execute on function public.start_impostor_round(text, text, uuid[]) to authenticated;
 grant execute on function public.my_impostor_card(uuid) to authenticated;
 grant execute on function public.cast_impostor_vote(uuid, uuid) to authenticated;
 grant execute on function public.impostor_result(uuid) to authenticated;

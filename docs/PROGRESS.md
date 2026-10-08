@@ -24,6 +24,12 @@ Still open from Step 1: a test with a friend in another place on their own mobil
 
 ## Steps done
 
+### Find the Impostor (2026-10-08, Sammy asked for it after Step 7), not yet tested on phones
+
+- Built: the "Play a game" sheet in play rooms (Ludo or Find the Impostor) and the Let's play page to match `docs/screens/10-lets-play.png`. Find the Impostor follows `12-find-the-impostor.png`: the speaking-order row, your secret word card with a timer, Hide word, voting, the reveal with vote counts, and 3 rounds.
+- The server deals the cards (`supabase/migrations/20261009020000_impostor.sql`): a Naija word pack, a random impostor and a random speaking order. Each phone can only fetch its own card. The answer is only given once everyone has voted or time is up. Counts are shown per person, never who voted for whom. Rounds and votes are deleted when the game ends, and anything older than two hours is swept away; no scores are kept. Games only start in play rooms (checked on the server).
+- Checks: 73 app tests and 30 database checks; screens rendered in a browser and compared with the designs; circles-reviewer (its 4 must-fix findings fixed: Play again on every phone, two people tapping Next round, Hide word giving the impostor away, votes kept after the game).
+
 ### Steps 2b to 7 (overnight, 2026-10-08), not yet tested on phones
 
 - **2b Safety:** tap a seat for Save, Block and Report. There are three Report sheets (who, what happened, sent), and "Someone may be in danger" is marked urgent. Block silences the person for the blocker, keeps you out of rooms together, and removes saves both ways (a database trigger). Reports and bans can only be read by Sammy in the dashboard. Banned people get "Your account is paused" or "has been closed".
