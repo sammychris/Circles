@@ -50,6 +50,9 @@
       ],
       "./plugins/withMicForegroundService"
     ],
-    "scheme": "circles"
+    "scheme": "circles",
+    "runtimeVersion": {
+      "policy": "appVersion"
+    }
   }
 }

@@ -8,6 +8,7 @@ import { DoorLayout } from '../../components/DoorLayout';
 import { Text } from '../../components/Text';
 import { Toast } from '../../components/Toast';
 import { EMAIL_ENABLED } from '../../config';
+import { appVersionLine } from '../../lib/appVersion';
 import { listBlocked, unblockPerson, type Blocked } from '../../lib/safety';
 import { border, size, space, useColors } from '../../theme';
 
@@ -66,6 +67,9 @@ export function MeScreen({ me, hasEmail, onBack, onAddEmail, onLogOut, onDelete 
           </View>
           <Button label="Log out" variant="quiet" onPress={onLogOut} />
           <Button label="Delete my account" variant="quiet" onPress={onDelete} />
+          <Text variant="meta" color="textMeta" center>
+            {appVersionLine()}
+          </Text>
         </>
       }
     >
