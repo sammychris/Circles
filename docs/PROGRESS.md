@@ -4,7 +4,9 @@ Claude Code updates this file at the end of every build step. Newest entries at 
 
 ## Current step
 
-**Steps 2 to 7 built overnight on 2026-10-08, while Sammy slept (he asked for it). Waiting for Sammy's Supabase updates, a new build and the phone test: see `docs/MORNING.md`.**
+**Five more features built on 2026-10-08 (Sammy asked for all five in a row): Privacy Policy and Terms, join from a link, chat in rooms, raise hand, Start something. Every choice and Sammy's to-do list are in `docs/BUILD_NOTES.md`. Waiting for Sammy's Supabase updates, a new build and the phone test.**
+
+Before that: Steps 2 to 7 built overnight (see `docs/MORNING.md`).
 
 Still open from Step 1: a test with a friend in another place on their own mobile data (the Lagos mobile-data check, and a proper echo check).
 
@@ -23,6 +25,17 @@ Still open from Step 1: a test with a friend in another place on their own mobil
 - Age: 18+ for launch. A teen or family version may come later, designed separately (teen-only rooms, parent consent, legal check). Decided 2026-10-08.
 
 ## Steps done
+
+### Five features (2026-10-08), not yet tested on phones
+
+- **Privacy Policy and Terms** in plain words (`src/content/legal.ts`), from Welcome and Me. Needs a contact email from Sammy before a wide launch.
+- **Join from a link:** Invite in rooms (hidden until `EXPO_PUBLIC_WEB_URL` is set), the link page (design 16), sign-up straight into the room. Support rooms can never be reached by link or id.
+- **Chat in rooms:** LiveKit data messages, never stored, hidden from blocked people, rate-limited, paused when the mics are paused.
+- **Raise hand:** set by the room server (`hand` action), shown on seats, lowered when you talk or a game starts. Phones can no longer change their own name or metadata.
+- **Start something:** Talk and Play rooms with a title, topic, size, and anyone or invite only (`create` action). Never matched, never a support room, ends 15 minutes after it empties.
+- Safety review fixes: reports outlive the reporter's account, team-like nicknames and room names refused, links never pull someone out of a room.
+- New database file: `supabase/migrations/20261010000000_open_test_extras.sql`. The room server changed too.
+- Tests: 89 app tests, 34 database checks, function type-check.
 
 ### Find the Impostor (2026-10-08, Sammy asked for it after Step 7), not yet tested on phones
 
@@ -86,11 +99,13 @@ Email is built but switched off (`EMAIL_ENABLED = false` in `src/config.ts`). Wh
 - Ludo moves travel on a public Supabase Realtime channel named after the room. Someone technical with the app's public key could listen or send fake moves (game only, never voice or accounts). Before a wide launch, switch to private channels with Realtime access rules.
 - Ludo team colours are Night-theme only (the app is Night-only for now).
 - If LiveKit can't be reached, the room server treats rooms as empty (it can still match people; they just won't connect).
-- Not built yet, though they're in the designs: chat in rooms, raise hand, minimise to a room bar, notifications and reminders, Coming up and scheduled rooms, private rooms with friends, Learn together, "Talk with a trained listener", the 10-seat ring, Find the Impostor and the other games, the link-first web join.
+- Not built yet, though they're in the designs: minimise to a room bar, notifications and reminders, Coming up and scheduled rooms, weekly groups, "Start a room with friends" on My people, the host's Hands list, Learn together, "Talk with a trained listener", the 10-seat ring, the other games.
 - The under-18 lock is per account. With phone checks later it can become per phone number, as `age-check.md` describes.
 - Android app id is `com.sammychris.circles`. Change it before the first Play Store build if Sammy wants a different one.
 - Listeners (mic not allowed) get a media-type notification; talkers get a microphone-type one. Needs checking on a real phone with the screen locked.
 
 ## Open questions for Sammy
 
+- A contact email for the Privacy Policy (before a wide launch).
+- The choices in `docs/BUILD_NOTES.md`, all open to change (e.g. chat in support rooms, room sizes 4–6).
 - Verified Nigerian crisis line and emergency number for the help screens.

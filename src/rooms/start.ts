@@ -24,7 +24,7 @@ export function topicLabel(topic: string | null | undefined): string | null {
 export const ROOM_SIZES = [4, 5, 6] as const;
 export const TITLE_MAX = 40;
 
-export type TitleProblem = 'tooShort' | 'tooLong' | 'number' | 'link' | null;
+export type TitleProblem = 'tooShort' | 'tooLong' | 'number' | 'link' | 'reserved' | null;
 
 // A friendly first check of a room title. Titles are shown to strangers, so no numbers or links.
 export function titleProblem(input: string): TitleProblem {
@@ -34,6 +34,7 @@ export function titleProblem(input: string): TitleProblem {
   if (length > TITLE_MAX) return 'tooLong';
   if (/[0-9]{7,}/.test(title.replace(/[\s.\-()+]/g, ''))) return 'number';
   if (/(https?:|www\.|\.(com|ng|net|org|io|me|ly|co)\b|@[a-z0-9_]{3,})/i.test(title)) return 'link';
+  if (/(circles|official|admin|moderator|someone to talk to|crisis|helpline|hotline)/i.test(title)) return 'reserved';
   return null;
 }
 
@@ -42,4 +43,5 @@ export const TITLE_PROBLEM_TEXT: Record<Exclude<TitleProblem, null>, string> = {
   tooLong: `Use ${TITLE_MAX} characters or fewer.`,
   number: 'Leave phone numbers out. Everyone can see the name.',
   link: 'Leave out web links and @names. Everyone can see the name.',
+  reserved: 'That name could be mistaken for the Circles team or a support room. Pick another.',
 };

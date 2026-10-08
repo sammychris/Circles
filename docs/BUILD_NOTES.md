@@ -121,3 +121,57 @@ I couldn't run these commands from the cloud, because the network here blocks Ex
 
 **What you need to do**
 - Update the room server (`livekit-token`). It's in the list at the end.
+
+---
+
+## 5. Start something
+
+**What I built**
+- **"Start a talk room"** at the end of the room list under **I want to talk**, and **"Start a game room"** at the bottom of **Let's play**.
+- One page (`docs/screens/17`): name your room (up to 40 characters), pick a topic (Football, Music, Faith…, optional, Talk only), choose how many people (up to 4, 5 or 6), and who can join: **Anyone** or **Invite only**. Then **Start the room**, and you're in it.
+- **Anyone** rooms appear in the door's **Open now** list with their topic ("Football · 4 of 6 seats"). **Let's play** now has an Open now list too.
+- **Invite only** rooms are never listed. When you start one, your share menu opens so you can send the link straight away.
+
+**Choices I made (open to change)**
+- **Talk and Play only, starting now.** The design's step 1 (Talk, Learn, Play) and step 2 (once or every week) wait until Learn and weekly groups exist. Coming from a door, you skip straight to the details, as the design says.
+- **Rooms people start are never filled by "Find my room" or "Play now".** Someone who picked "Want to laugh" shouldn't land in "Arsenal fans". People find them in the list, or by link.
+- **Nobody can start a support room.** Those only open for trained hosts. The database refuses it too.
+- **Room names are checked**, because strangers see them: 3 to 40 characters, no phone numbers, no web links, no @names, and nothing that passes for the Circles team or a support room ("Circles official", "Someone to talk to", "crisis", "helpline"). Support rooms always have a trained host, so a room pretending to be one could fool someone who's low. Anyone can still report a room with a bad name (Report, then The whole room).
+- **At most 3 rooms an hour per person**, so nobody floods the lists.
+- **A room someone started ends after it has been empty for 15 minutes.** Old links then say "This room has ended".
+- **Invite only needs the web version online** (part 2), because it works by link. Until then that choice is greyed out and says so.
+- **No host role for the person who starts a room.** Everyone has the same controls, as in other free rooms. The design's "creator becomes host" comes with hosted rooms.
+- **Sizes are 4, 5 or 6.** Rooms still need 3 people to start talking.
+- **Not built yet:** a description (280 characters), "Start a room with friends" on My people, weekly groups with reminders, and hosted rooms of up to 10.
+
+**What you need to do**
+- Run the new database update and update the room server. Both are in the list below.
+
+---
+
+## What you need to do for all five (in order)
+
+1. **Database update:** in Supabase, SQL Editor, New query: paste `supabase/migrations/20261010000000_open_test_extras.sql` from GitHub (Copy raw file), click **Run**, and expect **Success**. It's safe to run twice.
+2. **Room server:** in Supabase, Edge Functions, **livekit-token**, Code: replace everything with `supabase/functions/livekit-token/index.ts` from GitHub and click **Deploy**.
+3. **New app build:** in PowerShell, in your `Circles_app` folder:
+   ```
+   git pull origin claude/gallant-faraday-7s2l1w
+   npm install
+   npx eas-cli build --profile preview --platform android
+   ```
+   Install it on each phone from the link when it's done.
+4. **Web version (for Invite and Invite only):** the steps in part 2.
+5. **When you can:** send me a contact email for the Privacy Policy (part 1).
+
+## Phone checklist (3 phones)
+
+- [ ] **Welcome:** tap Terms, then Privacy Policy. Both open and read clearly.
+- [ ] **Me:** Privacy Policy and Terms are there too.
+- [ ] **Chat:** in a room with 3 people, tap **Chat** and send "hello". The other phones show a small number on Chat; open it and they see your message with your nickname.
+- [ ] **Chat with 2 people:** it says "Chat opens when three people are here".
+- [ ] **Block:** block someone, and their chat messages disappear for you.
+- [ ] **Raise hand:** tap **Raise hand**. The others see a hand and "Hand up" on your seat. Tap the mic to talk, and the hand comes down by itself.
+- [ ] **Start a talk room:** I want to talk, then **Start a talk room**. Name it "Test room", pick Football, then **Start the room**. On another phone, I want to talk shows "Test room · Football" in Open now. Join it.
+- [ ] **Bad name:** try naming a room "Call 08031234567". It says to leave phone numbers out.
+- [ ] **Start a game room:** Let's play, then **Start a game room**. It opens a game room where Play a game works once 3 are in.
+- [ ] **Once the web version is online:** Invite in a room shares a link. Opening it in a phone browser shows "YourName invited you to…". Invite only rooms open the share menu by themselves, and never show in Open now.

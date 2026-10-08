@@ -1,5 +1,7 @@
 # Good morning, Sammy
 
+> **Newer:** after this page, I built five more features. Their to-do list and phone checklist are at the end of `docs/BUILD_NOTES.md`. Do this page first if you haven't, then that one.
+
 While you slept I built Steps 2b to 7. Everything is saved on GitHub, on the branch `claude/gallant-faraday-7s2l1w`.
 
 This page is everything **you** need to do, in order. Each part is short. It should take about 45 minutes, plus the wait while Expo builds the app.
@@ -136,7 +138,7 @@ Tick each one. If something is wrong, tell me what you tapped and what you saw.
 
 1. **Helpline numbers.** Send me a real, checked Nigerian **crisis line** (name and number) and the **emergency number** you want shown. Until then, the help screens say "contact your local emergency services or go to the nearest hospital", with no number. I won't guess one.
 2. **Youth helpline** for the under-18 screen. It's the same idea.
-3. **Privacy Policy and Terms.** The Welcome screen says people agree to them, and they need to exist before you publicise. I can draft simple ones for you to check.
+3. **Privacy Policy and Terms.** Done: see part 1 of `docs/BUILD_NOTES.md`.
 4. **Thank-yous.** People can send a private thank-you after a room. I store them, but I don't show anyone a total, because the rules say "never keep scores". Do you want people to see something, like "Someone thanked you"? Or nothing?
 5. **Support rooms hold 6 for now.** The design allows 10, but the seat circle draws 6. I can build a 10-seat circle later.
 6. **The "You joined in…" numbers** under the room circle are for testing. Tell me when to remove them.

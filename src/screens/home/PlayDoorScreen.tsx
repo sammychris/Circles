@@ -1,15 +1,39 @@
+import { useCallback, useEffect, useState } from 'react';
 import { Pressable, View } from 'react-native';
 import { ChevronRight, Search } from 'lucide-react-native';
 import { Button } from '../../components/Button';
 import { DoorLayout } from '../../components/DoorLayout';
 import { Text } from '../../components/Text';
-import type { RoomRequest } from '../../rooms/api';
+import { RoomRow } from '../../components/RoomRow';
+import { listOpenRooms, type OpenRoom, type RoomRequest } from '../../rooms/api';
 import { moodColors, opacity, radius, size, space, useColors } from '../../theme';
 
 // "Let's play" (docs/screens/10-lets-play.png, doors.md › I'm bored). Games not yet available are not shown.
-export function PlayDoorScreen({ onBack, onEnter }: { onBack: () => void; onEnter: (r: RoomRequest) => void }) {
+export function PlayDoorScreen({
+  onBack,
+  onEnter,
+  onStart,
+}: {
+  onBack: () => void;
+  onEnter: (r: RoomRequest) => void;
+  onStart: () => void;
+}) {
   const colors = useColors();
   const playNow = () => onEnter({ kind: 'match', door: 'play', mood: null });
+  // Game rooms with people in them, including ones people started and opened to anyone.
+  const [rooms, setRooms] = useState<OpenRoom[]>([]);
+  const load = useCallback(async () => {
+    try {
+      setRooms(await listOpenRooms('play'));
+    } catch {
+      // The list is extra: Play now still works.
+    }
+  }, []);
+  useEffect(() => {
+    void load();
+    const timer = setInterval(() => void load(), 20000);
+    return () => clearInterval(timer);
+  }, [load]);
   return (
     <DoorLayout title="Let's play" line="Games are the excuse. Talking is the fun." onBack={onBack}>
       <View style={{ gap: space[3] }}>
@@ -87,6 +111,14 @@ export function PlayDoorScreen({ onBack, onEnter }: { onBack: () => void; onEnte
         <Text variant="meta" color="textMeta">
           In a game room, tap Play a game and pick one once three people are there.
         </Text>
+      </View>
+
+      <View style={{ gap: space[2] }}>
+        {rooms.length > 0 ? <Text variant="heading">Open now</Text> : null}
+        {rooms.map((room) => (
+          <RoomRow key={room.id} room={room} onJoin={() => onEnter({ kind: 'join', roomId: room.id })} />
+        ))}
+        <Button label="Start a game room" variant="quiet" onPress={onStart} />
       </View>
     </DoorLayout>
   );

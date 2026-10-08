@@ -1,6 +1,6 @@
 import { Pressable, View } from 'react-native';
 import { Check } from 'lucide-react-native';
-import { border, radius, size, space, useColors } from '../theme';
+import { border, opacity, radius, size, space, useColors } from '../theme';
 import { Text } from './Text';
 
 // A single-choice row (radio). Selected: 2 px warm-white border and a check, never colour alone.
@@ -10,21 +10,25 @@ export function RadioRow({
   selected,
   onPress,
   leading,
+  disabled = false,
 }: {
   title: string;
   line?: string;
   selected: boolean;
   onPress: () => void;
   leading?: React.ReactNode;
+  disabled?: boolean;
 }) {
   const colors = useColors();
   return (
     <Pressable
       accessibilityRole="radio"
-      accessibilityState={{ checked: selected }}
+      accessibilityState={{ checked: selected, disabled }}
       accessibilityLabel={line ? `${title}. ${line}` : title}
       onPress={onPress}
+      disabled={disabled}
       style={{
+        opacity: disabled ? opacity.disabled : 1,
         minHeight: size.minTarget + space[3],
         flexDirection: 'row',
         alignItems: 'center',

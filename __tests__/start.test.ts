@@ -9,6 +9,8 @@ describe('starting a room', () => {
     expect(titleProblem('x'.repeat(41))).toBe('tooLong');
     expect(titleProblem('Call 0803 123 4567')).toBe('number');
     expect(titleProblem('see www.site.com')).toBe('link');
+    expect(titleProblem('Circles Official')).toBe('reserved');
+    expect(titleProblem('Need someone to talk to?')).toBe('reserved');
   });
 
   it('offers the same topics the room server accepts', () => {

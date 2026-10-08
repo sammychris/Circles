@@ -4,6 +4,7 @@ import { Check } from 'lucide-react-native';
 import { Button } from '../../components/Button';
 import { DoorLayout } from '../../components/DoorLayout';
 import { RoomRulesSheet } from '../../components/RoomRulesSheet';
+import { RoomRow } from '../../components/RoomRow';
 import { Text } from '../../components/Text';
 import { listOpenRooms, type Mood, type OpenRoom, type RoomRequest } from '../../rooms/api';
 import { MOOD_STYLE } from '../../rooms/moods';
@@ -61,51 +62,10 @@ function MoodTile({ mood, selected, onPress }: { mood: Mood; selected: boolean; 
   );
 }
 
-function RoomRow({ room, onJoin }: { room: OpenRoom; onJoin: () => void }) {
-  const colors = useColors();
-  const mood = room.mood ? MOOD_STYLE[room.mood] : MOOD_STYLE.chat;
-  const full = room.here >= room.capacity;
-  return (
-    <View
-      accessible
-      accessibilityLabel={`${room.title}. ${room.here} of ${room.capacity} seats.${full ? ' Full.' : ''}`}
-      style={{ flexDirection: 'row', alignItems: 'center', gap: space[3], paddingVertical: space[3] }}
-    >
-      <View
-        style={{
-          width: size.avatarList,
-          height: size.avatarList,
-          borderRadius: radius.pill,
-          backgroundColor: mood.bg,
-          alignItems: 'center',
-          justifyContent: 'center',
-        }}
-      >
-        <mood.Icon size={size.iconButton20} color={mood.fg} strokeWidth={size.iconStroke} />
-      </View>
-      <View style={{ flex: 1, gap: space[1] }}>
-        <Text variant="bodyStrong" numberOfLines={1}>
-          {room.title}
-        </Text>
-        <Text variant="meta" color="textMeta" style={{ fontVariant: ['tabular-nums'] }}>
-          {`${room.here} of ${room.capacity} seats`}
-        </Text>
-      </View>
-      {full ? (
-        <Text variant="metaStrong" color="textMeta" style={{ width: size.rowAction, textAlign: 'center' }}>
-          Full
-        </Text>
-      ) : (
-        <Button label="Join" onPress={onJoin} style={{ width: size.rowAction }} />
-      )}
-    </View>
-  );
-}
-
-type Props = { nickname: string; onBack: () => void; onEnter: (request: RoomRequest) => void };
+type Props = { nickname: string; onBack: () => void; onEnter: (request: RoomRequest) => void; onStart: () => void };
 
 // "I want to talk": an optional mood, Find my room, and the rooms open now (docs/screens/04, live.md).
-export function TalkDoorScreen({ nickname, onBack, onEnter }: Props) {
+export function TalkDoorScreen({ nickname, onBack, onEnter, onStart }: Props) {
   const colors = useColors();
   const [mood, setMood] = useState<Mood | null>(null);
   const [rooms, setRooms] = useState<OpenRoom[] | null>(null);
@@ -192,6 +152,7 @@ export function TalkDoorScreen({ nickname, onBack, onEnter }: Props) {
         {(rooms ?? []).map((room) => (
           <RoomRow key={room.id} room={room} onJoin={() => onEnter({ kind: 'join', roomId: room.id })} />
         ))}
+        <Button label="Start a talk room" variant="quiet" onPress={onStart} />
       </View>
       <RoomRulesSheet visible={rulesOpen} onClose={() => setRulesOpen(false)} />
     </DoorLayout>

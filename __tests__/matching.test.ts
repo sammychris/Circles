@@ -105,6 +105,8 @@ describe('rooms people start', () => {
     expect(cleanTitle('Follow @someone_here')).toBeNull();
     expect(cleanTitle('Owambe 2026 plans')).toBe('Owambe 2026 plans');
     expect(cleanTitle(42)).toBeNull();
+    expect(cleanTitle('Circles official room')).toBeNull();
+    expect(cleanTitle('Need someone to talk to')).toBeNull();
   });
 
   it('end once they have been empty for a while', () => {

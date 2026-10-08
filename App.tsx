@@ -27,6 +27,7 @@ import { MeScreen } from './src/screens/home/MeScreen';
 import { PeopleScreen } from './src/screens/home/PeopleScreen';
 import { PlayDoorScreen } from './src/screens/home/PlayDoorScreen';
 import { SupportDoorScreen } from './src/screens/home/SupportDoorScreen';
+import { StartScreen } from './src/screens/StartScreen';
 import { TalkDoorScreen } from './src/screens/home/TalkDoorScreen';
 import { Toast } from './src/components/Toast';
 import { myBan, type Ban } from './src/lib/safety';
@@ -92,6 +93,7 @@ type Screen =
   | { name: 'door'; door: DoorName }
   | { name: 'me' }
   | { name: 'addEmail' }
+  | { name: 'start'; door: 'talk' | 'play' }
   | { name: 'room'; request: RoomRequest; visit: number }
   | { name: 'after'; summary: RoomSummary };
 
@@ -213,10 +215,18 @@ function SignedIn({
           }}
         />
       );
+    case 'start':
+      return <StartScreen door={screen.door} onBack={() => setScreen({ name: 'door', door: screen.door })} onStart={enter} />;
     case 'door':
-      if (screen.door === 'talk') return <TalkDoorScreen nickname={nickname} onBack={home} onEnter={enter} />;
+      if (screen.door === 'talk') {
+        return (
+          <TalkDoorScreen nickname={nickname} onBack={home} onEnter={enter} onStart={() => setScreen({ name: 'start', door: 'talk' })} />
+        );
+      }
       if (screen.door === 'support') return <SupportDoorScreen onBack={home} onEnter={enter} />;
-      if (screen.door === 'play') return <PlayDoorScreen onBack={home} onEnter={enter} />;
+      if (screen.door === 'play') {
+        return <PlayDoorScreen onBack={home} onEnter={enter} onStart={() => setScreen({ name: 'start', door: 'play' })} />;
+      }
       if (screen.door === 'people') return <PeopleScreen onBack={home} />;
       return <LearnScreen onBack={home} onEnter={enter} />;
     default:

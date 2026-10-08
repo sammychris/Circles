@@ -97,6 +97,8 @@ function cleanTitle(raw: unknown): string | null {
   if (length < 3 || length > TITLE_MAX) return null;
   if (/[0-9]{7,}/.test(title.replace(/[\s.\-()+]/g, ''))) return null;
   if (/(https?:|www\.|\.(com|ng|net|org|io|me|ly|co)\b|@[a-z0-9_]{3,})/i.test(title)) return null;
+  // Nothing that passes for the Circles team or for a support room, which always has a trained host.
+  if (/(circles|official|admin|moderator|someone to talk to|crisis|helpline|hotline)/i.test(title)) return null;
   return title;
 }
 

@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { AppState, Linking, Platform, Pressable, ScrollView, Share, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { Dice5, Eye, EyeOff, Flag, Hand, Heart, LogOut, MessageCircle, Share2, Shield, X } from 'lucide-react-native';
+import { Dice5, Eye, EyeOff, Flag, Hand, Hash, Heart, LogOut, MessageCircle, Share2, Shield, X } from 'lucide-react-native';
 import { BlockSheet } from '../components/BlockSheet';
 import { Button } from '../components/Button';
 import { ChatSheet } from '../components/ChatSheet';
@@ -30,6 +30,7 @@ import { listBlocked, type Blocked } from '../lib/safety';
 import { formatJoinTime } from '../lib/seats';
 import type { RoomRequest } from '../rooms/api';
 import { MOOD_STYLE } from '../rooms/moods';
+import { topicLabel } from '../rooms/start';
 import { roomPhase, secondsLeft } from '../rooms/phase';
 import { micPermissionGranted, requestMicPermission } from '../voice/foregroundService';
 import { useVoiceRoom, type RoomSummary } from '../voice/useVoiceRoom';
@@ -353,6 +354,7 @@ export function RoomScreen({ me, request, onLeft, onMove }: Props) {
   // --- what to show ---
   const { joinMs, firstVoiceMs, quality } = voice.numbers;
   const mood = room?.mood ? MOOD_STYLE[room.mood] : null;
+  const topic = topicLabel(room?.topic);
   // During Find the Impostor the header shows the game and the round (docs/screens/12).
   const impostorOn = connected && room?.door === 'play' && phase === 'live' && !ludo.game && !!impostor.round;
   const title = impostorOn
@@ -367,6 +369,10 @@ export function RoomScreen({ me, request, onLeft, onMove }: Props) {
     };
   } else if (status === 'full') {
     message = { title: 'That room just filled up', body: "We'll find you another one." };
+  } else if (status === 'tooMany') {
+    message = { title: "You've started a few rooms already", body: 'Try again in a while, or join a room that’s open now.' };
+  } else if (status === 'badTitle') {
+    message = { title: 'That name can’t be used', body: 'Go back and pick another name, without phone numbers or links.' };
   } else if (status === 'ended') {
     message = { title: 'This room has ended', body: 'Everyone has gone home. There are other rooms open now.' };
   } else if (status === 'paused') {
@@ -482,7 +488,7 @@ export function RoomScreen({ me, request, onLeft, onMove }: Props) {
   const invite = async () => {
     if (!room) return;
     const link = roomLink(WEB_URL, room.id, me.nickname);
-    const message = `Come and talk with me on Circles: ${link}`;
+    const message = `${room.door === 'play' ? 'Come and play' : 'Come and talk'} with me on Circles: ${link}`;
     try {
       if (Platform.OS === 'web') {
         const nav = typeof navigator !== 'undefined' ? navigator : undefined;
@@ -498,6 +504,14 @@ export function RoomScreen({ me, request, onLeft, onMove }: Props) {
       // They closed the share sheet.
     }
   };
+
+  // You just started an invite-only room: the share menu opens once, so you can send the link.
+  const autoInvited = useRef(false);
+  useEffect(() => {
+    if (!canInvite || autoInvited.current || request.kind !== 'create' || !request.private) return;
+    autoInvited.current = true;
+    void invite();
+  });
 
   return (
     <SafeAreaView style={{ flex: 1, backgroundColor: colors.bg }}>
@@ -557,9 +571,10 @@ export function RoomScreen({ me, request, onLeft, onMove }: Props) {
           </Text>
           {impostorOn && impostor.round ? (
             <Text variant="bodyStrong" color="textSoft">{`Round ${impostor.round.number} of ${ROUNDS_PER_GAME}`}</Text>
-          ) : mood || (isSupport && hostPresent) ? (
+          ) : mood || topic || (isSupport && hostPresent) ? (
             <View style={{ flexDirection: 'row', gap: space[2], flexWrap: 'wrap' }}>
               {mood ? <Chip Icon={mood.Icon} label={mood.label} fg={mood.fg} bg={mood.bg} /> : null}
+              {topic ? <Chip Icon={Hash} label={topic} fg={colors.textSoft} bg={colors.raised} /> : null}
               {isSupport && hostPresent ? (
                 <Chip Icon={Shield} label="Trained host" fg={colors.live} bg={colors.liveSoft} />
               ) : null}
@@ -685,8 +700,13 @@ export function RoomScreen({ me, request, onLeft, onMove }: Props) {
               <Button label="Get help now" variant="primary" onPress={onOpenHelp} />
             ) : (status === 'full' || status === 'ended') && request.kind === 'join' ? (
               <Button label="Find me another room" variant="primary" onPress={() => onMove({ kind: 'match', door: 'talk', mood: null })} />
-            ) : status !== 'paused' && status !== 'idle' ? (
-              <Button label="Try again" variant="primary" onPress={() => onMove(request)} />
+            ) : status !== 'paused' && status !== 'idle' && status !== 'tooMany' && status !== 'badTitle' ? (
+              // A room you started is rejoined, not started again.
+              <Button
+                label="Try again"
+                variant="primary"
+                onPress={() => onMove(request.kind === 'create' && room ? { kind: 'join', roomId: room.id } : request)}
+              />
             ) : null}
             <Button label="Back" variant="quiet" onPress={() => onLeft(voice.lastSummary)} />
           </>

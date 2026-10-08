@@ -9,7 +9,7 @@ import {
 } from 'livekit-client';
 import { playRemoteAudio, startAudio, stopAudio, stopRemoteAudio } from './audio';
 import { CHAT_KEEP, CHAT_TOPIC, cleanChat, decodeChat, encodeChat, tooFast, tooFastFrom, type ChatMessage } from '../rooms/chat';
-import { NoHostError, PausedError, RoomEndedError, RoomFullError, getTicket, setHandUp, type RoomInfo, type RoomRequest } from '../rooms/api';
+import { BadTitleError, NoHostError, PausedError, RoomEndedError, RoomFullError, TooManyRoomsError, getTicket, setHandUp, type RoomInfo, type RoomRequest } from '../rooms/api';
 import {
   micPermissionGranted,
   requestNotificationPermission,
@@ -39,6 +39,8 @@ export type RoomStatus =
   | 'noHost'
   | 'paused'
   | 'ended'
+  | 'tooMany'
+  | 'badTitle'
   | 'error'
   | 'dropped';
 
@@ -268,7 +270,11 @@ export function useVoiceRoom() {
                 ? 'paused'
                 : e instanceof RoomEndedError
                   ? 'ended'
-                  : 'error',
+                  : e instanceof TooManyRoomsError
+                    ? 'tooMany'
+                    : e instanceof BadTitleError
+                      ? 'badTitle'
+                      : 'error',
         );
       }
     },

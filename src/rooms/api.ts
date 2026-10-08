@@ -1,16 +1,19 @@
 import { supabase } from '../lib/supabase';
+import type { Topic } from './start';
 
 export type Door = 'talk' | 'play' | 'support';
 export type Mood = 'chat' | 'laugh' | 'advice';
 
-export type RoomInfo = { id: string; door: Door; mood: Mood | null; title: string; capacity: number };
+export type RoomInfo = { id: string; door: Door; mood: Mood | null; topic?: Topic | null; title: string; capacity: number };
 
 export type RoomTicket = { token: string; url: string; roomName: string; room: RoomInfo; isHost: boolean };
 
 // How someone gets into a room: matched through a door, or picked from the Open now list.
 export type RoomRequest =
   | { kind: 'match'; door: Door; mood: Mood | null; excludeRoomId?: string }
-  | { kind: 'join'; roomId: string };
+  | { kind: 'join'; roomId: string }
+  // Start something: a room with your own title. Invite-only rooms are only opened by their link.
+  | { kind: 'create'; door: 'talk' | 'play'; title: string; topic: Topic | null; capacity: number; private: boolean };
 
 export class RoomFullError extends Error {
   constructor() {
@@ -28,6 +31,18 @@ export class NoHostError extends Error {
 export class RoomEndedError extends Error {
   constructor() {
     super('This room has ended');
+  }
+}
+
+export class TooManyRoomsError extends Error {
+  constructor() {
+    super('Too many rooms started');
+  }
+}
+
+export class BadTitleError extends Error {
+  constructor() {
+    super('That title can’t be used');
   }
 }
 
@@ -50,6 +65,8 @@ async function call<T>(body: Record<string, unknown>): Promise<T> {
     }
     if (payload.status === 'no_host') throw new NoHostError();
     if (payload.status === 'ended') throw new RoomEndedError();
+    if (payload.status === 'too_many') throw new TooManyRoomsError();
+    if (payload.status === 'bad_title') throw new BadTitleError();
     if (status === 409) throw new RoomFullError();
     if (status === 403 && payload.error === 'Your account is paused') throw new PausedError();
     throw new Error(payload.error ?? 'Could not reach the room server');
@@ -61,14 +78,23 @@ export async function getTicket(request: RoomRequest): Promise<RoomTicket> {
   const data = await call<Partial<RoomTicket> & { status?: string }>(
     request.kind === 'match'
       ? { action: 'match', door: request.door, mood: request.mood, excludeRoomId: request.excludeRoomId }
-      : { action: 'join', roomId: request.roomId },
+      : request.kind === 'create'
+        ? {
+            action: 'create',
+            door: request.door,
+            title: request.title,
+            topic: request.topic,
+            capacity: request.capacity,
+            private: request.private,
+          }
+        : { action: 'join', roomId: request.roomId },
   );
   if (data.status === 'no_host') throw new NoHostError();
   if (!data.token || !data.url || !data.room) throw new Error('The room ticket was incomplete');
   return data as RoomTicket;
 }
 
-export type OpenRoom = { id: string; title: string; mood: Mood | null; capacity: number; here: number };
+export type OpenRoom = { id: string; title: string; mood: Mood | null; topic?: Topic | null; capacity: number; here: number };
 
 export async function listOpenRooms(door: Door = 'talk'): Promise<OpenRoom[]> {
   const data = await call<{ rooms: OpenRoom[] }>({ action: 'list', door });
