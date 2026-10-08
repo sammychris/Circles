@@ -117,11 +117,27 @@ export function RoomScreen({ me, request, onLeft, onMove }: Props) {
   const ludo = useLudo(room?.id ?? null, me.id, connected && isPlay, people.map((p) => p.id));
   const impostor = useImpostor(room?.id ?? null, me.id, connected && isPlay);
   // The Table: one shared thing in the middle of the room (activities.md).
-  const tableItem = useTable(voice.publishData, voice.onData, me, room?.door ?? null, connected, people, PHOTO_URL_START);
+  const tableItem = useTable(
+    voice.publishData,
+    voice.onData,
+    me,
+    room?.door ?? null,
+    connected,
+    people,
+    PHOTO_URL_START,
+    voice.reconnects,
+  );
   const [putOpen, setPutOpen] = useState(false);
   const [compose, setCompose] = useState<'note' | 'video' | null>(null);
   const [tableOptionsOpen, setTableOptionsOpen] = useState(false);
   const [photosBusy, setPhotosBusy] = useState(false);
+  // What was on the table when the report was opened, kept even if it comes off while they write.
+  const [reportEvidence, setReportEvidence] = useState<string | null>(null);
+  useEffect(() => {
+    if (reportOpen) setReportEvidence(tableItem.item ? describeItem(tableItem.item) : null);
+    // Only at the moment the report opens.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [reportOpen]);
   const [wordHidden, setWordHidden] = useState(false);
   // A new round starts with the word showing.
   const impostorRoundId = impostor.round?.roundId;
@@ -291,6 +307,7 @@ export function RoomScreen({ me, request, onLeft, onMove }: Props) {
   const onBlocked = useCallback(
     (person: Blocked) => {
       voice.silence(person.id);
+      tableItem.dismissFrom(person.id);
       setBlockedIds((s) => new Set(s).add(person.id));
       setToBlock(null);
       setProfile(null);
@@ -303,7 +320,7 @@ export function RoomScreen({ me, request, onLeft, onMove }: Props) {
       setToast(`${person.nickname} is blocked. Undo in Me, Blocked people.`);
       if (people.some((p) => p.id === person.id)) setAfterBlock(person);
     },
-    [voice, me.id, people],
+    [voice, me.id, people, tableItem.dismissFrom],
   );
 
   useEffect(() => {
@@ -605,7 +622,9 @@ export function RoomScreen({ me, request, onLeft, onMove }: Props) {
       sawSharing.current = false;
       tableItem.takeOff();
     }
-  }, [meSharing, screenOnTable, voice.setScreenShare, tableItem.takeOff]);
+    // The room stopped being live (it dropped to two): the table hides, so a shared screen stops.
+    if (screenOnTable && phase && phase !== 'live') tableItem.takeOff();
+  }, [meSharing, screenOnTable, phase, voice.setScreenShare, tableItem.takeOff]);
 
   // A game took over the table: your own item comes off. Someone else's item lost the table: tell them.
   useEffect(() => {
@@ -907,7 +926,7 @@ export function RoomScreen({ me, request, onLeft, onMove }: Props) {
         roomId={room?.id ?? null}
         people={others.map((p) => ({ id: p.id, nickname: p.nickname }))}
         startWith={reportPerson}
-        evidence={tableItem.item ? describeItem(tableItem.item) : null}
+        evidence={reportEvidence}
         onClose={() => setReportOpen(false)}
         onAlsoBlock={(p) => setToBlock(p)}
         onSeeHelp={() => {

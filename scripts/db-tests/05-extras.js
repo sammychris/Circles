@@ -57,10 +57,19 @@ module.exports = async ({ users, as, fails, check, assert, db }) => {
     await as(users.ada, "insert into storage.objects (bucket_id, name, owner) values ('table', $1, $2)", [`${users.ada}/r1/a.jpg`, users.ada]);
     await fails(as(users.ada, "insert into storage.objects (bucket_id, name, owner) values ('table', $1, $2)", [`${users.bayo}/r1/b.jpg`, users.ada]), 'row-level security');
     assert.strictEqual((await as(users.bayo, "select * from storage.objects where bucket_id = 'table'")).rows.length, 0);
-    await as(users.ada, 'insert into public.table_photos (path, user_id, room_id) values ($1, $2, $3)', [`${users.ada}/r1/a.jpg`, users.ada, 'r1']);
-    await fails(as(users.ada, 'insert into public.table_photos (path, user_id, room_id) values ($1, $2, $3)', [`${users.bayo}/r1/x.jpg`, users.ada, 'r1']), 'row-level security');
-    assert.strictEqual((await as(users.ada, 'select * from public.table_photos')).rows.length, 0);
     const bucket = (await db.query("select public from storage.buckets where id = 'table'")).rows[0];
     assert.strictEqual(bucket.public, false);
+  });
+
+  await check('old table photos are found for deletion, except reported ones', async () => {
+    await db.query("insert into storage.objects (bucket_id, name, owner, created_at) values ('table', $1, $2, now() - interval '4 hours'), ('table', $3, $2, now() - interval '4 hours'), ('table', $4, $2, now())", [
+      `${users.ada}/r2/old-0.jpg`, users.ada, `${users.ada}/r2/old-1.jpg`, `${users.ada}/r2/new-0.jpg`,
+    ]);
+    await db.query("update public.reports set evidence = $1 where room_id = 'room-t'", [`photos: ${users.ada}/r2/old-1.jpg`]);
+    const rows = (await db.query('select * from public.expired_table_photos(50) as name')).rows.map((r) => r.name);
+    assert(rows.includes(`${users.ada}/r2/old-0.jpg`));
+    assert(!rows.includes(`${users.ada}/r2/old-1.jpg`), 'reported photos are kept');
+    assert(!rows.includes(`${users.ada}/r2/new-0.jpg`), 'new photos are kept');
+    await fails(as(users.ada, 'select * from public.expired_table_photos(50)'), 'permission denied');
   });
 };

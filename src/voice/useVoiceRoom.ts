@@ -132,9 +132,13 @@ export function useVoiceRoom() {
   const [screens, setScreens] = useState<Record<string, VideoTrack>>({});
 
   // Voice is fetched for everyone straight away; a shared screen only when someone taps to see it.
+  const wantScreens = useRef(new Set<string>());
+  // Bumped after every full reconnect, so the Table can ask again what's on it.
+  const [reconnects, setReconnects] = useState(0);
   const subscribeVoice = useCallback((p: RemoteParticipant) => {
     p.trackPublications.forEach((pub) => {
       if (pub.kind === Track.Kind.Audio && !pub.isSubscribed) pub.setSubscribed(true);
+      if (pub.source === Track.Source.ScreenShare && wantScreens.current.has(p.identity) && !pub.isSubscribed) pub.setSubscribed(true);
     });
   }, []);
 
@@ -198,6 +202,7 @@ export function useVoiceRoom() {
       const cancelled = () => attempt.current !== mine;
       startedAt.current = Date.now();
       seen.current = new Map();
+      wantScreens.current = new Set();
       setMessages([]);
       chatSentAt.current = [];
       chatHeardAt.current = new Map();
@@ -223,7 +228,8 @@ export function useVoiceRoom() {
           return;
         }
 
-        const lkRoom = new Room();
+        // dynacast: a shared screen is only sent while someone is watching it.
+        const lkRoom = new Room({ dynacast: true, adaptiveStream: true });
         roomRef.current = lkRoom;
 
         lkRoom
@@ -234,6 +240,8 @@ export function useVoiceRoom() {
           })
           .on(RoomEvent.TrackPublished, (pub: RemoteTrackPublication, p: RemoteParticipant) => {
             if (pub.kind === Track.Kind.Audio) pub.setSubscribed(true);
+            // Someone asked to watch this person's screen before it arrived.
+            if (pub.source === Track.Source.ScreenShare && wantScreens.current.has(p.identity)) pub.setSubscribed(true);
             refresh();
           })
           .on(RoomEvent.TrackUnpublished, (_pub, p: RemoteParticipant) => {
@@ -255,6 +263,13 @@ export function useVoiceRoom() {
           .on(RoomEvent.ParticipantAttributesChanged, refresh)
           .on(RoomEvent.Reconnecting, () => setStatus('reconnecting'))
           .on(RoomEvent.Reconnected, () => {
+            // After a full reconnect LiveKit adds everyone again without the usual events, so voice
+            // (and any screen being watched) is fetched again here.
+            lkRoom.remoteParticipants.forEach((p) => {
+              applySilence(p);
+              subscribeVoice(p);
+            });
+            setReconnects((n) => n + 1);
             setStatus('connected');
             refresh();
           })
@@ -423,6 +438,8 @@ export function useVoiceRoom() {
 
   // Start or stop watching someone's shared screen.
   const watchScreen = useCallback((personId: string, on: boolean) => {
+    if (on) wantScreens.current.add(personId);
+    else wantScreens.current.delete(personId);
     const p = roomRef.current?.remoteParticipants.get(personId);
     const pub = p?.getTrackPublication(Track.Source.ScreenShare);
     if (pub) pub.setSubscribed(on);
@@ -493,6 +510,7 @@ export function useVoiceRoom() {
     setMic,
     setHand,
     screens,
+    reconnects,
     setScreenShare,
     watchScreen,
     silence,

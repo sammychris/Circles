@@ -59,7 +59,6 @@ export async function pickAndUploadPhotos(userId: string, roomId: string): Promi
       });
       if (error) throw error;
       paths.push(path);
-      await supabase.from('table_photos').insert({ path, user_id: userId, room_id: roomId });
     }
     const { data, error } = await supabase.storage.from('table').createSignedUrls(paths, LINK_SECONDS);
     if (error || !data) throw error ?? new Error('no links');

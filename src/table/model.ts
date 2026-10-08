@@ -13,6 +13,23 @@ export type Door = 'talk' | 'play' | 'support';
 export type TableKind = 'note' | 'video' | 'photos' | 'screen';
 export type VideoRef = { provider: 'youtube' | 'vimeo'; id: string };
 export type Photo = { url: string; path: string };
+// On the wire a photo is just its storage path and link token; every phone rebuilds the link itself,
+// so a photo can only ever come from our own storage, and the path in a report is the real one.
+export type PhotoWire = { p: string; t: string };
+
+const PATH = /^[0-9a-f-]{36}\/[A-Za-z0-9-]{1,64}\/[a-z0-9]{1,20}-\d{1,2}\.jpg$/;
+const TOKEN = /^[A-Za-z0-9._-]{10,2000}$/;
+
+export function photoToWire(photo: Photo): PhotoWire | null {
+  const token = photo.url.split('?token=')[1];
+  return token && TOKEN.test(token) && PATH.test(photo.path) ? { p: photo.path, t: token } : null;
+}
+
+export function photoFromWire(raw: unknown, photoUrlStart: string): Photo | null {
+  const w = raw as Partial<PhotoWire> | null;
+  if (!w || typeof w.p !== 'string' || typeof w.t !== 'string' || !PATH.test(w.p) || !TOKEN.test(w.t)) return null;
+  return { path: w.p, url: `${photoUrlStart}${w.p}?token=${w.t}` };
+}
 
 type Common = { id: string; by: string; byName: string; at: number };
 export type TableItem = Common &
@@ -27,7 +44,7 @@ export type TableItem = Common &
 export type TableState = { seq: number; index?: number; playing?: boolean; position?: number; sentAt?: number };
 
 export type TableMessage =
-  | { k: 'put'; item: TableItem; state: TableState }
+  | { k: 'put'; item: unknown; state: TableState }
   | { k: 'state'; id: string; state: TableState }
   | { k: 'off'; id: string }
   | { k: 'hello' };
@@ -98,12 +115,28 @@ export function parseVideoLink(raw: string): VideoRef | null {
   return null;
 }
 
+// How an item travels between phones.
+export function itemToWire(item: TableItem): Record<string, unknown> {
+  if (item.kind !== 'photos') return item;
+  const { photos, ...rest } = item;
+  return { ...rest, photos: photos.map(photoToWire).filter(Boolean) };
+}
+
 // Checks an item another phone sent. The presenter is always the sender, never what the message says.
-export function acceptItem(raw: unknown, from: { id: string; nickname: string }, door: Door, photoUrlStart: string): TableItem | null {
+// The time it was put on can't be claimed earlier than 10 seconds before it arrived, so nobody can
+// push other items off the table by pretending theirs came first.
+export function acceptItem(
+  raw: unknown,
+  from: { id: string; nickname: string },
+  door: Door,
+  photoUrlStart: string,
+  now = Date.now(),
+): TableItem | null {
   if (!raw || typeof raw !== 'object') return null;
   const r = raw as Record<string, unknown>;
   const id = typeof r.id === 'string' && /^[A-Za-z0-9-]{1,64}$/.test(r.id) ? r.id : null;
-  const at = typeof r.at === 'number' && Number.isFinite(r.at) ? r.at : null;
+  const claimed = typeof r.at === 'number' && Number.isFinite(r.at) ? r.at : null;
+  const at = claimed === null ? null : Math.min(Math.max(claimed, now - 10_000), now);
   const kind = r.kind as TableKind;
   if (!id || at === null || !allowedKinds(door).includes(kind)) return null;
   const common = { id, by: from.id, byName: from.nickname, at };
@@ -126,10 +159,10 @@ export function acceptItem(raw: unknown, from: { id: string; nickname: string },
   }
   if (kind === 'photos') {
     const list = Array.isArray(r.photos) ? r.photos.slice(0, PHOTOS_MAX) : [];
+    // A photo's folder must be the sender's own.
     const photos = list
-      .map((p) => p as Record<string, unknown>)
-      .filter((p) => typeof p.url === 'string' && typeof p.path === 'string' && p.url.startsWith(photoUrlStart))
-      .map((p) => ({ url: p.url as string, path: p.path as string }));
+      .map((p) => photoFromWire(p, photoUrlStart))
+      .filter((p): p is Photo => !!p && p.path.startsWith(`${from.id}/`));
     if (photos.length === 0) return null;
     return { ...common, kind, photos };
   }

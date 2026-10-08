@@ -183,3 +183,6 @@ export const glowStops = Object.assign(
 
 // The table card: lifted like a sheet, with a faint ember glow, "lit by the lamp" (design direction › The table slot).
 export const tableCard = { shadowRadius: 48, shadowOpacity: 0.1, elevation: 6 } as const;
+
+// Shapes of things on the table: a video, a photo, and a phone's shared screen (portrait).
+export const media = { video: 16 / 9, photo: 4 / 3, screen: 3 / 4 } as const;

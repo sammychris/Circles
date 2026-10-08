@@ -117,15 +117,22 @@ create policy "table photos: read own" on storage.objects for select to authenti
 create policy "table photos: remove own" on storage.objects for delete to authenticated
   using (bucket_id = 'table' and (storage.foldername(name))[1] = auth.uid()::text);
 
--- Which photos exist and when, so the room server can delete them.
-create table if not exists public.table_photos (
-  path text primary key,
-  user_id uuid references auth.users (id) on delete set null,
-  room_id text,
-  created_at timestamptz not null default now()
-);
-alter table public.table_photos enable row level security;
-drop policy if exists "table photos: note own" on public.table_photos;
-create policy "table photos: note own" on public.table_photos for insert to authenticated
-  with check (auth.uid() = user_id and split_part(path, '/', 1) = auth.uid()::text);
-create index if not exists table_photos_age on public.table_photos (created_at);
+-- Photos older than 3 hours that no report points to, oldest first: the room server deletes these.
+-- Worked out from storage itself, so a photo can't escape it. Only the room server can ask.
+drop table if exists public.table_photos;
+create or replace function public.expired_table_photos(p_limit int default 50)
+returns setof text
+language sql
+stable
+security definer
+set search_path = ''
+as $$
+  select o.name from storage.objects o
+  where o.bucket_id = 'table'
+    and o.created_at < now() - interval '3 hours'
+    and not exists (select 1 from public.reports r where r.evidence like '%' || o.name || '%')
+  order by o.created_at
+  limit greatest(1, least(p_limit, 200));
+$$;
+revoke all on function public.expired_table_photos(int) from public, anon, authenticated;
+grant execute on function public.expired_table_photos(int) to service_role;

@@ -373,28 +373,14 @@ Deno.serve(async (req) => {
       () => {},
     );
 
-  // Photos put on the table are deleted 3 hours later, except ones attached to a report (the Privacy
-  // Policy promises this). A few at a time, so joining stays quick.
+  // Photos put on the table are deleted 3 hours later, except ones a report points to (the Privacy
+  // Policy promises this). The oldest first, a few at a time, so joining stays quick.
   try {
-    const { data: oldPhotos } = await admin
-      .from('table_photos')
-      .select('path')
-      .lt('created_at', new Date(Date.now() - 3 * 60 * 60 * 1000).toISOString())
-      .limit(50);
-    if (oldPhotos && oldPhotos.length > 0) {
-      const { data: reported } = await admin
-        .from('reports')
-        .select('evidence')
-        .not('evidence', 'is', null)
-        .order('updated_at', { ascending: false })
-        .limit(500);
-      const evidence = (reported ?? []).map((r) => r.evidence as string).join('\n');
-      const paths = oldPhotos.map((p) => p.path as string).filter((path) => !evidence.includes(path));
-      if (paths.length > 0) {
-        await admin.storage.from('table').remove(paths);
-        await admin.from('table_photos').delete().in('path', paths);
-      }
-    }
+    const { data: expired } = await admin.rpc('expired_table_photos', { p_limit: 50 });
+    const paths = ((expired ?? []) as unknown[]).map((row) => (typeof row === 'string' ? row : (row as { expired_table_photos?: string }).expired_table_photos)).filter(
+      (path): path is string => typeof path === 'string' && path.length > 0,
+    );
+    if (paths.length > 0) await admin.storage.from('table').remove(paths);
   } catch {
     // Tried again on the next join.
   }

@@ -227,7 +227,11 @@ Then on each phone: open Circles, close it fully (swipe it away), and open it ag
 - **Shared screens** are live only: never recorded, with no sound from the screen. They're sent at a quality that's light on data (720p, 5 pictures a second), which is fine for showing and explaining. Before sharing, the app warns: "Everyone in this room will see your whole screen, including messages and notifications that pop up."
 - **In a browser,** screen sharing works on computers only. Phone browsers can't share their screen.
 - **The Privacy Policy now covers photos, shared screens and the YouTube and Vimeo players.**
-- **Not built yet from the Table design:** Take turns, Quiz, Words (for Learn), and a photo ban for repeat reports.
+- **Only a trained host can replace or take off someone else's item**, and then it goes for everyone. If you block the presenter, their item disappears for you.
+- **If the room drops to two while you're sharing your screen, sharing stops.** The table hides then, so you'd have no Stop button.
+- **Photos are deleted from storage itself 3 hours after upload, oldest first.** A photo can't be missed, and reported ones are kept.
+- **A shared screen is only sent while someone is watching it**, to save the presenter's data.
+- **Not built yet from the Table design:** Take turns, Quiz, Words (for Learn), a photo ban for repeat reports, and a host switch to turn off notes in support rooms.
 
 **What you need to do**
 1. Run the database update again: `supabase/migrations/20261010000000_open_test_extras.sql` (it now also creates the photo storage). It's safe to run twice.

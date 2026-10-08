@@ -3,7 +3,7 @@ import { Pressable, View } from 'react-native';
 import { Eye, MonitorUp } from 'lucide-react-native';
 import type { VideoTrack } from 'livekit-client';
 import type { TableItem } from '../../table/model';
-import { radius, size, space, useColors } from '../../theme';
+import { media, radius, size, space, useColors } from '../../theme';
 import { TableAction } from '../TableAction';
 import { Text } from '../Text';
 import { ScreenView } from './ScreenView';
@@ -49,7 +49,7 @@ export function ScreenBody({ item, mine, track, onWatch, onStop }: Props) {
 
   return (
     <View style={{ gap: space[3] }}>
-      <View style={{ width: '100%', aspectRatio: 3 / 4, borderRadius: radius.small, overflow: 'hidden', backgroundColor: colors.bg }}>
+      <View style={{ width: '100%', aspectRatio: media.screen, borderRadius: radius.small, overflow: 'hidden', backgroundColor: colors.bg }}>
         {watching && track ? (
           <ScreenView track={track} />
         ) : watching ? (

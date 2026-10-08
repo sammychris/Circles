@@ -1,12 +1,12 @@
 import { useEffect, useRef, useState } from 'react';
-import { Image, Pressable, View } from 'react-native';
+import { Pressable, View } from 'react-native';
 import { Headphones, Play } from 'lucide-react-native';
 import { videoPositionNow, type TableItem, type TableState } from '../../table/model';
-import { radius, size, space, useColors } from '../../theme';
+import { media, radius, size, space, useColors } from '../../theme';
 import { TableAction } from '../TableAction';
 import { Text } from '../Text';
 import { VideoPlayer, type VideoPlayerHandle } from './VideoPlayer';
-import { thumbnailUrl, type PlayerEvent } from './videoHtml';
+import type { PlayerEvent } from './videoHtml';
 
 // How far a viewer can drift before we bring them back to the presenter's moment.
 const DRIFT_SECONDS = 3;
@@ -102,7 +102,6 @@ export function WatchBody({ item, state, mine, othersTalking, onPresent }: Props
     }
   };
 
-  const thumb = thumbnailUrl(item.video);
   return (
     <View style={{ gap: space[3] }}>
       {item.title ? <Text variant="heading">{item.title}</Text> : null}
@@ -117,9 +116,8 @@ export function WatchBody({ item, state, mine, othersTalking, onPresent }: Props
           accessibilityRole="button"
           accessibilityLabel="Tap to watch. Uses mobile data"
           onPress={() => setLoaded(true)}
-          style={{ width: '100%', aspectRatio: 16 / 9, borderRadius: radius.small, overflow: 'hidden', backgroundColor: colors.bg, alignItems: 'center', justifyContent: 'center' }}
+          style={{ width: '100%', aspectRatio: media.video, borderRadius: radius.small, overflow: 'hidden', backgroundColor: colors.bg, alignItems: 'center', justifyContent: 'center' }}
         >
-          {thumb ? <Image source={{ uri: thumb }} blurRadius={2} style={{ position: 'absolute', width: '100%', height: '100%' }} /> : null}
           <View style={{ backgroundColor: colors.scrim, borderRadius: radius.pill, paddingHorizontal: space[4], minHeight: size.minTarget, flexDirection: 'row', alignItems: 'center', gap: space[2] }}>
             <Play size={size.icon} color={colors.text} strokeWidth={size.iconStroke} />
             <Text variant="bodyStrong">Tap to watch</Text>

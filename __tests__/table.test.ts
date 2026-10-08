@@ -27,17 +27,26 @@ describe('the table', () => {
     expect(findLink('no link here')).toBeNull();
   });
 
-  it('always names the real sender, and only accepts our own photo links', () => {
+  it('always names the real sender, and only accepts photos from their own storage folder', () => {
     const item = acceptItem({ id: 'i1', at: 1, kind: 'note', text: 'hi', by: 'someone-else', byName: 'Circles_Team' }, ada, 'talk', PHOTOS);
     expect(item?.by).toBe('ada');
     expect(item?.byName).toBe('Ada_K');
+    const adaUser = { id: '11111111-2222-3333-4444-555555555555', nickname: 'Ada_K' };
+    const own = `${adaUser.id}/room-1/abc123-0.jpg`;
+    const other = '99999999-2222-3333-4444-555555555555/room-1/abc123-1.jpg';
     const photos = acceptItem(
-      { id: 'i2', at: 1, kind: 'photos', photos: [{ url: `${PHOTOS}a.jpg?token=x`, path: 'a.jpg' }, { url: 'https://evil.ng/b.jpg', path: 'b' }] },
-      ada,
+      { id: 'i2', at: 1, kind: 'photos', photos: [{ p: own, t: 'tok.en_123456' }, { p: other, t: 'tok.en_123456' }, { p: '../x.jpg', t: 'tok.en_123456' }] },
+      adaUser,
       'talk',
       PHOTOS,
     );
-    expect(photos?.kind === 'photos' && photos.photos.length).toBe(1);
+    expect(photos?.kind === 'photos' && photos.photos).toEqual([{ path: own, url: `${PHOTOS}${own}?token=tok.en_123456` }]);
+  });
+
+  it("can't claim to have been first by a long way", () => {
+    const now = 1_000_000;
+    expect(acceptItem({ id: 'i1', at: 0, kind: 'note', text: 'hi' }, ada, 'talk', PHOTOS, now)?.at).toBe(now - 10_000);
+    expect(acceptItem({ id: 'i1', at: now + 99_999, kind: 'note', text: 'hi' }, ada, 'talk', PHOTOS, now)?.at).toBe(now);
   });
 
   it('keeps the first item when two arrive together, and lets a presenter replace their own', () => {

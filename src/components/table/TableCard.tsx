@@ -69,8 +69,9 @@ export function SeatRow({ people, onPerson }: { people: Person[]; onPerson: (p: 
                 </View>
               ) : null}
             </View>
-            <Text variant="tiny" color={p.isSpeaking ? 'live' : p.handUp ? 'emberText' : 'textSoft'} numberOfLines={1}>
-              {p.isSpeaking ? 'Speaking' : p.handUp ? 'Hand up' : p.isMe ? 'You' : p.nickname}
+            {/* Only the speaker is named, as in the design; screen readers hear everyone's name. */}
+            <Text variant="tiny" color={p.isSpeaking ? 'live' : 'emberText'} numberOfLines={1} importantForAccessibility="no">
+              {p.isSpeaking ? (p.isMe ? 'You' : p.nickname) : p.handUp ? 'Hand up' : ' '}
             </Text>
           </Pressable>
         );

@@ -1,7 +1,7 @@
 import { forwardRef, useEffect, useImperativeHandle, useRef } from 'react';
 import { View } from 'react-native';
 import type { VideoRef } from '../../table/model';
-import { radius } from '../../theme';
+import { media, radius } from '../../theme';
 import type { PlayerCommand, PlayerEvent } from './videoHtml';
 
 export type VideoPlayerHandle = { command: (cmd: PlayerCommand) => void };
@@ -98,7 +98,7 @@ export const VideoPlayer = forwardRef<VideoPlayerHandle, { video: VideoRef; onEv
             onError: () => emit.current({ t: 'error' }),
           },
         });
-        const tick = () => ready && emit.current({ t: 'time', time: player.getCurrentTime() || 0, playing: player.getPlayerState() === 1 });
+        const tick = () => ready && emit.current({ t: 'time', time: player.getCurrentTime() || 0, playing: [1, 3].includes(player.getPlayerState()) });
         timer = setInterval(tick, 1000);
         ctl.current = {
           command: (m) => {
@@ -151,7 +151,7 @@ export const VideoPlayer = forwardRef<VideoPlayerHandle, { video: VideoRef; onEv
   }, [video.provider, video.id]);
 
   return (
-    <View style={{ width: '100%', aspectRatio: 16 / 9, borderRadius: radius.small, overflow: 'hidden' }}>
+    <View style={{ width: '100%', aspectRatio: media.video, borderRadius: radius.small, overflow: 'hidden' }}>
       <div ref={host} style={{ width: '100%', height: '100%' }} />
     </View>
   );

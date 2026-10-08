@@ -28,7 +28,9 @@ export function playerHtml(video: VideoRef): string {
       }
       function tick() {
         if (!ready) return;
-        post({ t: 'time', time: player.getCurrentTime() || 0, playing: player.getPlayerState() === 1 });
+        // Buffering (3) counts as playing, so a slow connection isn't taken for a pause.
+        var st = player.getPlayerState();
+        post({ t: 'time', time: player.getCurrentTime() || 0, playing: st === 1 || st === 3 });
       }
       window.circlesCommand = function (m) {
         if (!ready) return;
@@ -69,8 +71,4 @@ export function playerHtml(video: VideoRef): string {
     </script>
     ${video.provider === 'youtube' ? youtube : vimeo}
     </body></html>`;
-}
-
-export function thumbnailUrl(video: VideoRef): string | null {
-  return video.provider === 'youtube' ? `https://i.ytimg.com/vi/${video.id}/hqdefault.jpg` : null;
 }

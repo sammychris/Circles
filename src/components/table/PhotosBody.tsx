@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import { Image, Pressable, View } from 'react-native';
 import { ChevronLeft, ChevronRight, Eye } from 'lucide-react-native';
 import type { TableItem, TableState } from '../../table/model';
-import { opacity, radius, size, space, useColors } from '../../theme';
+import { media, opacity, radius, size, space, useColors } from '../../theme';
 import { TableAction } from '../TableAction';
 import { Text } from '../Text';
 
@@ -63,7 +63,7 @@ export function PhotosBody({ item, state, mine, onPresent }: Props) {
 
   return (
     <View style={{ gap: space[3] }}>
-      <View style={{ width: '100%', aspectRatio: 4 / 3, borderRadius: radius.small, overflow: 'hidden', backgroundColor: colors.bg }}>
+      <View style={{ width: '100%', aspectRatio: media.photo, borderRadius: radius.small, overflow: 'hidden', backgroundColor: colors.bg }}>
         {/* Nothing is drawn until the person taps: a blur can still show too much. */}
         {!seen ? null : failed.has(shown) ? (
           <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center', padding: space[4] }}>

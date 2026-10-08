@@ -97,7 +97,7 @@ export function PutOnTableSheet({ visible, door, gamesReady, onClose, onPick }: 
         </Text>
         <Row Icon={FileText} title="A note or link" line="Something to discuss or get help with" onPress={() => onPick('note')} />
         {share && allowed.includes('photos') ? (
-          <Row Icon={Images} title="Photos" line="Show them one by one. Blurred until each person taps" onPress={() => onPick('photos')} />
+          <Row Icon={Images} title="Photos" line="Show them one by one. Hidden until each person taps" onPress={() => onPick('photos')} />
         ) : null}
         {share && allowed.includes('screen') && canShareScreen() ? (
           <Row Icon={MonitorUp} title="Share my screen" line="Show and explain something on your phone" onPress={() => onPick('screen')} />
