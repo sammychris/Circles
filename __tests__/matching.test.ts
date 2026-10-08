@@ -5,18 +5,20 @@ import ts from 'typescript';
 // Runs the room-picking rules exactly as they are in the Supabase function.
 const source = readFileSync(join(__dirname, '..', 'supabase', 'functions', 'livekit-token', 'index.ts'), 'utf8');
 const block = source.slice(source.indexOf('// BEGIN MATCHING'), source.indexOf('// END MATCHING'));
-const js = ts.transpileModule(`${block}\nmodule.exports = { pickRoom, roomTitle };`, {
+const js = ts.transpileModule(`${block}\nmodule.exports = { pickRoom, roomTitle, cleanTitle, customRoomEnded };`, {
   compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2020 },
 }).outputText;
 const mod: { exports: Record<string, unknown> } = { exports: {} };
 new Function('module', 'exports', js)(mod, mod.exports);
 
-type Room = { id: string; door: 'talk' | 'play' | 'support'; mood: 'chat' | 'laugh' | 'advice' | null; capacity: number; people: string[] };
+type Room = { id: string; door: 'talk' | 'play' | 'support'; mood: 'chat' | 'laugh' | 'advice' | null; capacity: number; people: string[]; custom?: boolean };
 const pickRoom = mod.exports.pickRoom as (
   rooms: Room[],
   opts: { door: Room['door']; mood: Room['mood']; me: string; avoid: Set<string>; hosts: Set<string>; excludeRoomId?: string },
 ) => Room | null;
 const roomTitle = mod.exports.roomTitle as (door: Room['door'], mood: Room['mood']) => string;
+const cleanTitle = mod.exports.cleanTitle as (raw: unknown) => string | null;
+const customRoomEnded = mod.exports.customRoomEnded as (room: { custom?: boolean; created_at?: string }, here: number, now?: number) => boolean;
 
 const base = { me: 'me', avoid: new Set<string>(), hosts: new Set<string>() };
 const room = (id: string, people: string[], extra: Partial<Room> = {}): Room => ({
@@ -83,5 +85,35 @@ describe('roomTitle', () => {
     expect(roomTitle('talk', 'laugh')).toBe('Want to laugh');
     expect(roomTitle('talk', null)).toBe('Just chat');
     expect(roomTitle('support', null)).toBe('Someone to talk to');
+  });
+});
+
+describe('rooms people start', () => {
+  it('are never filled by matching, only found in the list or by link', () => {
+    const rooms = [room('mine', ['a', 'b'], { custom: true }), room('plain', ['c'])];
+    expect(pickRoom(rooms, { ...base, door: 'talk', mood: null })?.id).toBe('plain');
+    expect(pickRoom([rooms[0]], { ...base, door: 'talk', mood: null })).toBeNull();
+  });
+
+  it('take plain titles only', () => {
+    expect(cleanTitle('  Arsenal   fans  ')).toBe('Arsenal fans');
+    expect(cleanTitle('Hi')).toBeNull();
+    expect(cleanTitle('x'.repeat(41))).toBeNull();
+    expect(cleanTitle('Call me 0803 123 4567')).toBeNull();
+    expect(cleanTitle('Join www.example.com')).toBeNull();
+    expect(cleanTitle('Free money at scam.ng now')).toBeNull();
+    expect(cleanTitle('Follow @someone_here')).toBeNull();
+    expect(cleanTitle('Owambe 2026 plans')).toBe('Owambe 2026 plans');
+    expect(cleanTitle(42)).toBeNull();
+  });
+
+  it('end once they have been empty for a while', () => {
+    const now = Date.parse('2026-10-08T12:00:00Z');
+    const old = { custom: true, created_at: '2026-10-08T11:00:00Z' };
+    const fresh = { custom: true, created_at: '2026-10-08T11:55:00Z' };
+    expect(customRoomEnded(old, 0, now)).toBe(true);
+    expect(customRoomEnded(old, 2, now)).toBe(false);
+    expect(customRoomEnded(fresh, 0, now)).toBe(false);
+    expect(customRoomEnded({ custom: false, created_at: old.created_at }, 0, now)).toBe(false);
   });
 });

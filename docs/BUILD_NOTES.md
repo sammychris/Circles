@@ -100,3 +100,24 @@ I couldn't run these commands from the cloud, because the network here blocks Ex
 
 **What you need to do**
 - Update the room server (`livekit-token`) the same way as before, so phones are allowed to send chat. It's in the list at the end.
+
+---
+
+## 4. Raise hand
+
+**What I built**
+- A **Raise hand** button in the room's bottom row (hand icon). Tap it and your seat shows a small ember hand and "Hand up" under your name, for everyone in the room. The button turns ember and says **Lower hand**.
+- **Your hand comes down by itself when you start talking** (when you unmute).
+- Screen readers say "Ada_K, muted, hand up".
+
+**Choices I made (open to change)**
+- **A hand is a gentle "I'd like to say something".** In free rooms nobody has to let you in: everyone can unmute any time. The hand just helps quieter people get a turn.
+- **Only the room server can raise or lower a hand**, through the `livekit-token` function. This stops a changed app from faking its name or a "Trained host" badge.
+- **Not during games.** Ludo and Find the Impostor draw their own seats, which don't show hands, so the button steps aside during a game and any raised hand comes down when a game starts.
+- **While you're talking, Raise hand is greyed out.** You already have the floor.
+- **A hand can change at most once every 3 seconds**, so nobody can make it flash at others.
+- **The hand badge takes the place of the muted badge** on a seat while a hand is up (the design shows both badges in the same corner). Screen readers still say "muted, hand up".
+- **Not built yet: the host's "Hands" list** (the design's "2 hands up · See hands", Let in, Not now). That belongs with hosted rooms, where the host decides who speaks. Free rooms and support rooms don't have speaker turns yet.
+
+**What you need to do**
+- Update the room server (`livekit-token`). It's in the list at the end.

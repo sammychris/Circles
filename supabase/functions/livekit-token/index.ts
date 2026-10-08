@@ -5,6 +5,7 @@
 //   { action: 'stats' }                               how many people are in rooms right now (support rooms not counted)
 //   { action: 'support' }                             whether a trained host is in a support room (yes/no only)
 //   { action: 'delete_account' }                      deletes the person's own account and everything tied to it
+//   { action: 'create', door, title, topic?, capacity?, private? }  starts a Talk or Play room (Start something)
 //   { action: 'hand', roomId, up }                    raises or lowers your hand in a room you're in
 //   { action: 'preview', roomId }                     a room link's title and seat count, before signing up
 // Secrets (set in Supabase, never in the app): LIVEKIT_API_KEY, LIVEKIT_API_SECRET, LIVEKIT_URL.
@@ -34,6 +35,8 @@ type Candidate = {
   mood: Mood | null;
   capacity: number;
   people: string[]; // LiveKit identities (user ids) in the room right now
+  // Started by a person (Start something): found in the Open now list or by link, never filled by matching.
+  custom?: boolean;
 };
 
 // Support rooms can hold up to 10 in the design, but the room circle draws 6 seats; until a 10-seat
@@ -62,6 +65,7 @@ function pickRoom(
 ): Candidate | null {
   const fits = candidates.filter((room) => {
     if (room.door !== opts.door) return false;
+    if (room.custom) return false;
     if (room.id === opts.excludeRoomId) return false;
     // A talk room with no mood is a "Just chat" room.
     if (opts.mood && (room.mood ?? (room.door === 'talk' ? 'chat' : null)) !== opts.mood) return false;
@@ -74,6 +78,34 @@ function pickRoom(
   });
   fits.sort((a, b) => b.people.length - a.people.length);
   return fits[0] ?? null;
+}
+
+// Start something: the topics a Talk room can have, and the room sizes people can choose.
+const TOPICS = ['football', 'music', 'movies', 'faith', 'relationships', 'work', 'money', 'politics', 'tech', 'other'];
+const SIZES = [4, 5, 6];
+const TITLE_MAX = 40;
+
+// A room title someone typed: plain words, 3 to 40 characters. No phone numbers or web links, because
+// titles are shown to strangers. Returns null when it can't be used.
+function cleanTitle(raw: unknown): string | null {
+  if (typeof raw !== 'string') return null;
+  const title = raw
+    .replace(/[\u0000-\u001F\u007F\u200B-\u200F\u202A-\u202E\u2060-\u2064\u2066-\u2069\uFEFF]/g, '')
+    .replace(/\s+/g, ' ')
+    .trim();
+  const length = Array.from(title).length;
+  if (length < 3 || length > TITLE_MAX) return null;
+  if (/[0-9]{7,}/.test(title.replace(/[\s.\-()+]/g, ''))) return null;
+  if (/(https?:|www\.|\.(com|ng|net|org|io|me|ly|co)\b|@[a-z0-9_]{3,})/i.test(title)) return null;
+  return title;
+}
+
+// A room someone started closes once it has been empty for a while, so old links stop working.
+const CUSTOM_EMPTY_MINUTES = 15;
+function customRoomEnded(room: { custom?: boolean; created_at?: string }, peopleHere: number, now = Date.now()): boolean {
+  if (!room.custom || peopleHere > 0) return false;
+  const created = room.created_at ? new Date(room.created_at).getTime() : 0;
+  return now - created > CUSTOM_EMPTY_MINUTES * 60 * 1000;
 }
 // END MATCHING
 
@@ -105,7 +137,7 @@ Deno.serve(async (req) => {
   if (body.action === 'preview') {
     const { data: room } = await admin
       .from('rooms')
-      .select('id, door, mood, title, capacity, status, livekit_room_name')
+      .select('id, door, mood, title, topic, capacity, status, custom, created_at, livekit_room_name')
       .eq('id', String(body.roomId ?? ''))
       .maybeSingle();
     if (!room || room.door === 'support' || room.status !== 'open') return json({ status: 'ended' });
@@ -115,9 +147,10 @@ Deno.serve(async (req) => {
     } catch {
       here = 0;
     }
+    if (customRoomEnded(room, here)) return json({ status: 'ended' });
     return json({
       status: 'open',
-      room: { id: room.id, door: room.door, mood: room.mood, title: room.title, capacity: room.capacity },
+      room: { id: room.id, door: room.door, mood: room.mood, topic: room.topic, title: room.title, capacity: room.capacity },
       here,
     });
   }
@@ -197,17 +230,19 @@ Deno.serve(async (req) => {
   if (action === 'list') {
     const door = (DOORS.includes(body.door as Door) ? body.door : 'talk') as Door;
     if (door === 'support') return json({ rooms: [] }); // never listed
+    // Invite-only rooms are never listed: only their link opens them.
     const { data: rooms } = await admin
       .from('rooms')
-      .select('id, title, mood, capacity, livekit_room_name')
+      .select('id, title, mood, topic, capacity, livekit_room_name')
       .eq('status', 'open')
+      .eq('private', false)
       .eq('door', door);
     const names = (rooms ?? []).map((r) => r.livekit_room_name as string);
     const [people, avoid] = await Promise.all([peopleIn(names).catch(() => new Map<string, string[]>()), avoidList()]);
     const list = (rooms ?? [])
       .map((r) => ({ ...r, people: people.get(r.livekit_room_name as string) ?? [] }))
       .filter((r) => r.people.length > 0 && !r.people.some((p) => avoid.has(p)))
-      .map((r) => ({ id: r.id, title: r.title, mood: r.mood, capacity: r.capacity, here: r.people.length }))
+      .map((r) => ({ id: r.id, title: r.title, mood: r.mood, topic: r.topic, capacity: r.capacity, here: r.people.length }))
       .sort((a, b) => Number(a.here >= a.capacity) - Number(b.here >= b.capacity) || b.here - a.here);
     return json({ rooms: list });
   }
@@ -215,23 +250,38 @@ Deno.serve(async (req) => {
   // Raise or lower your own hand, in a room you're in right now. The server sets it, so a hand is the
   // only thing a person can change about themselves in a room.
   if (action === 'hand') {
+    const { data: handBan } = await admin.from('bans').select('until').eq('user_id', user.id).maybeSingle();
+    if (handBan && (!handBan.until || new Date(handBan.until) > new Date())) return json({ error: 'Your account is paused' }, 403);
     const { data: handRoom } = await admin
       .from('rooms')
       .select('livekit_room_name')
       .eq('id', String(body.roomId ?? ''))
       .maybeSingle();
     if (!handRoom) return json({ error: 'Room not found' }, 404);
+    let current: Record<string, string> = {};
     try {
-      await service.updateParticipant(handRoom.livekit_room_name, user.id, {
-        attributes: { hand: body.up === true ? String(Date.now()) : '' },
-      });
+      current = (await service.getParticipant(handRoom.livekit_room_name, user.id)).attributes ?? {};
     } catch {
       return json({ error: 'You are not in this room' }, 409);
+    }
+    const up = body.up === true;
+    // Nothing to change: do nothing, so a hand can't be made to flash.
+    if (up === !!current.hand) return json({ status: 'ok' });
+    // At most one change every few seconds per person.
+    const last = Number(current.handChangedAt ?? 0);
+    if (Date.now() - last < 3000) return json({ error: 'Too fast', status: 'too_fast' }, 429);
+    try {
+      const now = String(Date.now());
+      await service.updateParticipant(handRoom.livekit_room_name, user.id, {
+        attributes: { hand: up ? now : '', handChangedAt: now },
+      });
+    } catch {
+      return json({ error: 'Could not change your hand' }, 500);
     }
     return json({ status: 'ok' });
   }
 
-  if (action !== 'match' && action !== 'join') return json({ error: 'Unknown action' }, 400);
+  if (action !== 'match' && action !== 'join' && action !== 'create') return json({ error: 'Unknown action' }, 400);
 
   // --- voice: nobody speaks before the 18+ question and a nickname (CLAUDE.md, Never list) ---
   const { data: ban } = await admin.from('bans').select('until').eq('user_id', user.id).maybeSingle();
@@ -264,13 +314,63 @@ Deno.serve(async (req) => {
   const isHost = hosts.has(user.id);
   const avoid = await avoidList();
 
-  type RoomRow = { id: string; door: Door; mood: Mood | null; title: string | null; capacity: number; status: string; livekit_room_name: string };
+  type RoomRow = {
+    id: string;
+    door: Door;
+    mood: Mood | null;
+    topic?: string | null;
+    title: string | null;
+    capacity: number;
+    status: string;
+    custom?: boolean;
+    created_at?: string;
+    livekit_room_name: string;
+  };
+  const ROOM_FIELDS = 'id, door, mood, topic, title, capacity, status, custom, created_at, livekit_room_name';
   let room: RoomRow | null = null;
 
-  if (action === 'join') {
+  if (action === 'create') {
+    // Start something: a Talk or Play room with the person's own title. Never a support room: those
+    // only ever open for trained hosts, through the door.
+    const door: Door | null = body.door === 'talk' || body.door === 'play' ? body.door : null;
+    const title = cleanTitle(body.title);
+    if (!door) return json({ error: 'Rooms you start can be Talk or Play', status: 'bad_room' }, 400);
+    if (!title) return json({ error: 'That title can’t be used', status: 'bad_title' }, 400);
+    const topic = door === 'talk' && TOPICS.includes(String(body.topic)) ? String(body.topic) : null;
+    const capacity = SIZES.includes(Number(body.capacity)) ? Number(body.capacity) : CAPACITY[door];
+    // A few rooms an hour is plenty for anyone, and stops one person flooding the lists.
+    const { count } = await admin
+      .from('rooms')
+      .select('id', { count: 'exact', head: true })
+      .eq('custom', true)
+      .eq('created_by', user.id)
+      .gte('created_at', new Date(Date.now() - 60 * 60 * 1000).toISOString());
+    if ((count ?? 0) >= 3) return json({ error: 'You’ve started a few rooms already', status: 'too_many' }, 429);
+    const id = crypto.randomUUID();
+    const { data: created, error } = await admin
+      .from('rooms')
+      .insert({
+        id,
+        door,
+        mood: null,
+        topic,
+        kind: 'peer',
+        title,
+        capacity,
+        status: 'open',
+        custom: true,
+        private: body.private === true,
+        created_by: user.id,
+        livekit_room_name: `circles-${id}`,
+      })
+      .select(ROOM_FIELDS)
+      .single();
+    if (error || !created) return json({ error: 'Could not open a room' }, 500);
+    room = created as RoomRow;
+  } else if (action === 'join') {
     const { data } = await admin
       .from('rooms')
-      .select('id, door, mood, title, capacity, status, livekit_room_name')
+      .select(ROOM_FIELDS)
       .eq('id', String(body.roomId ?? ''))
       .maybeSingle();
     // Support rooms are only ever reached through the "Need someone to talk to" door, never by a link or
@@ -280,6 +380,10 @@ Deno.serve(async (req) => {
     }
     room = data as RoomRow;
     const people = (await peopleIn([room.livekit_room_name]).catch(() => new Map())).get(room.livekit_room_name) ?? [];
+    if (customRoomEnded(room, people.length)) {
+      await admin.from('rooms').update({ status: 'closed' }).eq('id', room.id);
+      return json({ error: 'This room has ended', status: 'ended' }, 410);
+    }
     const others = people.filter((p: string) => p !== user.id);
     if (others.length >= room.capacity) return json({ error: 'This room is full' }, 409);
     if (others.some((p: string) => avoid.has(p))) return json({ error: 'This room is full' }, 409);
@@ -291,8 +395,9 @@ Deno.serve(async (req) => {
     const mood = door === 'talk' && MOODS.includes(body.mood as Mood) ? (body.mood as Mood) : null;
     const { data: rows } = await admin
       .from('rooms')
-      .select('id, door, mood, title, capacity, status, livekit_room_name')
+      .select(ROOM_FIELDS)
       .eq('status', 'open')
+      .eq('private', false)
       .eq('door', door);
     const all = (rows ?? []) as RoomRow[];
     const people = await peopleIn(all.map((r) => r.livekit_room_name)).catch(() => new Map<string, string[]>());
@@ -302,6 +407,7 @@ Deno.serve(async (req) => {
       mood: r.mood,
       capacity: r.capacity,
       people: people.get(r.livekit_room_name) ?? [],
+      custom: !!r.custom,
     }));
     const picked = pickRoom(candidates, {
       door,
@@ -323,6 +429,7 @@ Deno.serve(async (req) => {
       const empty = candidates.find(
         (c) =>
           c.people.length === 0 &&
+          !c.custom &&
           c.id !== body.excludeRoomId &&
           (c.mood ?? (door === 'talk' ? 'chat' : null)) === newMood &&
           (door !== 'support' || isHost),
@@ -344,7 +451,7 @@ Deno.serve(async (req) => {
             created_by: user.id,
             livekit_room_name: `circles-${id}`,
           })
-          .select('id, door, mood, title, capacity, status, livekit_room_name')
+          .select(ROOM_FIELDS)
           .single();
         if (error || !created) return json({ error: 'Could not open a room' }, 500);
         room = created as RoomRow;
@@ -378,7 +485,14 @@ Deno.serve(async (req) => {
     token: await token.toJwt(),
     url: livekitUrl,
     roomName: room.livekit_room_name,
-    room: { id: room.id, door: room.door, mood: room.mood, title: room.title ?? roomTitle(room.door, room.mood), capacity: room.capacity },
+    room: {
+      id: room.id,
+      door: room.door,
+      mood: room.mood,
+      topic: room.topic ?? null,
+      title: room.title ?? roomTitle(room.door, room.mood),
+      capacity: room.capacity,
+    },
     isHost,
   });
 });

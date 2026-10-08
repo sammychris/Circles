@@ -320,13 +320,12 @@ export function useVoiceRoom() {
       if (!roomRef.current || !room) return false;
       try {
         await setHandUp(room.id, up);
-        refresh();
         return true;
       } catch {
         return false;
       }
     },
-    [refresh, room],
+    [room],
   );
 
   // Blocked people: you stop hearing them straight away.

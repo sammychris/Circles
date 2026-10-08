@@ -33,7 +33,7 @@ import { MOOD_STYLE } from '../rooms/moods';
 import { roomPhase, secondsLeft } from '../rooms/phase';
 import { micPermissionGranted, requestMicPermission } from '../voice/foregroundService';
 import { useVoiceRoom, type RoomSummary } from '../voice/useVoiceRoom';
-import { border, motion, radius, size, space, useColors } from '../theme';
+import { border, motion, opacity, radius, size, space, useColors } from '../theme';
 
 const QUALITY_WORDS = {
   excellent: 'excellent',
@@ -95,7 +95,14 @@ export function RoomScreen({ me, request, onLeft, onMove }: Props) {
   if (freshPhase) lastPhase.current = freshPhase;
   const phase = status === 'reconnecting' ? lastPhase.current : freshPhase;
   const micLive = connected && people.some((p) => p.isMe && !p.isMuted);
-  const handUp = connected && people.some((p) => p.isMe && p.handUp);
+  const handUpNow = connected && people.some((p) => p.isMe && p.handUp);
+  // What the person just asked for, shown straight away while the server catches up.
+  const [handWanted, setHandWanted] = useState<boolean | null>(null);
+  const handBusy = useRef(false);
+  const handUp = handWanted ?? handUpNow;
+  useEffect(() => {
+    if (handWanted !== null && handWanted === handUpNow) setHandWanted(null);
+  }, [handWanted, handUpNow]);
   // Games only ever in play rooms, never in support rooms (CLAUDE.md, Never list).
   const isPlay = room?.door === 'play';
   const ludo = useLudo(room?.id ?? null, me.id, connected && isPlay, people.map((p) => p.id));
@@ -164,7 +171,7 @@ export function RoomScreen({ me, request, onLeft, onMove }: Props) {
     } else setCountdownFrom(null);
     // Mics are paused whenever the room isn't live.
     if (phase && phase !== 'live' && micLive) void voice.setMic(false);
-  }, [phase, micLive, voice]);
+  }, [phase, micLive, voice.setMic]);
 
   useEffect(() => {
     if (countdownFrom === null) return;
@@ -291,14 +298,39 @@ export function RoomScreen({ me, request, onLeft, onMove }: Props) {
 
   // --- raise hand: it comes down by itself once you start talking ---
   useEffect(() => {
-    if (micLive && handUp) void voice.setHand(false);
-  }, [micLive, handUp, voice]);
+    if (micLive && handUpNow && !handBusy.current) {
+      handBusy.current = true;
+      void voice.setHand(false).finally(() => {
+        handBusy.current = false;
+      });
+    }
+  }, [micLive, handUpNow, voice.setHand]);
 
   const toggleHand = useCallback(async () => {
-    const ok = await voice.setHand(!handUp);
-    if (!ok) setToast("That didn't work. Check your connection.");
-    else if (!handUp) setToast('Hand up. Everyone can see it on your seat.');
-  }, [voice, handUp]);
+    if (handBusy.current) return;
+    handBusy.current = true;
+    const want = !handUp;
+    setHandWanted(want);
+    const ok = await voice.setHand(want);
+    handBusy.current = false;
+    if (!ok) {
+      setHandWanted(null);
+      setToast("That didn't work. Try again in a moment.");
+    } else if (want) setToast('Hand up. Everyone can see it on your seat.');
+  }, [voice.setHand, handUp]);
+
+  // Games draw their own seats without hands, so a hand comes down when a game or round starts.
+  const gameKey = `${ludo.game?.id ?? ''}:${impostor.round?.roundId ?? ''}`;
+  useEffect(() => {
+    if (gameKey !== ':' && handUpNow && !handBusy.current) {
+      handBusy.current = true;
+      void voice.setHand(false).finally(() => {
+        handBusy.current = false;
+      });
+    }
+    // Only when a game or round starts.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [gameKey]);
 
   // --- chat: messages from blocked people are never shown ---
   const chat = voice.messages.filter((m) => !blockedIds.has(m.from));
@@ -431,6 +463,18 @@ export function RoomScreen({ me, request, onLeft, onMove }: Props) {
       tableAction = <RowButton Icon={Dice5} label="Play a game" onPress={() => setGameSheetOpen(true)} />;
     }
   }
+
+  // Raise hand, except during a game: game seats don't show hands.
+  const inAnyGame = !!ludo.game || !!impostor.round;
+  const handButton = (
+    <RowButton
+      Icon={Hand}
+      label={handUp ? 'Lower hand' : 'Raise hand'}
+      active={handUp}
+      disabled={micLive && !handUp}
+      onPress={() => void toggleHand()}
+    />
+  );
 
   // Invite: share this room's link. Never for support rooms (CLAUDE.md, Never list), and only once the
   // web version is online, so the link works for people without the app.
@@ -612,14 +656,7 @@ export function RoomScreen({ me, request, onLeft, onMove }: Props) {
               <Button label="Move me to another room" variant="primary" onPress={() => void moveToAnotherRoom()} />
             ) : null}
             <View style={{ flexDirection: 'row', gap: space[3] }}>
-              {secondAction ?? (
-                <RowButton
-                  Icon={Hand}
-                  label={handUp ? 'Lower hand' : 'Raise hand'}
-                  active={handUp}
-                  onPress={() => void toggleHand()}
-                />
-              )}
+              {secondAction ?? (inAnyGame ? null : handButton)}
               <RowButton
                 Icon={MessageCircle}
                 label="Chat"
@@ -753,12 +790,15 @@ function RowButton({
   onPress,
   badge = 0,
   active = false,
+  disabled = false,
 }: {
   Icon: typeof LogOut;
   label: string;
   onPress: () => void;
   // On, like a raised hand: ember badge colours (design direction › emberSoft / emberText).
   active?: boolean;
+  // Raise hand while you're already talking: nothing to ask for.
+  disabled?: boolean;
   // A small count in the corner, e.g. unread chat messages.
   badge?: number;
 }) {
@@ -767,13 +807,15 @@ function RowButton({
     <Pressable
       accessibilityRole="button"
       accessibilityLabel={badge > 0 ? `${label}, ${badge} new` : label}
-      accessibilityState={active ? { selected: true } : undefined}
+      accessibilityState={{ selected: active, disabled }}
+      disabled={disabled}
       onPress={onPress}
       style={{
         flex: 1,
         height: size.buttonPrimary,
         borderRadius: radius.card,
         backgroundColor: active ? colors.emberSoft : colors.surface,
+        opacity: disabled ? opacity.disabled : 1,
         alignItems: 'center',
         justifyContent: 'center',
         gap: space[1],
