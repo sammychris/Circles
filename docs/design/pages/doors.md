@@ -1,6 +1,6 @@
 # Home and the doors
 
-**Kind:** Home + 5 door pages · **Release:** launch · **Replaces:** any tab bar; there is none
+**Kind:** Home + 5 door pages · **Release:** launch · **Note (2026-10-08):** Circles now has a bottom bar (Home, Explore, Groups, Me). Home changes are in `tabs.md`; the rest of this page still holds.
 **Source:** `CIRCLES_INTENT.md` › "Home screen: one house, many doors"
 
 ## Home

@@ -25,6 +25,7 @@ export function NicknameScreen({ onSaved, onBack }: Props) {
     setBusy(false);
     if (saveError) {
       if (saveError.message.includes('nickname_taken')) setError('Someone already has that nickname. Try another.');
+      else if (saveError.message.includes('reserved_nickname')) setError(NICKNAME_PROBLEM_TEXT.reserved);
       else if (saveError.message.includes('invalid_nickname')) setError(NICKNAME_PROBLEM_TEXT.badCharacters);
       else setError(looksOffline(saveError.message) ? OFFLINE_TEXT : "We couldn't save that. Try again.");
       return;

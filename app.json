@@ -30,12 +30,14 @@
         "android.permission.FOREGROUND_SERVICE",
         "android.permission.FOREGROUND_SERVICE_MICROPHONE",
         "android.permission.FOREGROUND_SERVICE_MEDIA_PLAYBACK",
+        "android.permission.FOREGROUND_SERVICE_MEDIA_PROJECTION",
         "android.permission.POST_NOTIFICATIONS"
       ],
       "predictiveBackGestureEnabled": false
     },
     "web": {
-      "favicon": "./assets/favicon.png"
+      "favicon": "./assets/favicon.png",
+      "output": "single"
     },
     "plugins": [
       "expo-dev-client",
@@ -43,11 +45,33 @@
         "@livekit/react-native-expo-plugin",
         {
           "android": {
-            "audioType": "communication"
+            "audioType": "communication",
+            "enableScreenShareService": true
           }
         }
       ],
-      "./plugins/withMicForegroundService"
-    ]
+      "./plugins/withMicForegroundService",
+      [
+        "expo-image-picker",
+        {
+          "photosPermission": "Circles lets you pick photos to show on the Table in a room.",
+          "cameraPermission": false
+        }
+      ]
+    ],
+    "scheme": "circles",
+    "runtimeVersion": {
+      "policy": "appVersion"
+    },
+    "extra": {
+      "eas": {
+        "projectId": "dc307e92-838d-4516-a50d-2667e55b6ca7"
+      }
+    },
+    "updates": {
+      "url": "https://u.expo.dev/dc307e92-838d-4516-a50d-2667e55b6ca7",
+      "checkAutomatically": "ON_LOAD",
+      "fallbackToCacheTimeout": 0
+    }
   }
 }

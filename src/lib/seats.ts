@@ -2,12 +2,13 @@ import { ROOM_CAPACITY } from '../config';
 
 export type SeatPoint = { x: number; y: number };
 
-// Seats sit on a ring at 60 degree steps, starting at the top and going clockwise.
-// (x, y) is the offset of the seat centre from the centre of the ring.
+// Seats sit evenly on a ring, clockwise, turned so that your seat (see assignSeats) is always at the
+// very bottom. (x, y) is the offset of the seat centre from the centre of the ring.
 export function seatPoints(count: number, radius: number): SeatPoint[] {
   const step = 360 / count;
+  const start = 90 - Math.floor(count / 2) * step;
   return Array.from({ length: count }, (_, i) => {
-    const angle = ((i * step - 90) * Math.PI) / 180;
+    const angle = ((start + i * step) * Math.PI) / 180;
     return { x: Math.round(Math.cos(angle) * radius), y: Math.round(Math.sin(angle) * radius) };
   });
 }

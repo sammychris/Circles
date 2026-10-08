@@ -1,4 +1,4 @@
-import { ActivityIndicator, Pressable, View, type StyleProp, type ViewStyle } from 'react-native';
+import { ActivityIndicator, Platform, Pressable, View, type StyleProp, type ViewStyle } from 'react-native';
 import * as Haptics from 'expo-haptics';
 import type { ReactNode } from 'react';
 import { lift, opacity, radius, size, space, useColors } from '../theme';
@@ -7,7 +7,7 @@ import { Text } from './Text';
 type Props = {
   label: string;
   onPress: () => void;
-  variant?: 'primary' | 'secondary' | 'quiet';
+  variant?: 'primary' | 'secondary' | 'quiet' | 'danger';
   icon?: ReactNode;
   loading?: boolean;
   disabled?: boolean;
@@ -28,8 +28,11 @@ export function Button({
   const colors = useColors();
   const primary = variant === 'primary';
   const quiet = variant === 'quiet';
-  const textColor = disabled ? 'textMeta' : primary ? 'onEmber' : quiet ? 'textSoft' : 'text';
-  const height = primary ? size.buttonPrimary : size.minTarget;
+  // Danger (red) only ever appears inside a confirm step (design direction, rule 3).
+  const danger = variant === 'danger';
+  const textColor = disabled ? 'textMeta' : primary || danger ? 'onEmber' : quiet ? 'textSoft' : 'text';
+  const height = primary || danger ? size.buttonPrimary : size.minTarget;
+  const fill = danger ? colors.danger : primary ? colors.ember : quiet ? 'transparent' : colors.raised;
 
   return (
     <Pressable
@@ -39,7 +42,7 @@ export function Button({
       accessibilityState={{ disabled: !!disabled || !!loading, busy: !!loading }}
       disabled={disabled || loading}
       onPress={() => {
-        void Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+        if (Platform.OS !== 'web') void Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
         onPress();
       }}
       style={({ pressed }) => [
@@ -51,7 +54,7 @@ export function Button({
           justifyContent: 'center',
           flexDirection: 'row',
           gap: space[2],
-          backgroundColor: disabled && !quiet ? colors.raised : primary ? colors.ember : quiet ? 'transparent' : colors.raised,
+          backgroundColor: disabled && !quiet ? colors.raised : fill,
           opacity: disabled && quiet ? opacity.disabled : pressed ? opacity.pressed : 1,
         },
         primary && !disabled && {
@@ -69,7 +72,7 @@ export function Button({
       ) : (
         <>
           {icon ? <View>{icon}</View> : null}
-          <Text variant={primary ? 'button' : 'bodyStrong'} color={textColor}>
+          <Text variant={primary || danger ? 'button' : 'bodyStrong'} color={textColor}>
             {label}
           </Text>
         </>

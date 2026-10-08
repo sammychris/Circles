@@ -17,6 +17,7 @@ Sammy owns the product and decides. You (Claude Code) build it, one step at a ti
 - `docs/design/pages/`: detailed rules for individual screens and flows.
 - `docs/screens/`: pictures of the designed screens. `docs/screens/INDEX.md` says which picture belongs to which build step. Only open the ones for the current step.
 - `docs/PROGRESS.md`: what has been built and decided so far. Read it at the start of every session and update it at the end of every step.
+- `docs/NEXT.md`: the to-do list for the next session (decisions waiting for Sammy, his steps, what's left to build). Read it right after PROGRESS.md.
 
 ## When documents disagree
 
