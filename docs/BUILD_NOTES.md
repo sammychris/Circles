@@ -179,3 +179,22 @@ I couldn't run these commands from the cloud, because the network here blocks Ex
 - [ ] **Bad name:** try naming a room "Call 08031234567". It says to leave phone numbers out.
 - [ ] **Start a game room:** Let's play, then **Start a game room**. It opens a game room where Play a game works once 3 are in.
 - [ ] **Once the web version is online:** Invite in a room shares a link. Opening it in a phone browser shows "YourName invited you to…". Invite only rooms open the share menu by themselves, and never show in Open now.
+
+---
+
+## Over-the-air updates (no more reinstalling)
+
+**What I set up**
+- The app can now receive changes without a new install. The add-on is `expo-updates`, linked to your Expo project (`dc307e92-…`).
+- The build also carries three new phone features, ready for the Table: a web viewer (YouTube and Vimeo), a photo picker (your photo library only, no camera), and Android's screen-sharing permission.
+- **Me** shows "Version 1.0.0 · updated 8 Oct, 14:05" once an update has arrived, or "as installed" before that.
+
+**When you need a full build again:** only when I add a new phone feature. I'll always say so, and I'll raise the app version so old installs never get an update they can't run.
+
+**How to send an update** (when I tell you one is ready), in PowerShell in your `Circles_app` folder:
+```
+git pull origin claude/gallant-faraday-7s2l1w
+npm install
+npx eas-cli update --channel preview --environment development --message "What changed"
+```
+Then on each phone: open Circles, close it fully (swipe it away), and open it again. The first opening downloads the update; the second uses it. Check **Me** for the new "updated" time.

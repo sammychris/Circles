@@ -16,6 +16,8 @@
     "expo-dev-client": "~57.0.19",
     "expo-font": "~57.0.4",
     "expo-haptics": "~57.0.3",
+    "expo-image-manipulator": "~57.0.21",
+    "expo-image-picker": "~57.0.20",
     "expo-keep-awake": "~57.0.2",
     "expo-status-bar": "~57.0.1",
     "expo-updates": "~57.0.25",
@@ -27,7 +29,8 @@
     "react-native-safe-area-context": "~5.7.0",
     "react-native-svg": "^15.15.4",
     "react-native-url-polyfill": "^4.0.0",
-    "react-native-web": "^0.21.3"
+    "react-native-web": "^0.21.3",
+    "react-native-webview": "13.16.1"
   },
   "devDependencies": {
     "@electric-sql/pglite": "^0.5.8",

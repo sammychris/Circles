@@ -30,6 +30,7 @@
         "android.permission.FOREGROUND_SERVICE",
         "android.permission.FOREGROUND_SERVICE_MICROPHONE",
         "android.permission.FOREGROUND_SERVICE_MEDIA_PLAYBACK",
+        "android.permission.FOREGROUND_SERVICE_MEDIA_PROJECTION",
         "android.permission.POST_NOTIFICATIONS"
       ],
       "predictiveBackGestureEnabled": false
@@ -44,11 +45,19 @@
         "@livekit/react-native-expo-plugin",
         {
           "android": {
-            "audioType": "communication"
+            "audioType": "communication",
+            "enableScreenShareService": true
           }
         }
       ],
-      "./plugins/withMicForegroundService"
+      "./plugins/withMicForegroundService",
+      [
+        "expo-image-picker",
+        {
+          "photosPermission": "Circles lets you pick photos to show on the Table in a room.",
+          "cameraPermission": false
+        }
+      ]
     ],
     "scheme": "circles",
     "runtimeVersion": {
