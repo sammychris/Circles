@@ -3,10 +3,11 @@ import { Pressable, RefreshControl, ScrollView, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { BookOpen, ChevronRight, Dice5, Heart, MessageCircle, Users } from 'lucide-react-native';
 import { Avatar } from '../../components/Avatar';
+import { Glow } from '../../components/Glow';
 import { Text } from '../../components/Text';
 import { greeting, peopleInRooms, timeWord } from '../../lib/timeOfDay';
 import { roomStats } from '../../rooms/api';
-import { doorColors, effects, opacity, radius, size, space, useColors } from '../../theme';
+import { doorColors, opacity, radius, size, space, useColors } from '../../theme';
 
 export type DoorName = 'support' | 'play' | 'talk' | 'learn' | 'people';
 
@@ -147,18 +148,7 @@ export function HomeScreen({ me, onOpen, onOpenMe }: Props) {
               opacity: pressed ? opacity.pressed : 1,
             })}
           >
-            <View
-              pointerEvents="none"
-              style={{
-                position: 'absolute',
-                left: -size.supportLine / 2,
-                top: -size.supportLine / 2,
-                width: size.supportLine * 2,
-                height: size.supportLine * 2,
-                borderRadius: radius.pill,
-                backgroundColor: effects.roomGlowEdge,
-              }}
-            />
+            <Glow diameter={size.supportLine * 4} centerX={space[4] + size.iconButton / 2} centerY={size.supportLine / 2} />
             <View
               style={{
                 width: size.iconButton,

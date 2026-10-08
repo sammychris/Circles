@@ -143,26 +143,17 @@ export function AfterRoomScreen({ me, summary, onDone }: Props) {
         ) : null}
 
         {people.length > 0 ? (
-          <View
-            style={{
-              flexDirection: 'row',
-              alignItems: 'center',
-              gap: space[3],
-              paddingTop: space[5],
-              borderTopWidth: border.hairline,
-              borderTopColor: colors.divider,
-              flexWrap: 'wrap',
-            }}
-          >
-            <Text variant="heading" style={{ flex: 1, minWidth: size.rowAction * 1.5 }}>
-              Was everyone kind?
-            </Text>
-            <Button
-              label={kind ? 'Thanks' : 'Yes'}
-              icon={kind ? <Check size={size.iconMeta} color={colors.text} strokeWidth={size.iconStroke} /> : undefined}
-              onPress={() => setKind(true)}
-            />
-            <Button label="Report someone" variant="quiet" onPress={() => setReportOpen(true)} />
+          <View style={{ gap: space[3], paddingTop: space[5], borderTopWidth: border.hairline, borderTopColor: colors.divider }}>
+            <Text variant="heading">Was everyone kind?</Text>
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: space[3] }}>
+              <Button
+                label={kind ? 'Thanks' : 'Yes'}
+                icon={kind ? <Check size={size.iconMeta} color={colors.text} strokeWidth={size.iconStroke} /> : undefined}
+                onPress={() => setKind(true)}
+                style={{ width: size.rowAction }}
+              />
+              <Button label="Report someone" variant="quiet" onPress={() => setReportOpen(true)} />
+            </View>
           </View>
         ) : null}
       </ScrollView>

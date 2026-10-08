@@ -3,10 +3,11 @@ import { Pressable, View } from 'react-native';
 import { Heart, Lock, Phone } from 'lucide-react-native';
 import { Button } from '../../components/Button';
 import { DoorLayout } from '../../components/DoorLayout';
+import { Glow } from '../../components/Glow';
 import { HelpModal } from '../../components/HelpModal';
 import { Text } from '../../components/Text';
 import { supportStatus, type RoomRequest } from '../../rooms/api';
-import { effects, radius, size, space, useColors } from '../../theme';
+import { radius, size, space, useColors } from '../../theme';
 
 type Props = { onBack: () => void; onEnter: (request: RoomRequest) => void };
 
@@ -49,15 +50,7 @@ export function SupportDoorScreen({ onBack, onEnter }: Props) {
       header={
         <View style={{ alignItems: 'center', gap: space[4] }}>
           <View style={{ width: size.avatarRoom * 2, height: size.avatarRoom * 2, alignItems: 'center', justifyContent: 'center' }}>
-            <View
-              style={{
-                position: 'absolute',
-                width: size.avatarRoom * 2,
-                height: size.avatarRoom * 2,
-                borderRadius: radius.pill,
-                backgroundColor: effects.roomGlowEdge,
-              }}
-            />
+            <Glow diameter={size.avatarRoom * 3} centerX={size.avatarRoom} centerY={size.avatarRoom} />
             <View
               style={{
                 width: size.avatarRoom,

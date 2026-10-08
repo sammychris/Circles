@@ -4,11 +4,12 @@ import { EyeOff, Shield, Users } from 'lucide-react-native';
 import type { ComponentType } from 'react';
 import { Avatar } from '../components/Avatar';
 import { Button } from '../components/Button';
+import { Glow } from '../components/Glow';
 import { ErrorLine } from '../components/ErrorLine';
 import { Text } from '../components/Text';
 import { EMAIL_ENABLED } from '../config';
 import { seatPoints } from '../lib/seats';
-import { effects, radius, roomGlowScale, size, space, speaking, useColors } from '../theme';
+import { radius, roomGlowScale, size, space, speaking, useColors } from '../theme';
 
 const SAMPLE = ['Tolu', 'Ada', 'Chi', 'Bayo', 'Q'];
 const RING_RADIUS = size.welcomeRing / 2;
@@ -26,17 +27,7 @@ function LampDrawing() {
       importantForAccessibility="no-hide-descendants"
       style={{ width: STAGE, height: STAGE, alignSelf: 'center' }}
     >
-      <View
-        style={{
-          position: 'absolute',
-          left: centre - glow / 2,
-          top: centre - glow / 2,
-          width: glow,
-          height: glow,
-          borderRadius: radius.pill,
-          backgroundColor: effects.roomGlow,
-        }}
-      />
+      <Glow diameter={glow * 2} centerX={centre} centerY={centre} />
       {SAMPLE.map((name, i) => {
         const isSpeaking = i === 0;
         const ring = isSpeaking ? speaking.gap + speaking.ring : 0;

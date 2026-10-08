@@ -139,7 +139,7 @@ export const effects = {
 } as const;
 
 // The ring around whoever is speaking: a gap in the background colour, then a ring, then a soft glow.
-export const speaking = { gap: 4, ring: 3, glow: 14 } as const;
+export const speaking = { gap: 4, ring: 3, glow: 14, glowStrength: 2.5 } as const;
 
 export const sheetHandle = { width: 40, height: 4 } as const;
 
@@ -166,3 +166,13 @@ export const teamColors = {
 } as const;
 
 export const ludo = { board: 280, token: 14, baseToken: 20, die: 56, pip: 10 } as const;
+
+// shadow.roomGlow as gradient stops (radial: 20% → 6% at 45% → 0 at 70%).
+export const glowStops = Object.assign(
+  [
+    { offset: '0%', opacity: 0.2 },
+    { offset: '45%', opacity: 0.06 },
+    { offset: '70%', opacity: 0 },
+  ],
+  { color: night.ember },
+);

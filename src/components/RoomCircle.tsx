@@ -7,6 +7,7 @@ import { assignSeats, seatPoints, seatsOpenText } from '../lib/seats';
 import { border, effects, motion, opacity, radius, roomGlowScale, size, space, speaking, useColors } from '../theme';
 import type { Person } from '../voice/useVoiceRoom';
 import { Avatar } from './Avatar';
+import { Glow } from './Glow';
 import { Text } from './Text';
 
 const RADIUS = size.roomRing / 2;
@@ -26,6 +27,7 @@ function seatLabel(p: Person): string {
 }
 
 function SpeakingGlow({ on, reduceMotion }: { on: boolean; reduceMotion: boolean }) {
+  const colors = useColors();
   const pulse = useRef(new Animated.Value(0)).current;
 
   useEffect(() => {
@@ -44,21 +46,21 @@ function SpeakingGlow({ on, reduceMotion }: { on: boolean; reduceMotion: boolean
   }, [on, reduceMotion, pulse]);
 
   if (!on) return null;
-  const grown = size.avatarRoom + (speaking.gap + speaking.ring + speaking.glow) * 2;
+  const grown = (size.avatarRoom + (speaking.gap + speaking.ring + speaking.glow) * 2) * 1.6;
   return (
     <Animated.View
       pointerEvents="none"
       style={{
         position: 'absolute',
+        left: size.avatarRoom / 2 - grown / 2,
+        top: size.avatarRoom / 2 - grown / 2,
         width: grown,
         height: grown,
-        borderRadius: radius.pill,
-        backgroundColor: effects.liveGlow,
         opacity: reduceMotion ? 1 : pulse.interpolate({ inputRange: [0, 1], outputRange: [opacity.glowLow, 1] }),
-        top: -(speaking.gap + speaking.ring + speaking.glow),
-        left: -(speaking.gap + speaking.ring + speaking.glow),
       }}
-    />
+    >
+      <Glow diameter={grown} centerX={grown / 2} centerY={grown / 2} color={colors.live} strength={speaking.glowStrength} />
+    </Animated.View>
   );
 }
 
@@ -227,25 +229,18 @@ export function RoomCircle({ people, capacity = ROOM_CAPACITY, emptyHint, centre
           borderColor: colors.raised,
         }}
       />
+      <Glow diameter={size.roomRing} centerX={CENTRE.x} centerY={CENTRE.y} />
       <View
-        pointerEvents="none"
+        pointerEvents="box-none"
         style={{
           position: 'absolute',
-          left: CENTRE.x - (RADIUS * roomGlowScale.edge) / 2,
-          top: CENTRE.y - (RADIUS * roomGlowScale.edge) / 2,
-          width: RADIUS * roomGlowScale.edge,
-          height: RADIUS * roomGlowScale.edge,
-          borderRadius: radius.pill,
-          backgroundColor: effects.roomGlowEdge,
-        }}
-      />
-      <View
-        style={{
-          position: 'absolute',
-          left: CENTRE.x - (RADIUS * roomGlowScale.core) / 2,
-          top: CENTRE.y - space[6],
-          width: RADIUS * roomGlowScale.core,
+          left: CENTRE.x - RADIUS,
+          top: CENTRE.y - RADIUS,
+          width: RADIUS * 2,
+          height: RADIUS * 2,
           alignItems: 'center',
+          justifyContent: 'center',
+          paddingHorizontal: size.avatarRoom / 2,
         }}
       >
         {centre ? (
