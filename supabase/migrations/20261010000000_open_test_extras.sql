@@ -98,3 +98,34 @@ $$;
 
 revoke all on function public.add_report_evidence(text, text) from public, anon;
 grant execute on function public.add_report_evidence(text, text) to authenticated;
+
+-- Photos on the table ----------------------------------------------------------------------------
+-- A private bucket. Each person uploads only into their own folder (<user id>/<room id>/…), and shares
+-- photos as signed links that stop working after 3 hours. The room server deletes photos a few hours
+-- after they were put on the table, except ones attached to a report.
+insert into storage.buckets (id, name, public, file_size_limit, allowed_mime_types)
+values ('table', 'table', false, 2097152, array['image/jpeg'])
+on conflict (id) do update set public = false, file_size_limit = 2097152, allowed_mime_types = array['image/jpeg'];
+
+drop policy if exists "table photos: upload own" on storage.objects;
+drop policy if exists "table photos: read own" on storage.objects;
+drop policy if exists "table photos: remove own" on storage.objects;
+create policy "table photos: upload own" on storage.objects for insert to authenticated
+  with check (bucket_id = 'table' and (storage.foldername(name))[1] = auth.uid()::text);
+create policy "table photos: read own" on storage.objects for select to authenticated
+  using (bucket_id = 'table' and (storage.foldername(name))[1] = auth.uid()::text);
+create policy "table photos: remove own" on storage.objects for delete to authenticated
+  using (bucket_id = 'table' and (storage.foldername(name))[1] = auth.uid()::text);
+
+-- Which photos exist and when, so the room server can delete them.
+create table if not exists public.table_photos (
+  path text primary key,
+  user_id uuid references auth.users (id) on delete set null,
+  room_id text,
+  created_at timestamptz not null default now()
+);
+alter table public.table_photos enable row level security;
+drop policy if exists "table photos: note own" on public.table_photos;
+create policy "table photos: note own" on public.table_photos for insert to authenticated
+  with check (auth.uid() = user_id and split_part(path, '/', 1) = auth.uid()::text);
+create index if not exists table_photos_age on public.table_photos (created_at);

@@ -52,4 +52,15 @@ module.exports = async ({ users, as, fails, check, assert, db }) => {
     const again = (await db.query("select evidence from public.reports where room_id = 'room-t'")).rows[0];
     assert(!again.evidence.includes('fake'));
   });
+
+  await check('photos: people upload only into their own folder, and can read only their own', async () => {
+    await as(users.ada, "insert into storage.objects (bucket_id, name, owner) values ('table', $1, $2)", [`${users.ada}/r1/a.jpg`, users.ada]);
+    await fails(as(users.ada, "insert into storage.objects (bucket_id, name, owner) values ('table', $1, $2)", [`${users.bayo}/r1/b.jpg`, users.ada]), 'row-level security');
+    assert.strictEqual((await as(users.bayo, "select * from storage.objects where bucket_id = 'table'")).rows.length, 0);
+    await as(users.ada, 'insert into public.table_photos (path, user_id, room_id) values ($1, $2, $3)', [`${users.ada}/r1/a.jpg`, users.ada, 'r1']);
+    await fails(as(users.ada, 'insert into public.table_photos (path, user_id, room_id) values ($1, $2, $3)', [`${users.bayo}/r1/x.jpg`, users.ada, 'r1']), 'row-level security');
+    assert.strictEqual((await as(users.ada, 'select * from public.table_photos')).rows.length, 0);
+    const bucket = (await db.query("select public from storage.buckets where id = 'table'")).rows[0];
+    assert.strictEqual(bucket.public, false);
+  });
 };

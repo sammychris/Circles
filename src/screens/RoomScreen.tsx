@@ -25,7 +25,9 @@ import { useImpostor } from '../games/impostor/useImpostor';
 import { NoteSheet, VideoSheet } from '../components/table/ComposeSheets';
 import { PutOnTableSheet, type TableChoice } from '../components/table/PutOnTableSheet';
 import { NoteBody, SeatRow, TableCard, TableOptionsSheet } from '../components/table/TableCard';
+import { PhotosBody } from '../components/table/PhotosBody';
 import { WatchBody } from '../components/table/WatchBody';
+import { pickAndUploadPhotos } from '../table/photos';
 import { describeItem, findLink } from '../table/model';
 import { useTable } from '../table/useTable';
 import { PHOTO_URL_START, SHOW_TEST_NUMBERS, WEB_URL } from '../config';
@@ -118,6 +120,7 @@ export function RoomScreen({ me, request, onLeft, onMove }: Props) {
   const [putOpen, setPutOpen] = useState(false);
   const [compose, setCompose] = useState<'note' | 'video' | null>(null);
   const [tableOptionsOpen, setTableOptionsOpen] = useState(false);
+  const [photosBusy, setPhotosBusy] = useState(false);
   const [wordHidden, setWordHidden] = useState(false);
   // A new round starts with the word showing.
   const impostorRoundId = impostor.round?.roundId;
@@ -489,6 +492,8 @@ export function RoomScreen({ me, request, onLeft, onMove }: Props) {
         else impostor.startGame(everyone);
       } else if (choice === 'note' || choice === 'video') {
         setTimeout(() => setCompose(choice), motion.slow);
+      } else if (choice === 'photos') {
+        setTimeout(() => void putPhotos(), motion.slow);
       }
     });
   }
@@ -500,6 +505,9 @@ export function RoomScreen({ me, request, onLeft, onMove }: Props) {
         <SeatRow people={people} onPerson={(p) => setProfile({ id: p.id, nickname: p.nickname, isHost: p.isHost })} />
         <TableCard item={item} me={me.id} onOptions={() => setTableOptionsOpen(true)}>
           {item.kind === 'note' ? <NoteBody item={item} /> : null}
+          {item.kind === 'photos' ? (
+            <PhotosBody key={item.id} item={item} state={tableItem.state} mine={tableItem.mine} onPresent={tableItem.present} />
+          ) : null}
           {item.kind === 'video' ? (
             <WatchBody
               key={item.id}
@@ -513,6 +521,15 @@ export function RoomScreen({ me, request, onLeft, onMove }: Props) {
         </TableCard>
       </View>
     );
+  }
+
+  async function putPhotos() {
+    if (!room || photosBusy) return;
+    setPhotosBusy(true);
+    const result = await pickAndUploadPhotos(me.id, room.id);
+    setPhotosBusy(false);
+    if ('photos' in result) void tableItem.put({ kind: 'photos', photos: result.photos }, { index: 0 });
+    else if ('error' in result) setToast(result.error);
   }
 
   // One game on the table at a time. Whoever started it can end it; if they've left, anyone can.
@@ -692,6 +709,12 @@ export function RoomScreen({ me, request, onLeft, onMove }: Props) {
               <X size={size.iconMeta} color={colors.textSoft} strokeWidth={size.iconStroke} />
             </Pressable>
           </View>
+        ) : null}
+
+        {photosBusy ? (
+          <Text variant="meta" color="textSoft" center accessibilityLiveRegion="polite">
+            Getting your photos ready…
+          </Text>
         ) : null}
 
         {status === 'reconnecting' ? (

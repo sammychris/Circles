@@ -54,3 +54,18 @@ describe('the table', () => {
     expect(videoPositionNow({ seq: 1, playing: false, position: 10, sentAt: 1000 }, 6000)).toBe(10);
   });
 });
+
+jest.mock('expo-image-picker', () => ({}));
+jest.mock('expo-image-manipulator', () => ({ ImageManipulator: {}, SaveFormat: {} }));
+jest.mock('../src/lib/supabase', () => ({ supabase: {} }));
+
+describe('photo upload helpers', () => {
+  it('turns base64 into the same bytes as the standard decoder', () => {
+    // eslint-disable-next-line @typescript-eslint/no-require-imports
+    const { base64ToBytes } = require('../src/table/photos') as typeof import('../src/table/photos');
+    for (const text of ['', 'a', 'ab', 'abc', 'hello world', 'Ọmọ 😄']) {
+      const b64 = Buffer.from(text, 'utf8').toString('base64');
+      expect(Array.from(base64ToBytes(b64))).toEqual(Array.from(Buffer.from(text, 'utf8')));
+    }
+  });
+});
