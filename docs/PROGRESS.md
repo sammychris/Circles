@@ -4,9 +4,9 @@ Claude Code updates this file at the end of every build step. Newest entries at 
 
 ## Current step
 
-**Step 2 (easy sign-up for the open test): code written and checked, waiting for Sammy's Supabase setup and phone test.** Next: Step 2b (Block, Report, removing someone), which must be done before the open test starts.
+**Step 2 (easy sign-up for the open test): code written and checked, Supabase set up (2026-10-08). Waiting for Sammy's phone test.** Next: Step 2b (Block, Report, removing someone), which must be done before the open test starts.
 
-Built: Welcome; Get started makes an account straight away (Supabase anonymous account); the 18+ question (with the under-18 stop screen); the nickname screen; optional "Add your email" (same account, keeps the nickname); "I already have an account" signs back in with that email; Log out warns people who have no email that they'll lose the account. The database has a private `birth_dates` table (owner-only, set once) and two server functions (`set_date_of_birth`, `set_nickname`) that enforce the rules. The voice function only gives a ticket to people with a nickname who passed the 18+ question.
+Built: Welcome; Get started makes an account straight away (Supabase anonymous account); the 18+ question (with the under-18 stop screen); the nickname screen; Log out warns that the account can't be recovered. Email ("Add your email", "I already have an account") is built but switched off until later. The database has a private `birth_dates` table (owner-only, set once) and two server functions (`set_date_of_birth`, `set_nickname`) that enforce the rules. The voice function only gives a ticket to people with a nickname who passed the 18+ question.
 
 Still open from Step 1: a test with a friend in another place on their own mobile data (the Lagos mobile-data check, and a proper echo check).
 
@@ -37,14 +37,21 @@ Setup notes:
 - Expo: project `@sammychris/circles`. The three public values (`EXPO_PUBLIC_SUPABASE_URL`, `EXPO_PUBLIC_SUPABASE_ANON_KEY`, `EXPO_PUBLIC_LIVEKIT_URL`) are stored in EAS for the `development` environment. Build with `npx eas-cli build --profile preview --platform android`.
 - The `preview` build runs on its own; the `development` build needs Sammy's computer on the same Wi-Fi, so use `preview` for phone tests.
 
+## Later: email (one of the last things, when Sammy says)
+
+Email is built but switched off (`EMAIL_ENABLED = false` in `src/config.ts`). When Sammy wants it:
+1. Supabase › Authentication › Emails: in the templates "Magic Link", "Change Email Address" and "Confirm signup", put the code `{{ .Token }}` in the message (the app asks for a code, not a link).
+2. Set up a free email-sending service (custom SMTP) in Supabase. The built-in one only sends to the project team's own addresses, a few an hour.
+3. Turn `EMAIL_ENABLED` on, build, test "Add your email" and "I already have an account".
+4. Then decide when email (and later phone) becomes required.
+
 ## Notes for later steps
 
 - Sammy pasted the LiveKit API secret and the Supabase database password into a chat with Claude. Nothing was saved from them. Reset both on their websites after testing (LiveKit: Settings › Keys, make a new key and update the Supabase secrets; Supabase: Project Settings › Database › Reset password).
-- Supabase settings Step 2 relies on: **anonymous sign-ins ON** (open test), **Confirm email ON** (so an added email is really theirs), and the email templates "Magic Link" and "Change Email Address" must include the code (`{{ .Token }}`).
+- Supabase settings Step 2 relies on: **anonymous sign-ins ON** (open test) and **Confirm email ON**.
 - Supabase allows about 30 new anonymous accounts per hour from one internet address. Nigerian mobile networks put many people behind one address, so raise this limit (Authentication › Rate Limits) before publicising the open test.
 - During the open test the 18+ question and bans are easy to get around (a new account takes seconds). Sammy accepted this for the test; email and phone checks come later.
 - The join-time numbers under the room circle (`SHOW_TEST_NUMBERS` in `src/config.ts`) stay on until the mobile-data test with a friend is done, then turn off before real users.
-- Supabase's built-in email only sends to the project team's own addresses, a few an hour. Before anyone else signs up, set up a free email-sending service (custom SMTP) in Supabase.
 - Before publicising the open test: Terms and Privacy pages (the Welcome screen mentions them; people give a date of birth and maybe an email).
 - Youth helpline: `src/content/helplines.ts` is empty until Sammy gives a real, checked number. Until then the under-18 screen says to talk to a trusted adult. Any EAS build (preview or production) refuses to build while bracketed placeholder text is in `src/`.
 - Leftover accounts: people who log out without an email, or tap Back on the 18+ or nickname screen, leave an anonymous account (with its private date of birth) behind. Plan a cleanup, e.g. delete anonymous accounts with no nickname or no email after 30 days.

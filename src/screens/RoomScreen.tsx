@@ -8,7 +8,7 @@ import { MicAskSheet, MicBlockedSheet } from '../components/MicSheets';
 import { RoomCircle } from '../components/RoomCircle';
 import { Text } from '../components/Text';
 import { Toast } from '../components/Toast';
-import { ROOM_CAPACITY, SHOW_TEST_NUMBERS } from '../config';
+import { EMAIL_ENABLED, ROOM_CAPACITY, SHOW_TEST_NUMBERS } from '../config';
 import { formatJoinTime } from '../lib/seats';
 import { micPermissionGranted, requestMicPermission } from '../voice/foregroundService';
 import { useVoiceRoom } from '../voice/useVoiceRoom';
@@ -211,7 +211,7 @@ export function RoomScreen({ nickname, hasEmail, emailJustAdded, onAddEmail, onL
             )}
             {room.status !== 'connecting' ? (
               <>
-                {!hasEmail ? <Button label="Add your email" variant="quiet" onPress={onAddEmail} /> : null}
+                {EMAIL_ENABLED && !hasEmail ? <Button label="Add your email" variant="quiet" onPress={onAddEmail} /> : null}
                 <Button label="Log out" variant="quiet" onPress={onLogOut} />
               </>
             ) : null}

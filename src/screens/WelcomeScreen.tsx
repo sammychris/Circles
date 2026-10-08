@@ -6,6 +6,7 @@ import { Avatar } from '../components/Avatar';
 import { Button } from '../components/Button';
 import { ErrorLine } from '../components/ErrorLine';
 import { Text } from '../components/Text';
+import { EMAIL_ENABLED } from '../config';
 import { seatPoints } from '../lib/seats';
 import { effects, radius, roomGlowScale, size, space, speaking, useColors } from '../theme';
 
@@ -104,7 +105,9 @@ export function WelcomeScreen({ onStart, onHaveAccount, starting, error }: Props
       <View style={{ paddingHorizontal: space.gutter, paddingBottom: space[4], gap: space[3] }}>
         {error ? <ErrorLine message={error} /> : null}
         <Button label="Get started" variant="primary" loading={starting} onPress={onStart} />
-        <Button label="I already have an account" variant="quiet" disabled={starting} onPress={onHaveAccount} />
+        {EMAIL_ENABLED ? (
+          <Button label="I already have an account" variant="quiet" disabled={starting} onPress={onHaveAccount} />
+        ) : null}
         <Text variant="meta" color="textMeta" center>
           By continuing you agree to our Terms and Privacy Policy. 18+ only.
         </Text>

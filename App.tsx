@@ -39,8 +39,8 @@ function confirmSignOut(hasEmail: boolean) {
     return;
   }
   Alert.alert(
-    'Log out without an email?',
-    "You haven't added an email, so you won't be able to get this account or nickname back.",
+    'Log out?',
+    "You won't be able to get this account or nickname back after you log out.",
     [
       { text: 'Stay', style: 'cancel' },
       { text: 'Log out', style: 'destructive', onPress: signOut },
