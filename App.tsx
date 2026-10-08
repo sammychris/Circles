@@ -238,7 +238,7 @@ function SignedIn({
       if (screen.door === 'play') {
         return <PlayDoorScreen onBack={home} onEnter={enter} onStart={() => setScreen({ name: 'start', door: 'play' })} />;
       }
-      if (screen.door === 'people') return <PeopleScreen onBack={home} />;
+      if (screen.door === 'people') return <PeopleScreen nickname={nickname} onBack={home} onEnter={enter} />;
       return <LearnScreen onBack={home} onEnter={enter} />;
     default:
       return (

@@ -1,5 +1,8 @@
 import { useEffect, useState } from 'react';
 import { View } from 'react-native';
+import { Button } from '../../components/Button';
+import { WEB_URL } from '../../config';
+import type { RoomRequest } from '../../rooms/api';
 import { Lock } from 'lucide-react-native';
 import { Avatar } from '../../components/Avatar';
 import { DoorLayout } from '../../components/DoorLayout';
@@ -8,7 +11,10 @@ import { myConnections, type PersonRef } from '../../lib/people';
 import { size, space, useColors } from '../../theme';
 
 // "My people": the people you saved who saved you too. Only the two of you ever see a connection.
-export function PeopleScreen({ onBack }: { onBack: () => void }) {
+type Props = { nickname: string; onBack: () => void; onEnter: (r: RoomRequest) => void };
+
+// "Start a room with friends" opens an invite-only room and the share menu (doors.md › My people).
+export function PeopleScreen({ nickname, onBack, onEnter }: Props) {
   const colors = useColors();
   const [people, setPeople] = useState<PersonRef[] | null>(null);
   const [failed, setFailed] = useState(false);
@@ -20,7 +26,28 @@ export function PeopleScreen({ onBack }: { onBack: () => void }) {
   }, []);
 
   return (
-    <DoorLayout title="My people" line="People you saved who saved you too." onBack={onBack}>
+    <DoorLayout
+      title="My people"
+      line="People you saved who saved you too."
+      onBack={onBack}
+      footer={
+        <>
+          <Button
+            label="Start a room with friends"
+            variant="primary"
+            disabled={!WEB_URL}
+            onPress={() =>
+              onEnter({ kind: 'create', door: 'talk', title: `${nickname} and friends`, topic: null, capacity: 6, private: true })
+            }
+          />
+          <Text variant="meta" color="textMeta" center>
+            {WEB_URL
+              ? 'Only people you send the link to can join. It opens now, with you in it.'
+              : 'Comes once the web version of Circles is online, so invite links work.'}
+          </Text>
+        </>
+      }
+    >
       {failed ? (
         <Text variant="body" color="textSoft">
           We couldn't load your people. Check that you're online.
@@ -37,9 +64,6 @@ export function PeopleScreen({ onBack }: { onBack: () => void }) {
               <Text variant="bodyStrong">{p.nickname}</Text>
             </View>
           ))}
-          <Text variant="meta" color="textMeta">
-            Rooms with friends are coming soon.
-          </Text>
         </View>
       )}
       <View style={{ flexDirection: 'row', alignItems: 'center', gap: space[3] }}>

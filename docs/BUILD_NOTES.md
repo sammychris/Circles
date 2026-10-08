@@ -293,3 +293,13 @@ Then on each phone: open Circles, close it fully (swipe it away), and open it ag
 - [ ] Raise again, then **Not now**: their hand comes down with the message.
 - [ ] Tap their seat, then **Mute**: they're muted and told. They can unmute.
 - [ ] Tap their seat, then **Remove from room**, then **Unkind or insulting**, then **Remove**. They see the removed screen and can't get back in with **Come in**.
+
+---
+
+## 9. My people: Start a room with friends
+
+**What I built:** an ember **Start a room with friends** button on My people. It opens an invite-only Talk room called "YourNickname and friends", with you in it, and your share menu opens so you can send the link.
+
+**Choices I made (open to change)**
+- **It needs the web version online, like every invite.** Until then the button is greyed out and says why.
+- **Not built yet:** "On now", which shows which friends are online and in what room. It needs privacy settings first ("Show friends when I'm online" and "Show which room I'm in"). I'd rather build those carefully, never showing support rooms, than rush it.
