@@ -5,6 +5,7 @@
 //   { action: 'stats' }                               how many people are in rooms right now (support rooms not counted)
 //   { action: 'support' }                             whether a trained host is in a support room (yes/no only)
 //   { action: 'delete_account' }                      deletes the person's own account and everything tied to it
+//   { action: 'preview', roomId }                     a room link's title and seat count, before signing up
 // Secrets (set in Supabase, never in the app): LIVEKIT_API_KEY, LIVEKIT_API_SECRET, LIVEKIT_URL.
 import { createClient } from 'npm:@supabase/supabase-js@2';
 import { AccessToken, RoomServiceClient } from 'npm:livekit-server-sdk@2';
@@ -87,6 +88,39 @@ Deno.serve(async (req) => {
   const livekitUrl = Deno.env.get('LIVEKIT_URL');
   if (!apiKey || !apiSecret || !livekitUrl) return json({ error: 'Voice is not set up yet' }, 500);
 
+  const service = new RoomServiceClient(livekitUrl.replace(/^wss:/, 'https:'), apiKey, apiSecret);
+  const admin = createClient(Deno.env.get('SUPABASE_URL')!, Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!);
+
+  let body: Record<string, unknown> = {};
+  try {
+    body = await req.json();
+  } catch {
+    return json({ error: 'Bad request' }, 400);
+  }
+
+  // A room link, before the visitor has an account (docs/design/pages/link-first.md › Link preview).
+  // Only the room's title and how many seats are taken: never who is in it. Support rooms are never
+  // shown by link (CLAUDE.md, Never list), so they look like a room that has ended.
+  if (body.action === 'preview') {
+    const { data: room } = await admin
+      .from('rooms')
+      .select('id, door, mood, title, capacity, status, livekit_room_name')
+      .eq('id', String(body.roomId ?? ''))
+      .maybeSingle();
+    if (!room || room.door === 'support' || room.status !== 'open') return json({ status: 'ended' });
+    let here = 0;
+    try {
+      here = (await service.listParticipants(room.livekit_room_name)).length;
+    } catch {
+      here = 0;
+    }
+    return json({
+      status: 'open',
+      room: { id: room.id, door: room.door, mood: room.mood, title: room.title, capacity: room.capacity },
+      here,
+    });
+  }
+
   // 1. Who is asking? Use their own sign-in, so Row Level Security applies to what we read for them.
   const authHeader = req.headers.get('Authorization') ?? '';
   const supabase = createClient(Deno.env.get('SUPABASE_URL')!, Deno.env.get('SUPABASE_ANON_KEY')!, {
@@ -96,18 +130,8 @@ Deno.serve(async (req) => {
   if (userError || !userData.user) return json({ error: 'Please sign in' }, 401);
   const user = userData.user;
 
-  // The server's own key, for things people can't read themselves: bans, hosts, other people's blocks.
-  const admin = createClient(Deno.env.get('SUPABASE_URL')!, Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!);
-
-  let body: Record<string, unknown> = {};
-  try {
-    body = await req.json();
-  } catch {
-    return json({ error: 'Bad request' }, 400);
-  }
+  // `admin` (the server's own key) reads what people can't read themselves: bans, hosts, others' blocks.
   const action = String(body.action ?? (body.roomId ? 'join' : ''));
-
-  const service = new RoomServiceClient(livekitUrl.replace(/^wss:/, 'https:'), apiKey, apiSecret);
 
   // Who is in each LiveKit room right now, by room name. A room nobody is in doesn't exist in LiveKit.
   async function peopleIn(names: string[]): Promise<Map<string, string[]>> {

@@ -26,3 +26,45 @@ Each part ends with **What you need to do**, if anything.
 3. Tell me which region your Supabase project is in (Supabase › Project Settings › General › Region), so the "stored outside Nigeria" line is exact.
 4. Before a wide launch, ask a Nigerian lawyer to check both pages. These are good, honest drafts, but I'm not a lawyer.
 5. The Google Play Store needs the Privacy Policy at a public web address. Once the web version is online (part 2), it'll be at `/privacy` on that address.
+
+---
+
+## 2. Join from a link
+
+**What I built**
+- **Invite** at the top left of a room. It opens your phone's share menu (WhatsApp and so on) with a message like "Come and talk with me on Circles: https://…/?room=…&by=YourNickname".
+- **The link page** (`docs/screens/16-join-from-a-link.png`): "Ada_K invited you to", the room's name, how many people are there, then **Join in your browser**.
+- **Joining:** they answer the 18+ question, pick a nickname, and go straight into that room. The room works in the browser too, with Report, Block, Leave and help.
+- **If the room has ended:** the page says "This room has ended" and offers **Find a room**.
+- **Phones with the app:** they open `circles://r/<room>` links straight in the app, and the link page has **Open in the Circles app**.
+- **Your legal pages** have web addresses too: `/?page=privacy` and `/?page=terms`. You can give those to the Play Store.
+
+**Choices I made (open to change)**
+- **No Invite for support rooms, ever.** Nobody can be shown to be in one, and a link to one shows "This room has ended".
+- **The link page shows how many people are in the room, never who.** The visitor hasn't met them yet. Taken seats are plain, without names.
+- **The link carries your nickname** (`by=`), so your friend sees who invited them. It's never your real name.
+- **Links look like `/?room=…`** rather than `/r/…`, so they work on any simple web host. The app still understands `/r/…` links.
+- **No text code in the browser**, because the open test has no phone check. It's the same sign-up as the app.
+- **In the browser, a small note** says "Keep this tab open. If your screen locks, the sound may stop." Phone browsers can do that, and the app doesn't.
+- **The Invite button stays hidden until the web version is online**, so nobody shares a link that doesn't work yet.
+
+**What you need to do: put the web version online (about 10 minutes, free)**
+
+Expo, which you already use, can host the web version. In PowerShell, in your `Circles_app` folder, after `git pull`:
+
+1. Copy the three public values Expo already has into a local file:
+   ```
+   npx eas-cli env:pull --environment development
+   ```
+2. Build the web version:
+   ```
+   npx expo export --platform web
+   ```
+3. Put it online. The first time, it asks you to choose a name; type `circles` or similar:
+   ```
+   npx eas-cli deploy --prod
+   ```
+   At the end it prints your web address, something like `https://circles.expo.app`. **Send it to me.**
+4. I'll then give you one command to store that address. After that, you rebuild the app and run steps 2 and 3 again, so the **Invite** button appears in both the app and the browser.
+
+I couldn't run these commands from the cloud, because the network here blocks Expo's servers. If any step prints something unexpected, paste it to me.

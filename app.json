@@ -35,7 +35,8 @@
       "predictiveBackGestureEnabled": false
     },
     "web": {
-      "favicon": "./assets/favicon.png"
+      "favicon": "./assets/favicon.png",
+      "output": "single"
     },
     "plugins": [
       "expo-dev-client",
@@ -48,6 +49,7 @@
         }
       ],
       "./plugins/withMicForegroundService"
-    ]
+    ],
+    "scheme": "circles"
   }
 }

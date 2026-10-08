@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { AppState, Linking, Platform, Pressable, ScrollView, View } from 'react-native';
+import { AppState, Linking, Platform, Pressable, ScrollView, Share, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { Dice5, Eye, EyeOff, Flag, Heart, LogOut, Shield, X } from 'lucide-react-native';
+import { Dice5, Eye, EyeOff, Flag, Heart, LogOut, Share2, Shield, X } from 'lucide-react-native';
 import { BlockSheet } from '../components/BlockSheet';
 import { Button } from '../components/Button';
 import { Chip } from '../components/Chip';
@@ -22,7 +22,8 @@ import { ImpostorTable } from '../games/impostor/ImpostorTable';
 import { ROUNDS_PER_GAME, phaseAt as impostorPhase } from '../games/impostor/logic';
 import { useImpostor } from '../games/impostor/useImpostor';
 import { GameSheet } from '../components/GameSheet';
-import { SHOW_TEST_NUMBERS } from '../config';
+import { SHOW_TEST_NUMBERS, WEB_URL } from '../config';
+import { roomLink } from '../lib/links';
 import { mySavedIds, savePerson, unsavePerson } from '../lib/people';
 import { listBlocked, type Blocked } from '../lib/safety';
 import { formatJoinTime } from '../lib/seats';
@@ -67,6 +68,8 @@ export function RoomScreen({ me, request, onLeft, onMove }: Props) {
   const [helpOpen, setHelpOpen] = useState(false);
   const onOpenHelp = useCallback(() => setHelpOpen(true), []);
   const clearToast = useCallback(() => setToast(null), []);
+  // Web only, once per room: browsers may cut the sound when the screen locks (link-first.md › The room).
+  const [tabNoteOpen, setTabNoteOpen] = useState(Platform.OS === 'web');
   const [reportPerson, setReportPerson] = useState<SheetPerson | null>(null);
   const [saved, setSaved] = useState<Set<string>>(new Set());
   const [everLive, setEverLive] = useState(false);
@@ -382,17 +385,55 @@ export function RoomScreen({ me, request, onLeft, onMove }: Props) {
     }
   }
 
+  // Invite: share this room's link. Never for support rooms (CLAUDE.md, Never list), and only once the
+  // web version is online, so the link works for people without the app.
+  const canInvite = connected && !!room && room.door !== 'support' && !!WEB_URL;
+  const invite = async () => {
+    if (!room) return;
+    const link = roomLink(WEB_URL, room.id, me.nickname);
+    const message = `Come and talk with me on Circles: ${link}`;
+    try {
+      if (Platform.OS === 'web') {
+        const nav = typeof navigator !== 'undefined' ? navigator : undefined;
+        if (nav?.share) await nav.share({ text: message });
+        else {
+          await nav?.clipboard?.writeText(link);
+          setToast('Link copied. Paste it to a friend.');
+        }
+      } else {
+        await Share.share({ message });
+      }
+    } catch {
+      // They closed the share sheet.
+    }
+  };
+
   return (
     <SafeAreaView style={{ flex: 1, backgroundColor: colors.bg }}>
       <View
         style={{
           flexDirection: 'row',
           alignItems: 'center',
-          justifyContent: 'flex-end',
+          justifyContent: 'space-between',
           paddingHorizontal: space.gutter,
           minHeight: size.minTarget,
         }}
       >
+        {canInvite ? (
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel="Invite someone to this room"
+            onPress={() => void invite()}
+            style={{ minHeight: size.minTarget, minWidth: size.minTarget, flexDirection: 'row', alignItems: 'center', gap: space[2] }}
+          >
+            <Share2 size={size.iconMeta} color={colors.textMeta} strokeWidth={size.iconStroke} />
+            <Text variant="bodyStrong" color="textMeta">
+              Invite
+            </Text>
+          </Pressable>
+        ) : (
+          <View />
+        )}
         {connected ? (
           <Pressable
             accessibilityRole="button"
@@ -447,6 +488,22 @@ export function RoomScreen({ me, request, onLeft, onMove }: Props) {
 
         {connected && voice.audioBlocked ? (
           <Button label="Tap to hear the room" onPress={() => void voice.unblockAudio()} />
+        ) : null}
+
+        {connected && tabNoteOpen ? (
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: space[3], backgroundColor: colors.surface, borderRadius: radius.small, padding: space[3] }}>
+            <Text variant="meta" color="textSoft" style={{ flex: 1 }}>
+              Keep this tab open. If your screen locks, the sound may stop.
+            </Text>
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel="Dismiss"
+              onPress={() => setTabNoteOpen(false)}
+              style={{ width: size.iconButton, height: size.iconButton, alignItems: 'center', justifyContent: 'center' }}
+            >
+              <X size={size.iconMeta} color={colors.textSoft} strokeWidth={size.iconStroke} />
+            </Pressable>
+          </View>
         ) : null}
 
         {status === 'reconnecting' ? (

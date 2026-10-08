@@ -2,6 +2,9 @@
 export const SUPABASE_URL = process.env.EXPO_PUBLIC_SUPABASE_URL ?? '';
 export const SUPABASE_ANON_KEY = process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY ?? '';
 export const LIVEKIT_URL = process.env.EXPO_PUBLIC_LIVEKIT_URL ?? '';
+// Where the web version of Circles lives, for room links people can share (e.g. https://circles.expo.app).
+// Empty until the web version is online: the Invite button stays hidden until then.
+export const WEB_URL = (process.env.EXPO_PUBLIC_WEB_URL ?? '').replace(/\/+$/, '');
 
 // Email is switched off for the open test (Sammy's decision). Turning this on shows "Add your email" and
 // "I already have an account". Before that, do the email setup listed in docs/PROGRESS.md (Later).

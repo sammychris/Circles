@@ -81,3 +81,11 @@ export async function supportStatus(): Promise<{ hostInRoom: boolean; iAmHost: b
 export async function deleteMyAccount(): Promise<void> {
   await call<{ status: string }>({ action: 'delete_account' });
 }
+
+export type RoomPreview = { status: 'open'; room: RoomInfo; here: number } | { status: 'ended' };
+
+// What a room link shows before signing up: the title and how many are there. Never who.
+export async function previewRoom(roomId: string): Promise<RoomPreview> {
+  const data = await call<RoomPreview>({ action: 'preview', roomId });
+  return data.status === 'open' ? data : { status: 'ended' };
+}

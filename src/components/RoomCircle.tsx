@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { AccessibilityInfo, Animated, Pressable, View } from 'react-native';
 import type { ReactNode } from 'react';
-import { AudioLines, MicOff, Plus } from 'lucide-react-native';
+import { AudioLines, MicOff, Plus, User } from 'lucide-react-native';
 import { ROOM_CAPACITY } from '../config';
 import { assignSeats, seatPoints, seatsOpenText } from '../lib/seats';
 import { border, effects, motion, opacity, radius, roomGlowScale, size, space, speaking, useColors } from '../theme';
@@ -192,9 +192,11 @@ type Props = {
   // Replaces the "6 here" centre, e.g. the countdown ring.
   centre?: ReactNode;
   onSeatPress?: (person: Person) => void;
+  // Taken seats without names, for people who may not see who's inside yet (a room link).
+  anonymousTaken?: number;
 };
 
-export function RoomCircle({ people, capacity = ROOM_CAPACITY, emptyHint, centre, onSeatPress }: Props) {
+export function RoomCircle({ people, capacity = ROOM_CAPACITY, emptyHint, centre, onSeatPress, anonymousTaken = 0 }: Props) {
   const colors = useColors();
   const [reduceMotion, setReduceMotion] = useState(false);
   useEffect(() => {
@@ -260,7 +262,27 @@ export function RoomCircle({ people, capacity = ROOM_CAPACITY, emptyHint, centre
           </Text>
         )}
       </View>
-      {seats.map((person, i) => (
+      {seats.map((person, i) =>
+        !person && i < anonymousTaken ? (
+          <View
+            key={`taken-${i}`}
+            accessibilityElementsHidden
+            importantForAccessibility="no-hide-descendants"
+            style={{
+              position: 'absolute',
+              left: CENTRE.x + points[i].x - size.avatarRoom / 2,
+              top: CENTRE.y + points[i].y - size.avatarRoom / 2,
+              width: size.avatarRoom,
+              height: size.avatarRoom,
+              borderRadius: radius.pill,
+              backgroundColor: colors.raised,
+              alignItems: 'center',
+              justifyContent: 'center',
+            }}
+          >
+            <User size={size.icon} color={colors.textSoft} strokeWidth={size.iconStroke} />
+          </View>
+        ) : (
         <Seat
           key={person?.id ?? `empty-${i}`}
           person={person}
@@ -268,7 +290,8 @@ export function RoomCircle({ people, capacity = ROOM_CAPACITY, emptyHint, centre
           reduceMotion={reduceMotion}
           onPress={onSeatPress}
         />
-      ))}
+        ),
+      )}
     </View>
   );
 }

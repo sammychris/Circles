@@ -1,5 +1,5 @@
-import { useEffect, useState } from 'react';
-import { ActivityIndicator, Alert, BackHandler, View } from 'react-native';
+import { useCallback, useEffect, useState } from 'react';
+import { ActivityIndicator, Alert, BackHandler, Linking, Platform, View } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { useFonts } from 'expo-font';
@@ -31,6 +31,9 @@ import { TalkDoorScreen } from './src/screens/home/TalkDoorScreen';
 import { Toast } from './src/components/Toast';
 import { myBan, type Ban } from './src/lib/safety';
 import { deleteMyAccount, type RoomRequest } from './src/rooms/api';
+import { LegalModal } from './src/components/LegalModal';
+import { PRIVACY, TERMS } from './src/content/legal';
+import { parseLink, type LinkTarget } from './src/lib/links';
 import type { RoomSummary } from './src/voice/useVoiceRoom';
 import { SignInFlow } from './src/screens/SignInFlow';
 import { UnderAgeScreen } from './src/screens/UnderAgeScreen';
@@ -93,7 +96,16 @@ type Screen =
   | { name: 'after'; summary: RoomSummary };
 
 // Signed in: date of birth first, then a nickname, then the house. Nobody reaches a room without both.
-function SignedIn({ session }: { session: Session }) {
+function SignedIn({
+  session,
+  pendingRequest,
+  onPendingUsed,
+}: {
+  session: Session;
+  // A room to open as soon as the person is ready (from a room link).
+  pendingRequest: RoomRequest | null;
+  onPendingUsed: () => void;
+}) {
   const { state, reload } = useProfile(session.user.id);
   const [screen, setScreen] = useState<Screen>({ name: 'home' });
   const [ban, setBan] = useState<Ban | null>(null);
@@ -105,6 +117,19 @@ function SignedIn({ session }: { session: Session }) {
       .then(setBan)
       .catch(() => {});
   }, []);
+
+  // Opened from a room link: go straight into that room once they have a nickname and passed 18+.
+  const ready =
+    state.status === 'ready' &&
+    !!state.profile.nickname &&
+    !!state.profile.dateOfBirth &&
+    isAdult(new Date(state.profile.dateOfBirth)) &&
+    !ban;
+  useEffect(() => {
+    if (!ready || !pendingRequest) return;
+    setScreen({ name: 'room', request: pendingRequest, visit: Date.now() });
+    onPendingUsed();
+  }, [ready, pendingRequest, onPendingUsed]);
 
   // Android back button: back to Home from any page. In a room it does nothing, so voice isn't lost by accident.
   useEffect(() => {
@@ -202,6 +227,30 @@ export default function App() {
   const [session, setSession] = useState<Session | null>(null);
   const [sessionChecked, setSessionChecked] = useState(false);
   const missing = missingConfig();
+  // A room link or legal page this app was opened with (web address, or circles:// on phones).
+  const [link, setLink] = useState<LinkTarget>(() =>
+    Platform.OS === 'web' && typeof window !== 'undefined' ? parseLink(window.location.href) : {},
+  );
+  const [linkEnded, setLinkEnded] = useState(false);
+  const clearLink = useCallback(() => {
+    setLink({});
+    setLinkEnded(false);
+    // So reloading the page doesn't join the room again.
+    if (Platform.OS === 'web' && typeof window !== 'undefined') window.history.replaceState(null, '', '/');
+  }, []);
+
+  useEffect(() => {
+    if (Platform.OS === 'web') return;
+    void Linking.getInitialURL().then((url) => {
+      const target = parseLink(url);
+      if (target.roomId || target.page) setLink(target);
+    });
+    const sub = Linking.addEventListener('url', ({ url }) => {
+      const target = parseLink(url);
+      if (target.roomId || target.page) setLink(target);
+    });
+    return () => sub.remove();
+  }, []);
 
   useEffect(() => {
     if (missing.length > 0) return;
@@ -216,13 +265,35 @@ export default function App() {
   let content;
   if (!fontsLoaded || (missing.length === 0 && !sessionChecked)) content = <Centered />;
   else if (missing.length > 0) content = <ConfigMissingScreen missing={missing} />;
-  else if (!session) content = <SignInFlow />;
-  else content = <SignedIn key={session.user.id} session={session} />;
+  else if (!session) {
+    content = (
+      <SignInFlow
+        linkRoom={link.roomId ? { roomId: link.roomId, by: link.by } : undefined}
+        onLinkEnded={() => {
+          setLink({});
+          setLinkEnded(true);
+        }}
+      />
+    );
+  } else {
+    content = (
+      <SignedIn
+        key={session.user.id}
+        session={session}
+        pendingRequest={link.roomId ? { kind: 'join', roomId: link.roomId } : linkEnded ? { kind: 'match', door: 'talk', mood: null } : null}
+        onPendingUsed={clearLink}
+      />
+    );
+  }
 
   return (
     <SafeAreaProvider>
       <StatusBar style="light" />
       {content}
+      <LegalModal
+        doc={link.page === 'privacy' ? PRIVACY : link.page === 'terms' ? TERMS : null}
+        onClose={clearLink}
+      />
     </SafeAreaProvider>
   );
 }
