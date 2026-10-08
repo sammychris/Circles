@@ -3,6 +3,7 @@ import { Pressable, RefreshControl, ScrollView, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { ChevronLeft } from 'lucide-react-native';
 import { size, space, useColors } from '../theme';
+import { useScreenEdges } from '../navigation/TabBar';
 import { Text } from './Text';
 
 type Props = {
@@ -20,8 +21,9 @@ type Props = {
 // Every door page has one shape (docs/design/pages/doors.md › Door pages).
 export function DoorLayout({ title, line, onBack, children, footer, header, refreshing, onRefresh }: Props) {
   const colors = useColors();
+  const edges = useScreenEdges();
   return (
-    <SafeAreaView style={{ flex: 1, backgroundColor: colors.bg }}>
+    <SafeAreaView edges={edges} style={{ flex: 1, backgroundColor: colors.bg }}>
       <View style={{ minHeight: size.minTarget, paddingHorizontal: space[3], justifyContent: 'center' }}>
         <Pressable
           accessibilityRole="button"

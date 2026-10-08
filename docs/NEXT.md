@@ -75,8 +75,8 @@ Short version:
 ### Order of work
 1. ~~Room sizes (section 1).~~ Done.
 2. ~~Game mode (A).~~ Done (2026-10-08), with `expo-audio` and `expo-notifications` added, so one new build covers sounds and later reminders. See `docs/BUILD_NOTES.md` part 14.
-3. Bottom bar and the Home, Explore, Groups and Me pages (B). **Next.**
-4. Scheduled and weekly rooms, reminders and invitations (C).
+3. ~~Bottom bar and the Home, Explore, Groups and Me pages (B).~~ Done for what works with today's rooms (2026-10-08; `docs/BUILD_NOTES.md` part 17). Still to come with C: Explore's Tonight and Every week, Groups' Next up, invitations, your groups and reminders, the bell on Home, Coming up, and Start a group.
+4. Scheduled and weekly rooms, reminders and invitations (C). **Next.**
 
 After each part: tests, the `circles-reviewer` agent, then update BUILD_NOTES, PROGRESS and this file.
 

@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { ActivityIndicator, Alert, BackHandler, Linking, Platform, View } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
@@ -38,6 +38,10 @@ import { PRIVACY, TERMS } from './src/content/legal';
 import { parseLink, type LinkTarget } from './src/lib/links';
 import type { RoomSummary } from './src/voice/useVoiceRoom';
 import { SignInFlow } from './src/screens/SignInFlow';
+import { TabBar, TabsProvider, type Tab } from './src/navigation/TabBar';
+import { ExploreScreen } from './src/screens/tabs/ExploreScreen';
+import { GroupsScreen } from './src/screens/tabs/GroupsScreen';
+import { rememberVisit } from './src/lib/roomHistory';
 import { UnderAgeScreen } from './src/screens/UnderAgeScreen';
 import { space, useColors } from './src/theme';
 
@@ -96,6 +100,8 @@ type Screen =
   | { name: 'home' }
   | { name: 'door'; door: DoorName }
   | { name: 'me'; notice?: string }
+  | { name: 'explore' }
+  | { name: 'groups' }
   | { name: 'addEmail' }
   | { name: 'start'; door: 'talk' | 'play' | 'learn'; subject?: string; draft?: Extract<RoomRequest, { kind: 'create' }> }
   | { name: 'learn'; subject: string }
@@ -120,6 +126,20 @@ function SignedIn({
   const [banChecked, setBanChecked] = useState(false);
   const [toast, setToast] = useState<string | null>(null);
   const hasEmail = !!session.user.email;
+  const colors = useColors();
+  // Each main page registers how to scroll itself to the top, for a second tap on its tab.
+  const scrollers = useRef(new Map<Tab, () => void>());
+  const tabs = useMemo(
+    () => ({
+      register: (t: Tab, toTop: () => void) => {
+        scrollers.current.set(t, toTop);
+        return () => {
+          if (scrollers.current.get(t) === toTop) scrollers.current.delete(t);
+        };
+      },
+    }),
+    [],
+  );
 
   useEffect(() => {
     void myBan()
@@ -183,91 +203,127 @@ function SignedIn({
   const home = () => setScreen({ name: 'home' });
   const enter = (request: RoomRequest) => setScreen({ name: 'room', request, visit: Date.now() });
 
-  switch (screen.name) {
-    case 'room':
-      return (
-        <RoomScreen
-          key={screen.visit}
+  // The bottom bar (docs/design/pages/tabs.md): on the four main pages and the pages opened from
+  // them; hidden in rooms, after a room, Start something and adding an email.
+  const tab: Tab | null =
+    screen.name === 'home' || screen.name === 'door' || screen.name === 'learn'
+      ? 'home'
+      : screen.name === 'explore' || screen.name === 'groups' || screen.name === 'me'
+        ? screen.name
+        : null;
+  const page = renderPage();
+  if (!tab) return page;
+  return (
+    <TabsProvider value={tabs}>
+      <View style={{ flex: 1, backgroundColor: colors.bg }}>
+        <View style={{ flex: 1 }}>{page}</View>
+        <TabBar
+          current={tab}
           me={me}
-          request={screen.request}
-          onLeft={(summary) => {
-            const request = screen.request;
-            if (summary) setScreen({ name: 'after', summary });
-            // A room that never started: back to the form, with what they typed still there.
-            else if (request.kind === 'create') setScreen({ name: 'start', door: request.door, draft: request });
-            else home();
-            void myBan()
-              .then(setBan)
-              .catch(() => {});
+          onSelect={(t) => setScreen({ name: t } as Screen)}
+          onReselect={(t) => {
+            // Tapping Home again from a door page goes back to Home itself.
+            if (t === 'home' && screen.name !== 'home') home();
+            else scrollers.current.get(t)?.();
           }}
-          onMove={enter}
         />
-      );
-    case 'after':
-      return <AfterRoomScreen me={me} summary={screen.summary} onDone={home} />;
-    case 'me':
-      return (
-        <MeScreen
-          me={me}
-          hasEmail={hasEmail}
-          notice={screen.notice}
-          onBack={home}
-          onAddEmail={() => setScreen({ name: 'addEmail' })}
-          onLogOut={() => confirmSignOut(hasEmail, true)}
-          onDelete={confirmDeleteAccount}
-        />
-      );
-    case 'addEmail':
-      return (
-        <AddEmailFlow
-          onClose={() => setScreen({ name: 'me' })}
-          onAdded={() => setScreen({ name: 'me', notice: 'Email added. Your account is safe.' })}
-        />
-      );
-    case 'learn':
-      return (
-        <LearnSubjectScreen
-          subjectId={screen.subject}
-          onBack={() => setScreen({ name: 'door', door: 'learn' })}
-          onEnter={enter}
-          onStart={() => setScreen({ name: 'start', door: 'learn', subject: screen.subject })}
-        />
-      );
-    case 'start':
-      return (
-        <StartScreen
-          door={screen.door}
-          subject={screen.subject}
-          draft={screen.draft}
-          onBack={() =>
-            setScreen(
-              screen.door === 'learn'
-                ? { name: 'learn', subject: screen.subject ?? screen.draft?.language ?? '' }
-                : { name: 'door', door: screen.door },
-            )
-          }
-          onStart={enter}
-        />
-      );
-    case 'door':
-      if (screen.door === 'talk') {
+      </View>
+    </TabsProvider>
+  );
+
+  function renderPage() {
+    switch (screen.name) {
+      case 'room':
         return (
-          <TalkDoorScreen nickname={nickname} onBack={home} onEnter={enter} onStart={() => setScreen({ name: 'start', door: 'talk' })} />
+          <RoomScreen
+            key={screen.visit}
+            me={me}
+            request={screen.request}
+            onLeft={(summary) => {
+              const request = screen.request;
+              // For Home's "Go back in" and "For you", kept on this phone (never support rooms).
+              if (summary) void rememberVisit(summary.room);
+              if (summary) setScreen({ name: 'after', summary });
+              // A room that never started: back to the form, with what they typed still there.
+              else if (request.kind === 'create') setScreen({ name: 'start', door: request.door, draft: request });
+              else home();
+              void myBan()
+                .then(setBan)
+                .catch(() => {});
+            }}
+            onMove={enter}
+          />
         );
-      }
-      if (screen.door === 'support') return <SupportDoorScreen onBack={home} onEnter={enter} />;
-      if (screen.door === 'play') {
-        return <PlayDoorScreen onBack={home} onEnter={enter} onStart={() => setScreen({ name: 'start', door: 'play' })} />;
-      }
-      if (screen.door === 'people') return <PeopleScreen nickname={nickname} onBack={home} onEnter={enter} />;
-      return <LearnScreen onBack={home} onEnter={enter} onOpenSubject={(subject) => setScreen({ name: 'learn', subject })} />;
-    default:
-      return (
-        <>
-          <HomeScreen me={me} onOpen={(door) => setScreen({ name: 'door', door })} onOpenMe={() => setScreen({ name: 'me' })} />
-          <Toast message={toast} onDone={() => setToast(null)} />
-        </>
-      );
+      case 'after':
+        return <AfterRoomScreen me={me} summary={screen.summary} onDone={home} />;
+      case 'me':
+        return (
+          <MeScreen
+            me={me}
+            email={session.user.email ?? null}
+            notice={screen.notice}
+            onOpenPeople={() => setScreen({ name: 'groups' })}
+            onAddEmail={() => setScreen({ name: 'addEmail' })}
+            onLogOut={() => confirmSignOut(hasEmail, true)}
+            onDelete={confirmDeleteAccount}
+          />
+        );
+      case 'addEmail':
+        return (
+          <AddEmailFlow
+            onClose={() => setScreen({ name: 'me' })}
+            onAdded={() => setScreen({ name: 'me', notice: 'Email added. Your account is safe.' })}
+          />
+        );
+      case 'learn':
+        return (
+          <LearnSubjectScreen
+            subjectId={screen.subject}
+            onBack={() => setScreen({ name: 'door', door: 'learn' })}
+            onEnter={enter}
+            onStart={() => setScreen({ name: 'start', door: 'learn', subject: screen.subject })}
+          />
+        );
+      case 'start':
+        return (
+          <StartScreen
+            door={screen.door}
+            subject={screen.subject}
+            draft={screen.draft}
+            onBack={() =>
+              setScreen(
+                screen.door === 'learn'
+                  ? { name: 'learn', subject: screen.subject ?? screen.draft?.language ?? '' }
+                  : { name: 'door', door: screen.door },
+              )
+            }
+            onStart={enter}
+          />
+        );
+      case 'door':
+        if (screen.door === 'talk') {
+          return (
+            <TalkDoorScreen nickname={me.nickname} onBack={home} onEnter={enter} onStart={() => setScreen({ name: 'start', door: 'talk' })} />
+          );
+        }
+        if (screen.door === 'support') return <SupportDoorScreen onBack={home} onEnter={enter} />;
+        if (screen.door === 'play') {
+          return <PlayDoorScreen onBack={home} onEnter={enter} onStart={() => setScreen({ name: 'start', door: 'play' })} />;
+        }
+        if (screen.door === 'people') return <PeopleScreen nickname={me.nickname} onBack={home} onEnter={enter} />;
+        return <LearnScreen onBack={home} onEnter={enter} onOpenSubject={(subject) => setScreen({ name: 'learn', subject })} />;
+      case 'explore':
+        return <ExploreScreen onEnter={enter} onStart={() => setScreen({ name: 'start', door: 'talk' })} />;
+      case 'groups':
+        return <GroupsScreen nickname={me.nickname} onEnter={enter} onExplore={() => setScreen({ name: 'explore' })} />;
+      default:
+        return (
+          <>
+            <HomeScreen me={me} onOpen={(door) => setScreen({ name: 'door', door })} onEnter={enter} />
+            <Toast message={toast} onDone={() => setToast(null)} />
+          </>
+        );
+    }
   }
 }
 

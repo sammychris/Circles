@@ -150,6 +150,14 @@ export async function listOpenRooms(door: Door = 'talk'): Promise<OpenRoom[]> {
   return data.rooms ?? [];
 }
 
+// Open rooms behind several doors at once, each marked with its door (Explore, Home's For you).
+// Support rooms are never listed (the room server returns none).
+export type ListedRoom = OpenRoom & { door: Exclude<Door, 'support'> };
+export async function listOpenRoomsAt(doors: Exclude<Door, 'support'>[]): Promise<ListedRoom[]> {
+  const lists = await Promise.all(doors.map(async (door) => (await listOpenRooms(door)).map((r) => ({ ...r, door }))));
+  return lists.flat();
+}
+
 export async function roomStats(): Promise<{ people: number; rooms: number }> {
   return call<{ people: number; rooms: number }>({ action: 'stats' });
 }

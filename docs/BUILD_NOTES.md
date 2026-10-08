@@ -510,7 +510,21 @@ Your idea (2026-10-08): keep the score while people keep playing, and celebrate 
       Click **Save**.
    This is because the app asks for a code, not a link.
 2. **Check Confirm email is on.** In Supabase, open **Authentication**, then **Sign In / Providers**, then **Email**. **Confirm email** should be on. If it's off, Supabase saves an email without sending a code, and the app would wait for a code that never comes.
-3. **An email-sending service.** Supabase's own email only sends to your team's addresses, a few an hour, so other people's codes would never arrive. This needs a free account with an email service, so I'll walk you through it step by step once you say yes. The service sees people's email addresses, so I'll add it to the Privacy Policy at the same time.
+3. **An email-sending service (Brevo, free).** Supabase's own email only sends to your team's addresses, a few an hour, so other people's codes would never arrive. Brevo's free plan sends up to 300 emails a day and works without your own website address. Do this whenever you're ready; nothing else waits for it. Screens on these websites change from time to time, so if a name below doesn't match, look for the nearest one, or ask me.
+   1. **Make the account.** Go to brevo.com and sign up for the free plan with your email. Brevo asks some questions about your business; "Circles, a community app" is fine.
+   2. **Add the sender.** In Brevo, open **Senders, Domains & Dedicated IPs** (under your name, top right), then **Senders**, then **Add a sender**. Name: `Circles`. Email: the address codes should come from (your own email is fine for the test). Brevo emails that address a code: type it in to confirm it.
+   3. **Get the SMTP details.** In Brevo, open **SMTP & API**, then the **SMTP** tab. Write down the **SMTP server** (`smtp-relay.brevo.com`), the **Port** (`587`) and the **Login** (it looks like `something@smtp-brevo.com`). Click **Generate a new SMTP key**, name it `Supabase`, and copy the key. **Don't paste the key into this chat.** It goes only into Supabase, in the next step.
+   4. **Put them into Supabase.** In Supabase, open **Authentication**, then **Emails**, then the **SMTP Settings** tab, and switch on **Enable custom SMTP**. Fill in:
+      - Sender email: the address you added in step 2
+      - Sender name: `Circles`
+      - Host: `smtp-relay.brevo.com`
+      - Port: `587`
+      - Username: the Brevo **Login** from step 3
+      - Password: the SMTP key from step 3
+      Click **Save**.
+   5. **Allow enough emails.** In Supabase, open **Authentication**, then **Rate Limits**, and set "emails sent per hour" to about 100.
+   6. **Tell me when it's done.** I'll add Brevo to the Privacy Policy (it handles people's email addresses to send the codes), then you can test with the checklist below.
+   - Good to know: codes sent from a Gmail or Yahoo address can land in spam. Once Circles has its own web address, we can send from that instead.
 
 **Phone checklist**
 - [ ] On a fresh install, tap **Get started**, answer the 18+ question, type a nickname and your email. A code arrives by email; type it and you're in.
@@ -518,6 +532,34 @@ Your idea (2026-10-08): keep the score while people keep playing, and celebrate 
 - [ ] Log out (Me, then Log out). On Welcome tap **I already have an account**, type your email, then the code. You're back with the same nickname.
 - [ ] Close the app completely and open it again an hour later: you're still signed in.
 - [ ] Chess with a score: after the first game, the other team moves first.
+
+## 17. The bottom bar: Home, Explore, Groups, Me
+
+Built from `docs/design/pages/tabs.md` (your decision, 2026-10-08), the first half: what works with today's rooms. Scheduled rooms, weekly groups, reminders and invitations come next (part C), and fill the empty parts below.
+- **The bar** sits at the bottom of Home, Explore, Groups and Me, and of the door pages. It's hidden in rooms, after a room, in Start something and while adding an email. The selected tab has a small pill above it as well as brighter colour. Tapping the tab you're on scrolls back to the top. Android's back button goes to Home, and from Home it leaves the app.
+- **Home** keeps the support line and the four doors. Your avatar has moved to the Me tab. Two new sections, only when they apply:
+  - **Go back in:** a room you left in the last hour that's still open, with "3 people still here".
+  - **For you:** up to 2 open rooms like ones you joined before, with the reason ("Igbo, Beginner, like you"). It uses your last 5 rooms, kept only on your phone. Support rooms are never kept or suggested.
+- **Explore** shows **Live now**: every open room (never support rooms), filters for Talk, Play, Learn and each topic, free seats first, then the busiest. When it's quiet it says so and offers **Start a room**. "Tonight" and "Every week" come with part C.
+- **Groups** shows **My people** (faces of people who saved each other with you) and **Start a room with friends**. "Your groups and reminders" says they're coming next.
+- **Me** has your nickname, then groups: Your people, Account (your email, or Add your email; Log out), Sound, Privacy (and blocked people), Help and safety (Help, Room rules, Privacy Policy, Terms), the app version, and Delete my account at the very bottom.
+
+**Choices I made (open to change)**
+- **Thank-yous aren't shown in Me**, because you haven't decided yet whether anyone should see a count.
+- **Editing your nickname** isn't there yet (the design has an Edit button); it needs the "change once every 30 days" rule built first.
+- **The privacy switches** ("Show friends when I'm online", "Show which room I'm in") come with friends being able to see each other online, which isn't built yet.
+- **Explore's chips** filter by door and topic, not by mood. The moods are in the "I want to talk" door.
+
+**What you need to do:** nothing in Supabase. It comes with the next build (it's app-only, so an over-the-air update would also do).
+
+**Phone checklist**
+- [ ] The bar shows on Home, Explore, Groups and Me, and on a door page. It disappears in a room.
+- [ ] On Explore, the rooms that are open now show up. Tap **Play**: only game rooms. Tap a room's **Join**: you go in.
+- [ ] Join a talk room, leave it, and go to Home: **Go back in** shows that room with how many are still there.
+- [ ] After a few rooms, **For you** suggests similar open rooms with a reason.
+- [ ] Join a support room and leave: it never appears in Go back in or For you.
+- [ ] Me shows your email (or Add your email), Game sounds, Help, Room rules, and Delete my account at the bottom.
+- [ ] Android back from Explore, Groups or Me goes to Home.
 
 ---
 

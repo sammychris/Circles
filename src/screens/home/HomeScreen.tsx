@@ -2,11 +2,13 @@ import { useCallback, useEffect, useState, type ComponentType } from 'react';
 import { Pressable, RefreshControl, ScrollView, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { BookOpen, ChevronRight, Dice5, Heart, MessageCircle, Users } from 'lucide-react-native';
-import { Avatar } from '../../components/Avatar';
+import { RoomRow } from '../../components/RoomRow';
 import { Glow } from '../../components/Glow';
 import { Text } from '../../components/Text';
 import { greeting, peopleInRooms, timeWord } from '../../lib/timeOfDay';
-import { roomStats } from '../../rooms/api';
+import { forYou, goBackRoom, loadVisits } from '../../lib/roomHistory';
+import { useScreenEdges, useTabScroll } from '../../navigation/TabBar';
+import { listOpenRoomsAt, roomStats, type ListedRoom, type RoomRequest } from '../../rooms/api';
 import { doorColors, opacity, radius, size, space, useColors } from '../../theme';
 
 export type DoorName = 'support' | 'play' | 'talk' | 'learn' | 'people';
@@ -64,19 +66,46 @@ function DoorTile({
   );
 }
 
-type Props = { me: { id: string; nickname: string }; onOpen: (door: DoorName) => void; onOpenMe: () => void };
+type Props = { me: { id: string; nickname: string }; onOpen: (door: DoorName) => void; onEnter: (r: RoomRequest) => void };
+
+// Rows for "Go back in" and "For you": a room row with the reason under it.
+function Suggestion({ room, reason, onEnter }: { room: ListedRoom; reason: string; onEnter: (r: RoomRequest) => void }) {
+  return (
+    <View>
+      <RoomRow room={room} onJoin={() => onEnter({ kind: 'join', roomId: room.id, ...(room.door === 'learn' ? {} : { door: room.door }) })} />
+      <Text variant="meta" color="textSoft" style={{ marginTop: -space[2] }}>
+        {reason}
+      </Text>
+    </View>
+  );
+}
 
 // One house, many doors (docs/screens/01-home.png). No ember on Home: each door page has its own.
-export function HomeScreen({ me, onOpen, onOpenMe }: Props) {
+export function HomeScreen({ me, onOpen, onEnter }: Props) {
   const colors = useColors();
   const [people, setPeople] = useState<number | null>(null);
   const [refreshing, setRefreshing] = useState(false);
+  const edges = useScreenEdges();
+  const scroll = useTabScroll('home');
+  // Go back in, and For you: from your own last rooms, kept on this phone (never support rooms).
+  const [back, setBack] = useState<ListedRoom | null>(null);
+  const [picks, setPicks] = useState<{ room: ListedRoom; reason: string }[]>([]);
 
   const load = useCallback(async () => {
     try {
       setPeople((await roomStats()).people);
     } catch {
       setPeople(null);
+    }
+    try {
+      const visits = await loadVisits();
+      const doors = [...new Set(visits.map((v) => v.door))].filter((d): d is 'talk' | 'play' | 'learn' => d !== 'support');
+      const open = doors.length > 0 ? await listOpenRoomsAt(doors) : [];
+      const again = goBackRoom(visits, open);
+      setBack(again);
+      setPicks(forYou(visits, open, again?.id ?? null));
+    } catch {
+      // Suggestions are only a nice extra: nothing shows when they can't load.
     }
   }, []);
 
@@ -87,8 +116,9 @@ export function HomeScreen({ me, onOpen, onOpenMe }: Props) {
   }, [load]);
 
   return (
-    <SafeAreaView style={{ flex: 1, backgroundColor: colors.bg }}>
+    <SafeAreaView edges={edges} style={{ flex: 1, backgroundColor: colors.bg }}>
       <ScrollView
+        ref={scroll}
         contentContainerStyle={{ paddingHorizontal: space.gutter, paddingTop: space[4], paddingBottom: space[7], gap: space[6] }}
         refreshControl={
           <RefreshControl
@@ -102,18 +132,11 @@ export function HomeScreen({ me, onOpen, onOpenMe }: Props) {
           />
         }
       >
-        <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: space[3] }}>
-          <Text variant="bodyStrong" color="textSoft" style={{ flex: 1 }} numberOfLines={1}>
+        {/* Me is a tab now, so the avatar has left the top right. */}
+        <View style={{ minHeight: size.minTarget, justifyContent: 'center' }}>
+          <Text variant="bodyStrong" color="textSoft" numberOfLines={1}>
             {`${greeting()}, ${me.nickname}`}
           </Text>
-          <Pressable
-            accessibilityRole="button"
-            accessibilityLabel="Me"
-            onPress={onOpenMe}
-            style={{ width: size.iconButton, height: size.iconButton, alignItems: 'center', justifyContent: 'center' }}
-          >
-            <Avatar userId={me.id} nickname={me.nickname} diameter={size.avatarList} />
-          </Pressable>
         </View>
 
         <View style={{ gap: space[3] }}>
@@ -191,6 +214,30 @@ export function HomeScreen({ me, onOpen, onOpenMe }: Props) {
             <DoorTile Icon={Users} title="My people" line="Friends and groups" tint={doorColors.people} onPress={() => onOpen('people')} />
           </View>
         </View>
+
+        {back ? (
+          <View style={{ gap: space[1] }}>
+            <Text variant="heading" accessibilityRole="header">
+              Go back in
+            </Text>
+            <Suggestion
+              room={back}
+              reason={`${back.here} ${back.here === 1 ? 'person' : 'people'} still here`}
+              onEnter={onEnter}
+            />
+          </View>
+        ) : null}
+
+        {picks.length > 0 ? (
+          <View style={{ gap: space[1] }}>
+            <Text variant="heading" accessibilityRole="header">
+              For you
+            </Text>
+            {picks.map((p) => (
+              <Suggestion key={p.room.id} room={p.room} reason={p.reason} onEnter={onEnter} />
+            ))}
+          </View>
+        ) : null}
       </ScrollView>
     </SafeAreaView>
   );

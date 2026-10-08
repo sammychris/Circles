@@ -120,6 +120,12 @@ export const size = {
   iconButton20: 20,
   iconMeta: 16,
   iconStroke: 2,
+  // The bottom bar (docs/design/pages/tabs.md): 76 tall plus the safe area, a 24 × 4 pill over the
+  // selected tab, and an 8 px dot for something new.
+  bottomNav: 76,
+  tabPill: 24,
+  tabPillHeight: 4,
+  newDot: 8,
 } as const;
 
 export const border = { hairline: 1, input: 2, selected: 2, seatRing: 2 } as const;

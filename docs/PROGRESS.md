@@ -4,7 +4,7 @@ Claude Code updates this file at the end of every build step. Newest entries at 
 
 ## Current step
 
-**Room sizes and game mode (NEXT.md items 1 and 1b part A) are built and reviewed, not yet tested on phones. Game mode needs one new app build (sounds and, later, reminders). Next is the bottom bar with Home, Explore, Groups and Me (NEXT.md 1b part B). Everything still waits for Sammy's Supabase updates, the new build, and the phone test. The to-do list is in `docs/NEXT.md`. Read it next.**
+**Room sizes, game mode, scores, optional email and the bottom bar (NEXT.md items 1, 1b part A and the first half of part B) are built and reviewed, not yet tested on phones. Game mode needs one new app build (sounds and, later, reminders). Next is part C: scheduled and weekly rooms, reminders and invitations, which also fill Explore's Tonight and Every week and Groups' sections. Everything still waits for Sammy's Supabase updates, the new build, and the phone test. The to-do list is in `docs/NEXT.md`. Read it next.**
 
 Every choice made so far, and Sammy's click-by-click steps, are in `docs/BUILD_NOTES.md`.
 
@@ -26,6 +26,7 @@ Still open from Step 1: a test with a friend in another place on their own mobil
 - Scores for the sitting (Sammy, 2026-10-08): Ludo, Draughts, Chess and Whot keep a score while people keep playing in the room (just keep count, or first to 3 or 5 wins), with a "wins the set" moment. Play again keeps the teams. The score is gone when the game comes off the table or the room ends: never saved, never on a profile, no leaderboards (CLAUDE.md's Never list still holds). No score for Mafia or Find the Impostor. Rules in `src/games/score.ts`; details in `docs/BUILD_NOTES.md` part 15.
 - Optional email and logging back in (Sammy, 2026-10-08): an optional email box when picking a nickname (a code checks it), and "I already have an account" on Welcome. Without an email, an account can't be got back after logging out, reinstalling or changing phones.
 - Chess through a set (Sammy, 2026-10-08): teams keep their colours and swap places: the team that moved second moves first next game (they take turns having the white pieces).
+- Bottom bar (Sammy, 2026-10-08; built the same day): Home, Explore, Groups, Me (`docs/design/pages/tabs.md`). Home has Go back in and For you from your last 5 rooms, kept only on the phone (never support rooms). Explore lists live rooms. Details: `docs/BUILD_NOTES.md` part 17.
 - Age: 18+ for launch. A teen or family version may come later, designed separately (teen-only rooms, parent consent, legal check). Decided 2026-10-08.
 
 ## Steps done
