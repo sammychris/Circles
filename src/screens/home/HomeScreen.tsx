@@ -3,12 +3,15 @@ import { Pressable, RefreshControl, ScrollView, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { BookOpen, ChevronRight, Dice5, Heart, MessageCircle, Users } from 'lucide-react-native';
 import { RoomRow } from '../../components/RoomRow';
+import { ScheduledRow } from '../../components/Scheduled';
+import { Button } from '../../components/Button';
 import { Glow } from '../../components/Glow';
 import { Text } from '../../components/Text';
 import { greeting, peopleInRooms, timeWord } from '../../lib/timeOfDay';
 import { forYou, goBackRoom, loadVisits } from '../../lib/roomHistory';
 import { useScreenEdges, useTabScroll } from '../../navigation/TabBar';
 import { listOpenRoomsAt, roomStats, type ListedRoom, type RoomRequest } from '../../rooms/api';
+import { useSchedule } from '../../rooms/useSchedule';
 import { doorColors, opacity, radius, size, space, useColors } from '../../theme';
 
 export type DoorName = 'support' | 'play' | 'talk' | 'learn' | 'people';
@@ -66,7 +69,13 @@ function DoorTile({
   );
 }
 
-type Props = { me: { id: string; nickname: string }; onOpen: (door: DoorName) => void; onEnter: (r: RoomRequest) => void };
+type Props = {
+  me: { id: string; nickname: string };
+  onOpen: (door: DoorName) => void;
+  onEnter: (r: RoomRequest) => void;
+  // Coming up › See all: Explore, where Tonight is.
+  onExplore: () => void;
+};
 
 // Rows for "Go back in" and "For you": a room row with the reason as its line.
 function Suggestion({
@@ -91,7 +100,7 @@ function Suggestion({
 }
 
 // One house, many doors (docs/screens/01-home.png). No ember on Home: each door page has its own.
-export function HomeScreen({ me, onOpen, onEnter }: Props) {
+export function HomeScreen({ me, onOpen, onEnter, onExplore }: Props) {
   const colors = useColors();
   const [people, setPeople] = useState<number | null>(null);
   const [refreshing, setRefreshing] = useState(false);
@@ -100,6 +109,13 @@ export function HomeScreen({ me, onOpen, onEnter }: Props) {
   // Go back in, and For you: from your own last rooms, kept on this phone (never support rooms).
   const [back, setBack] = useState<ListedRoom | null>(null);
   const [picks, setPicks] = useState<{ room: ListedRoom; reason: string }[]>([]);
+  // Coming up: the next scheduled rooms, yours first.
+  const schedule = useSchedule(me.id);
+  const coming = (schedule.rooms ?? [])
+    .filter((r) => r.startsAt.getTime() > Date.now() - 2 * 60 * 60_000)
+    .sort((a, b) => Number(b.reminded || b.regular || b.mine) - Number(a.reminded || a.regular || a.mine))
+    .slice(0, 2)
+    .sort((a, b) => a.startsAt.getTime() - b.startsAt.getTime());
 
   const load = useCallback(async () => {
     try {
@@ -136,7 +152,7 @@ export function HomeScreen({ me, onOpen, onEnter }: Props) {
             tintColor={colors.textMeta}
             onRefresh={async () => {
               setRefreshing(true);
-              await load();
+              await Promise.all([load(), schedule.load()]);
               setRefreshing(false);
             }}
           />
@@ -247,6 +263,23 @@ export function HomeScreen({ me, onOpen, onEnter }: Props) {
             {picks.map((p) => (
               <Suggestion key={p.room.id} room={p.room} reason={p.reason} onEnter={onEnter} />
             ))}
+          </View>
+        ) : null}
+
+        {coming.length > 0 ? (
+          <View style={{ gap: space[1] }}>
+            <Text variant="heading" accessibilityRole="header">
+              Coming up
+            </Text>
+            {coming.map((r) => (
+              <ScheduledRow
+                key={r.id}
+                room={r}
+                onToggle={() => void schedule.toggleReminder(r)}
+                onGoIn={() => onEnter({ kind: 'scheduled', scheduledId: r.id })}
+              />
+            ))}
+            <Button label="See all" variant="quiet" onPress={onExplore} />
           </View>
         ) : null}
       </ScrollView>

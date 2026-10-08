@@ -4,16 +4,20 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { Check } from 'lucide-react-native';
 import { Button } from '../../components/Button';
 import { RoomRow } from '../../components/RoomRow';
+import { GroupCard, ScheduledRow } from '../../components/Scheduled';
 import { Text } from '../../components/Text';
+import { Toast } from '../../components/Toast';
 import { useScreenEdges, useTabScroll } from '../../navigation/TabBar';
 import { listOpenRoomsAt, type ListedRoom, type RoomRequest } from '../../rooms/api';
 import { matchesFilter, sortLive, type Filter } from '../../rooms/explore';
+import { tonight, type Group, type ScheduledRoom } from '../../rooms/schedule';
+import { useSchedule } from '../../rooms/useSchedule';
 import { TOPICS } from '../../rooms/start';
 import { border, fonts, opacity, radius, size, space, useColors } from '../../theme';
 
-// Explore: what's happening in Circles (docs/design/pages/tabs.md › Explore). Live now for the moment;
-// Tonight and Every week come with scheduled rooms. Support rooms are never listed here: the support
-// door on Home is their only way in (the room server never lists them).
+// Explore: what's happening in Circles (docs/design/pages/tabs.md › Explore): Live now, Tonight and
+// Every week. Support rooms are never listed here: the support door on Home is their only way in (the
+// room server never lists them, and they can never be scheduled).
 
 const DOOR_FILTERS: { id: Filter; label: string }[] = [
   { id: 'all', label: 'All' },
@@ -54,10 +58,16 @@ function FilterChip({ label, selected, onPress }: { label: string; selected: boo
   );
 }
 
-// onStart: Start something behind the door being looked at (Talk for All and topics).
-type Props = { onEnter: (r: RoomRequest) => void; onStart: (door: 'talk' | 'play' | 'learn') => void };
+// onStart: Start something behind the door being looked at (Talk for All and topics); `later` opens it
+// set for a time.
+type Props = {
+  me: { id: string };
+  onEnter: (r: RoomRequest) => void;
+  onStart: (door: 'talk' | 'play' | 'learn', later?: boolean) => void;
+  onOpenGroup: (group: Group) => void;
+};
 
-export function ExploreScreen({ onEnter, onStart }: Props) {
+export function ExploreScreen({ me, onEnter, onStart, onOpenGroup }: Props) {
   const colors = useColors();
   const edges = useScreenEdges();
   const scroll = useTabScroll('explore');
@@ -69,6 +79,8 @@ export function ExploreScreen({ onEnter, onStart }: Props) {
   const [all, setAll] = useState(false);
   const [retrying, setRetrying] = useState(false);
   const loaded = useRef(false);
+  const schedule = useSchedule(me.id, true);
+  const [note, setNote] = useState<string | null>(null);
 
   const load = useCallback(async () => {
     try {
@@ -92,6 +104,17 @@ export function ExploreScreen({ onEnter, onStart }: Props) {
   const shown = (rooms ?? []).filter((r) => matchesFilter(r, filter));
   const people = (rooms ?? []).reduce((n, r) => n + r.here, 0);
   const label = FILTERS.find((f) => f.id === filter)?.label ?? '';
+  const soon = tonight(schedule.rooms ?? []).filter((r) => matchesFilter(r, filter));
+  // Weekly groups: ones you're not in yet first (yours are on the Groups tab too).
+  const weekly = (schedule.groups ?? [])
+    .filter((g) => matchesFilter(g, filter))
+    .sort((a, b) => Number(a.regular || a.mine) - Number(b.regular || b.mine) || b.regulars - a.regulars);
+  const nextUp: ScheduledRoom | null = (schedule.rooms ?? []).find((r) => r.startsAt.getTime() > Date.now()) ?? null;
+  const startDoor = filter === 'play' || filter === 'learn' ? filter : 'talk';
+  const toggle = async (room: ScheduledRoom) => {
+    if (!(await schedule.toggleReminder(room))) setNote("That didn't work. Check that you're online.");
+  };
+  const goIn = (room: ScheduledRoom) => onEnter({ kind: 'scheduled', scheduledId: room.id });
 
   return (
     <SafeAreaView edges={edges} style={{ flex: 1, backgroundColor: colors.bg }}>
@@ -105,7 +128,7 @@ export function ExploreScreen({ onEnter, onStart }: Props) {
             tintColor={colors.textMeta}
             onRefresh={async () => {
               setRefreshing(true);
-              await load();
+              await Promise.all([load(), schedule.load()]);
               setRefreshing(false);
             }}
           />
@@ -195,7 +218,15 @@ export function ExploreScreen({ onEnter, onStart }: Props) {
               <Text variant="body" color="textSoft">
                 {filter === 'all' ? "It's quiet right now. Start a room and people can join you." : `No ${label} rooms are open right now.`}
               </Text>
-              <Button label="Start a room" onPress={() => onStart(filter === 'play' || filter === 'learn' ? filter : 'talk')} />
+              {nextUp && filter === 'all' ? (
+                <View>
+                  <Text variant="metaStrong" color="textSoft">
+                    Next up
+                  </Text>
+                  <ScheduledRow room={nextUp} onToggle={() => void toggle(nextUp)} onGoIn={() => goIn(nextUp)} />
+                </View>
+              ) : null}
+              <Button label="Start a room" onPress={() => onStart(startDoor)} />
               {filter !== 'all' ? <Button label="Show all rooms" variant="quiet" onPress={() => setFilter('all')} /> : null}
             </View>
           ) : (
@@ -214,7 +245,46 @@ export function ExploreScreen({ onEnter, onStart }: Props) {
             </View>
           )}
         </View>
+
+        <View style={{ paddingHorizontal: space.gutter, paddingTop: space[6], gap: space[3] }}>
+          <Text variant="heading" accessibilityRole="header">
+            Tonight
+          </Text>
+          {schedule.failed && !schedule.rooms ? (
+            <Text variant="body" color="textSoft">
+              {"We couldn't load what's coming up. Check that you're online."}
+            </Text>
+          ) : schedule.rooms === null ? null : soon.length === 0 ? (
+            <View style={{ gap: space[3] }}>
+              <Text variant="body" color="textSoft">
+                Nothing scheduled tonight. Start one and people can set a reminder.
+              </Text>
+              <Button label="Schedule a room" onPress={() => onStart(startDoor, true)} />
+            </View>
+          ) : (
+            <View>
+              {soon.map((r) => (
+                <ScheduledRow key={r.id} room={r} disabled={offline} onToggle={() => void toggle(r)} onGoIn={() => goIn(r)} />
+              ))}
+              <Button label="Schedule a room" variant="quiet" onPress={() => onStart(startDoor, true)} />
+            </View>
+          )}
+        </View>
+
+        {weekly.length > 0 ? (
+          <View style={{ paddingHorizontal: space.gutter, paddingTop: space[6], gap: space[3] }}>
+            <Text variant="heading" accessibilityRole="header">
+              Every week
+            </Text>
+            {weekly.map((g) => (
+              <GroupCard key={g.id} group={g} onPress={() => onOpenGroup(g)} />
+            ))}
+          </View>
+        ) : null}
       </ScrollView>
+      <View style={{ position: 'absolute', left: 0, right: 0, bottom: space[4] }} pointerEvents="none">
+        <Toast message={note} onDone={() => setNote(null)} />
+      </View>
     </SafeAreaView>
   );
 }

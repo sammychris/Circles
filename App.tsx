@@ -27,7 +27,10 @@ import { MeScreen } from './src/screens/home/MeScreen';
 import { PeopleScreen } from './src/screens/home/PeopleScreen';
 import { PlayDoorScreen } from './src/screens/home/PlayDoorScreen';
 import { SupportDoorScreen } from './src/screens/home/SupportDoorScreen';
-import { StartScreen } from './src/screens/StartScreen';
+import { StartScreen, type StartWhen } from './src/screens/StartScreen';
+import { GroupScreen } from './src/screens/GroupScreen';
+import type { Group } from './src/rooms/schedule';
+import { clearReminders, onReminderTap } from './src/lib/reminders';
 import { LearnSubjectScreen } from './src/screens/home/LearnSubjectScreen';
 import { TalkDoorScreen } from './src/screens/home/TalkDoorScreen';
 import { myBan, type Ban } from './src/lib/safety';
@@ -47,39 +50,38 @@ import { space, useColors } from './src/theme';
 function Centered({ children }: { children?: React.ReactNode }) {
   const colors = useColors();
   return (
-    <View style={{ flex: 1, backgroundColor: colors.bg, alignItems: 'center', justifyContent: 'center', padding: space.gutter, gap: space[4] }}>
+    <View
+      style={{ flex: 1, backgroundColor: colors.bg, alignItems: 'center', justifyContent: 'center', padding: space.gutter, gap: space[4] }}
+    >
       {children ?? <ActivityIndicator color={colors.textMeta} />}
     </View>
   );
 }
 
-// Logging out (or after deleting the account): this account's room history leaves the phone too.
+// Logging out (or after deleting the account): this account's room history and reminders leave the phone too.
 function signOut() {
   void supabase.auth
     .getSession()
     .then(async ({ data }) => {
       if (data.session) await forgetVisits(data.session.user.id);
+      await clearReminders(data.session?.user.id ?? null);
     })
     .finally(() => void supabase.auth.signOut());
 }
 
 function confirmDeleteAccount() {
-  Alert.alert(
-    'Delete your account?',
-    'Your nickname and everything tied to your account will be deleted. This can’t be undone.',
-    [
-      { text: 'Keep my account', style: 'cancel' },
-      {
-        text: 'Delete',
-        style: 'destructive',
-        onPress: () => {
-          void deleteMyAccount()
-            .then(signOut)
-            .catch(() => Alert.alert("We couldn't delete it", "Check that you're online, then try again."));
-        },
+  Alert.alert('Delete your account?', 'Your nickname and everything tied to your account will be deleted. This can’t be undone.', [
+    { text: 'Keep my account', style: 'cancel' },
+    {
+      text: 'Delete',
+      style: 'destructive',
+      onPress: () => {
+        void deleteMyAccount()
+          .then(signOut)
+          .catch(() => Alert.alert("We couldn't delete it", "Check that you're online, then try again."));
       },
-    ],
-  );
+    },
+  ]);
 }
 
 // Without an email, logging out loses the account for good, so ask first. `fromMe`: the warning can
@@ -106,9 +108,18 @@ type Screen =
   | { name: 'door'; door: DoorName }
   | { name: 'me'; notice?: string }
   | { name: 'explore' }
-  | { name: 'groups' }
+  | { name: 'groups'; notice?: string }
+  | { name: 'group'; groupId: string; first?: Group; from: 'explore' | 'groups' }
   | { name: 'addEmail' }
-  | { name: 'start'; door: 'talk' | 'play' | 'learn'; subject?: string; draft?: Extract<RoomRequest, { kind: 'create' }>; fromExplore?: boolean }
+  | {
+      name: 'start';
+      door: 'talk' | 'play' | 'learn';
+      subject?: string;
+      draft?: Extract<RoomRequest, { kind: 'create' }>;
+      // Opened from a tab page (Back returns there, and Talk or Play can be chosen).
+      from?: 'explore' | 'groups';
+      when?: StartWhen;
+    }
   | { name: 'learn'; subject: string }
   | { name: 'room'; request: RoomRequest; visit: number }
   | { name: 'after'; summary: RoomSummary };
@@ -129,6 +140,8 @@ function SignedIn({
   const [ban, setBan] = useState<Ban | null>(null);
   // A room link waits until we know whether the account is paused.
   const [banChecked, setBanChecked] = useState(false);
+  // A reminder tapped on the lock screen: its room opens once the person is ready, like a link.
+  const [reminderRequest, setReminderRequest] = useState<RoomRequest | null>(null);
   const hasEmail = !!session.user.email;
   const colors = useColors();
   // Each main page registers how to scroll itself to the top, for a second tap on its tab.
@@ -144,6 +157,8 @@ function SignedIn({
     }),
     [],
   );
+
+  useEffect(() => onReminderTap((scheduledId) => setReminderRequest({ kind: 'scheduled', scheduledId })), []);
 
   useEffect(() => {
     void myBan()
@@ -168,6 +183,11 @@ function SignedIn({
     setScreen({ name: 'room', request: pendingRequest, visit: Date.now() });
     onPendingUsed();
   }, [ready, busy, pendingRequest, onPendingUsed]);
+  useEffect(() => {
+    if (!ready || busy || !reminderRequest) return;
+    setScreen({ name: 'room', request: reminderRequest, visit: Date.now() });
+    setReminderRequest(null);
+  }, [ready, busy, reminderRequest]);
 
   // Android back button: back to Home from any page. In a room it does nothing, so voice isn't lost by accident.
   useEffect(() => {
@@ -175,8 +195,10 @@ function SignedIn({
       if (screen.name === 'home') return false;
       if (screen.name === 'room') return true;
       // Back returns to where you came from.
-      if (screen.name === 'start' && screen.fromExplore) setScreen({ name: 'explore' });
-      else if (screen.name === 'start') setScreen(screen.door === 'learn' ? { name: 'learn', subject: screen.subject ?? '' } : { name: 'door', door: screen.door });
+      if (screen.name === 'start' && screen.from) setScreen({ name: screen.from } as Screen);
+      else if (screen.name === 'group') setScreen({ name: screen.from } as Screen);
+      else if (screen.name === 'start')
+        setScreen(screen.door === 'learn' ? { name: 'learn', subject: screen.subject ?? '' } : { name: 'door', door: screen.door });
       else if (screen.name === 'learn') setScreen({ name: 'door', door: 'learn' });
       else if (screen.name === 'addEmail') setScreen({ name: 'me' });
       else setScreen({ name: 'home' });
@@ -216,7 +238,9 @@ function SignedIn({
       ? 'home'
       : screen.name === 'explore' || screen.name === 'groups' || screen.name === 'me'
         ? screen.name
-        : null;
+        : screen.name === 'group'
+          ? screen.from
+          : null;
   const page = renderPage();
   if (!tab) return page;
   return (
@@ -296,10 +320,13 @@ function SignedIn({
             door={screen.door}
             subject={screen.subject}
             draft={screen.draft}
+            chooseDoor={!!screen.from}
+            when={screen.when}
+            onScheduled={(notice) => setScreen({ name: 'groups', notice })}
             onBack={() =>
               setScreen(
-                screen.fromExplore
-                  ? { name: 'explore' }
+                screen.from
+                  ? ({ name: screen.from } as Screen)
                   : screen.door === 'learn'
                     ? { name: 'learn', subject: screen.subject ?? screen.draft?.language ?? '' }
                     : { name: 'door', door: screen.door },
@@ -311,7 +338,12 @@ function SignedIn({
       case 'door':
         if (screen.door === 'talk') {
           return (
-            <TalkDoorScreen nickname={me.nickname} onBack={home} onEnter={enter} onStart={() => setScreen({ name: 'start', door: 'talk' })} />
+            <TalkDoorScreen
+              nickname={me.nickname}
+              onBack={home}
+              onEnter={enter}
+              onStart={() => setScreen({ name: 'start', door: 'talk' })}
+            />
           );
         }
         if (screen.door === 'support') return <SupportDoorScreen onBack={home} onEnter={enter} />;
@@ -320,18 +352,42 @@ function SignedIn({
         }
         if (screen.door === 'people') return <PeopleScreen nickname={me.nickname} onBack={home} onEnter={enter} />;
         return <LearnScreen onBack={home} onEnter={enter} onOpenSubject={(subject) => setScreen({ name: 'learn', subject })} />;
+      case 'group':
+        return (
+          <GroupScreen
+            me={me}
+            groupId={screen.groupId}
+            first={screen.first}
+            backLabel={screen.from === 'explore' ? 'Back to Explore' : 'Back to Groups'}
+            onBack={() => setScreen({ name: screen.from } as Screen)}
+            onEnter={enter}
+          />
+        );
       case 'explore':
         return (
           <ExploreScreen
+            me={me}
             onEnter={enter}
             // Learn rooms start from a language or skill, so that one opens the Learn door.
-            onStart={(door) => setScreen(door === 'learn' ? { name: 'door', door: 'learn' } : { name: 'start', door, fromExplore: true })}
+            onStart={(door, later) =>
+              setScreen(
+                door === 'learn'
+                  ? { name: 'door', door: 'learn' }
+                  : { name: 'start', door, from: 'explore', when: later ? 'later' : 'now' },
+              )
+            }
+            onOpenGroup={(g) => setScreen({ name: 'group', groupId: g.id, first: g, from: 'explore' })}
           />
         );
       case 'groups':
         return (
           <GroupsScreen
+            key={screen.notice ?? 'groups'}
+            me={me}
             nickname={me.nickname}
+            notice={screen.notice}
+            onStartGroup={() => setScreen({ name: 'start', door: 'talk', from: 'groups', when: 'weekly' })}
+            onOpenGroup={(g) => setScreen({ name: 'group', groupId: g.id, first: g, from: 'groups' })}
             onEnter={enter}
             onExplore={() => setScreen({ name: 'explore' })}
             onOpenPeople={() => setScreen({ name: 'door', door: 'people' })}
@@ -340,7 +396,12 @@ function SignedIn({
       default:
         return (
           <>
-            <HomeScreen me={me} onOpen={(door) => setScreen({ name: 'door', door })} onEnter={enter} />
+            <HomeScreen
+              me={me}
+              onOpen={(door) => setScreen({ name: 'door', door })}
+              onEnter={enter}
+              onExplore={() => setScreen({ name: 'explore' })}
+            />
           </>
         );
     }
@@ -405,7 +466,9 @@ export default function App() {
       <SignedIn
         key={session.user.id}
         session={session}
-        pendingRequest={link.roomId ? { kind: 'join', roomId: link.roomId } : linkEnded ? { kind: 'match', door: 'talk', mood: null } : null}
+        pendingRequest={
+          link.roomId ? { kind: 'join', roomId: link.roomId } : linkEnded ? { kind: 'match', door: 'talk', mood: null } : null
+        }
         onPendingUsed={clearLink}
       />
     );
@@ -415,10 +478,7 @@ export default function App() {
     <SafeAreaProvider>
       <StatusBar style="light" />
       {content}
-      <LegalModal
-        doc={link.page === 'privacy' ? PRIVACY : link.page === 'terms' ? TERMS : null}
-        onClose={clearLink}
-      />
+      <LegalModal doc={link.page === 'privacy' ? PRIVACY : link.page === 'terms' ? TERMS : null} onClose={clearLink} />
     </SafeAreaProvider>
   );
 }

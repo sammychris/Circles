@@ -11,7 +11,8 @@ export function sortLive(rooms: ListedRoom[]): ListedRoom[] {
     .map(({ r }) => r);
 }
 
-export function matchesFilter(room: ListedRoom, filter: Filter): boolean {
+// Also used for scheduled rooms and weekly groups.
+export function matchesFilter(room: { door: string; topic?: string | null }, filter: Filter): boolean {
   if (filter === 'all') return true;
   if (filter.startsWith('topic:')) return room.topic === filter.slice('topic:'.length);
   return room.door === filter;
