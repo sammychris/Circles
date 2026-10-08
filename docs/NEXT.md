@@ -27,7 +27,7 @@ Everything up to here is built, reviewed by `circles-reviewer`, and pushed to
 - **Games are unchanged.** Each game already has its own minimum (Draughts 2, Whot 2, Mafia 5).
 - **Safety in rooms of 2 stays the same:** Block and Report remain on every person.
 
-**Status: proposed.** Build it only after Sammy says yes, or with his changes.
+**Status: Sammy said yes (2026-10-08).** Support rooms need 3. Every other room can start with 1 waiting and goes live at 2. Build it as in the table above.
 
 **Where it lives in the code and docs** (update all of them together):
 - Rule and logic:
@@ -44,6 +44,35 @@ Everything up to here is built, reviewed by `circles-reviewer`, and pushed to
   - `docs/design/pages/starting-soon.md`
   - `docs/screens/INDEX.md`
 - The room server (`supabase/functions/livekit-token/index.ts`) doesn't use the minimum. Check that matching still fills existing rooms first.
+
+---
+
+## 1b. Ideas being discussed with Sammy (NOT decided yet; don't build until he says yes)
+
+Claude's recommendations, given to Sammy on 2026-10-08:
+
+1. **Game mode (full screen), for every game:**
+   - **Layout:**
+     - A thin strip of faces at the top, which you can hide, showing who's speaking.
+     - The board as big as the phone allows, on a page that never scrolls (today, tapping or dragging a piece scrolls the room page).
+     - At the bottom, only the mic and chat. Everything else goes in a ⋯ menu: Leave game, End game, Raise hand, Report, and Leave room (which asks first).
+   - **Feel:**
+     - Instant moves on your own phone: the piece slides back if the starter's phone rejects it.
+     - Pieces slide, cards fly, Ludo dice roll.
+     - Short, quiet sounds from a free CC0 pack, with an on/off switch, never in support rooms. Needs `expo-audio`, so one new build.
+     - Haptics (`expo-haptics` is already installed).
+2. **Bottom bar:**
+   - Claude recommends 3 tabs: **Home, Groups, Me**.
+   - Explore is skipped because Home already shows every door; Sammy may still want it.
+   - **Groups** holds: your people, tonight and coming up, reminders, weekly groups, and Start a group with a day and time (needs notifications).
+   - This changes `CIRCLES_DESIGN_DIRECTION.md` section 9 ("No tab bar"), so update that once Sammy decides.
+3. **Finding rooms:**
+   - **Yes:** a small "For you" row on Home, with 1 or 2 rooms like the ones you joined before. It uses your own history only and never support rooms.
+   - **Yes:** friends inviting friends ("Ada invited you to Ludo"). The person chooses to invite their mutual connections. Never in support rooms. Needs notifications.
+   - **Yes:** "Go back in" for rooms you left that are still open.
+   - **No:** automatically showing "your friend is in a room". It breaks the Never rule about support rooms, because even hiding only support rooms gives it away.
+   - **Later:** search, once there are many rooms and groups. With few people it mostly shows empty results.
+   - **Back arrows** stay on door pages (normal on Android and iPhone). The tabs cut down how often you need them.
 
 ---
 
