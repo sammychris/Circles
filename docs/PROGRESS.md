@@ -34,7 +34,7 @@ Still open from Step 1: a test with a friend in another place on their own mobil
 - **10-seat ring**; support rooms hold 10.
 - **Learn together:** Practise now by language or skill and level, language pages, practice groups, and Start a practice group.
 - Voice tickets now last 10 minutes.
-- Tests: 126 app tests, 40 database checks, function type-check.
+- Tests: 126 app tests, 39 database checks, function type-check.
 
 ### The Table and over-the-air updates (2026-10-08), not yet tested on phones
 
