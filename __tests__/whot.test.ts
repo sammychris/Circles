@@ -74,4 +74,20 @@ describe('whot', () => {
     expect(timed.turn).toBe(1);
     expect(whot.leave!(g, 'b').winner).toBe('a');
   });
+
+  it('ends with the fewest cards winning when the market and pile are both empty', () => {
+    const g = { ...base({ a: ['star-1', 'star-2'], b: ['cross-1'] }, 'circle-9', []) };
+    const next = whot.apply(g, { type: 'market' }, 'a', 5)!;
+    expect(next.winner).toBe('b');
+  });
+
+  it('shuffles the pile into a new market, and gives the next person a full minute when the current one leaves', () => {
+    const g = { ...base({ a: ['star-1'], b: ['cross-1'], c: ['square-2'] }, 'circle-9', []), pile: ['circle-2', 'circle-3', 'circle-4', 'circle-9'] };
+    const next = whot.apply(g, { type: 'market' }, 'a', 5)!;
+    expect(next.hands.a).toHaveLength(2);
+    expect(next.pile).toEqual(['circle-9']);
+    expect(next.market).toHaveLength(2);
+    const left = whot.leave!({ ...g, turnAt: 0 }, 'a');
+    expect(left.turnAt).toBeGreaterThan(0);
+  });
 });

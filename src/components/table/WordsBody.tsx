@@ -1,4 +1,5 @@
-import { View } from 'react-native';
+import { useEffect, useRef } from 'react';
+import { AccessibilityInfo, View } from 'react-native';
 import type { TableItem, TableState } from '../../table/model';
 import { border, radius, size, space, useColors } from '../../theme';
 import { TableAction } from '../TableAction';
@@ -16,6 +17,15 @@ type Props = {
 export function WordsBody({ item, state, mine, onPresent }: Props) {
   const colors = useColors();
   const shown = Math.min(state.index ?? 0, item.words.length);
+  // A screen reader says each new word as it's shown.
+  const said = useRef(shown);
+  useEffect(() => {
+    if (shown > said.current) {
+      const p = item.words[shown - 1];
+      if (p) AccessibilityInfo.announceForAccessibility(`Word ${shown}: ${p.w}${p.m ? `, meaning ${p.m}` : ''}`);
+    }
+    said.current = shown;
+  }, [shown, item.words]);
   return (
     <View style={{ gap: space[3] }}>
       {item.words.map((p, i) => {

@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Pressable, ScrollView, View } from 'react-native';
 import Svg, { Circle, Path, Polygon, Rect } from 'react-native-svg';
 import { TableAction } from '../../components/TableAction';
@@ -48,8 +48,7 @@ function CardFace({ card, big, playable, onPress }: { card: Card; big?: boolean;
         height: dims.h,
         borderRadius: radius.small,
         backgroundColor: colors.text,
-        borderWidth: playable ? border.selected : 0,
-        borderColor: colors.live,
+        // Cards you can't play now are faded (green is kept for whoever is speaking).
         alignItems: 'center',
         justifyContent: 'space-between',
         paddingVertical: space[1],
@@ -83,6 +82,10 @@ export function WhotBody({ g, hand, me, people, starter, onMove, onPlayAgain, on
   const [choosing, setChoosing] = useState(false);
   const turnId = g.players[g.turn];
   const myTurn = !g.winner && turnId === me;
+  // Your go ended (the time ran out): the shape question closes.
+  useEffect(() => {
+    if (!myTurn) setChoosing(false);
+  }, [myTurn, g.turnAt]);
   const name = (id: string) => (id === me ? 'You' : people.find((p) => p.id === id)?.nickname ?? g.names[id] ?? 'Someone');
   const topCard = g.pile[g.pile.length - 1];
   const playing = g.players.includes(me);
@@ -100,14 +103,14 @@ export function WhotBody({ g, hand, me, people, starter, onMove, onPlayAgain, on
               minHeight: size.minTarget,
               borderRadius: radius.pill,
               borderWidth: border.selected,
-              borderColor: id === turnId && !g.winner ? colors.live : 'transparent',
+              borderColor: id === turnId && !g.winner ? colors.selectedBorder : 'transparent',
               backgroundColor: colors.surface,
               flexDirection: 'row',
               alignItems: 'center',
               gap: space[2],
             }}
           >
-            <Text variant="metaStrong" color={id === turnId && !g.winner ? 'live' : 'text'}>
+            <Text variant="metaStrong">
               {name(id)}
             </Text>
             <Text variant="meta" color="textMeta" style={{ fontVariant: ['tabular-nums'] }}>{`${g.counts[id]} cards`}</Text>
@@ -173,6 +176,15 @@ export function WhotBody({ g, hand, me, people, starter, onMove, onPlayAgain, on
                       </Pressable>
                     ))}
                   </View>
+                  <Pressable
+                    accessibilityRole="button"
+                    onPress={() => setChoosing(false)}
+                    style={{ minHeight: size.minTarget, alignItems: 'center', justifyContent: 'center' }}
+                  >
+                    <Text variant="bodyStrong" color="textSoft">
+                      Cancel
+                    </Text>
+                  </Pressable>
                 </View>
               ) : null}
               {myTurn ? <TableAction label="Go to market" onPress={() => onMove({ type: 'market' })} /> : null}

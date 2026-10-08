@@ -116,7 +116,8 @@ Email is built but switched off (`EMAIL_ENABLED = false` in `src/config.ts`). Wh
 - Ludo moves travel on a public Supabase Realtime channel named after the room. Someone technical with the app's public key could listen or send fake moves (game only, never voice or accounts). Before a wide launch, switch to private channels with Realtime access rules.
 - Ludo team colours are Night-theme only (the app is Night-only for now).
 - If LiveKit can't be reached, the room server treats rooms as empty (it can still match people; they just won't connect).
-- Not built yet, though they're in the designs: minimise to a room bar, notifications and reminders, Coming up and scheduled rooms, weekly groups, "Start a room with friends" on My people, the host's Hands list, Learn together, "Talk with a trained listener", the 10-seat ring, the other games.
+- Not built yet, though they're in the designs: minimise to a room bar, notifications and reminders, Coming up and scheduled rooms, weekly groups, "Talk with a trained listener", and the games marked Next (Draw and Guess, Ayo, Finish the Line, Story Chain, On the Same Wave).
+- Table games, after review: each phone ends a Mafia night's mic pause by itself (about 22 seconds); a player who drops out keeps their place for 30 seconds; players can Leave game; pieces differ by shape, not just colour. Open question for Sammy: widen the 280-point boards so squares reach the 44-point tap size.
 - The under-18 lock is per account. With phone checks later it can become per phone number, as `age-check.md` describes.
 - Android app id is `com.sammychris.circles`. Change it before the first Play Store build if Sammy wants a different one.
 - Listeners (mic not allowed) get a media-type notification; talkers get a microphone-type one. Needs checking on a real phone with the screen locked.

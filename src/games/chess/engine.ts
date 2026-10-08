@@ -18,6 +18,8 @@ export type ChessGame = {
   // The last move played, to show on the board.
   lastMove: { from: string; to: string } | null;
   startedBy: string;
+  // The starter's clock when this was sent, so each phone can count down on its own clock.
+  sentAt: number;
 };
 
 export type ChessMove = { type: 'suggest'; from: string; to: string; promotion?: string } | { type: 'agree' };
@@ -74,7 +76,7 @@ export const chessGame: TableGame<ChessGame> = {
   min: 2,
   max: 6,
   setup(players, startedBy, random) {
-    return { teams: splitTeams(players, random), fen: new Chess().fen(), pending: null, winner: null, last: 'Team Sun plays white and goes first', lastMove: null, startedBy };
+    return { teams: splitTeams(players, random), fen: new Chess().fen(), pending: null, winner: null, last: 'Team Sun plays white and goes first', lastMove: null, startedBy, sentAt: 0 };
   },
   apply(g, raw, by, now) {
     if (g.winner) return null;
@@ -86,7 +88,9 @@ export const chessGame: TableGame<ChessGame> = {
       const promotion = typeof m.promotion === 'string' && ['q', 'r', 'b', 'n'].includes(m.promotion) ? m.promotion : null;
       const san = describe(g.fen, m.from, m.to, promotion ?? 'q');
       if (!san) return null;
-      const s: Suggestion = { by, from: m.from, to: m.to, promotion: promotion ?? 'q', san, agrees: [by], at: now };
+      // A new suggestion replaces the last one but keeps its clock, so nobody can hold up the game by
+      // suggesting again and again: a minute after the first suggestion, the latest one is played.
+      const s: Suggestion = { by, from: m.from, to: m.to, promotion: promotion ?? 'q', san, agrees: [by], at: g.pending?.at ?? now };
       // A team of one, or enough agreement already: played straight away.
       return s.agrees.length >= needed(g.teams[side]) ? play(g, s) : { ...g, pending: s, last: `${SIDE_NAME[side]} is talking it over` };
     }
@@ -97,7 +101,7 @@ export const chessGame: TableGame<ChessGame> = {
     }
     return null;
   },
-  publicView: (g) => g,
+  publicView: (g) => ({ ...g, sentAt: Date.now() }),
   tick(g, now) {
     if (g.winner || !g.pending) return null;
     return now - g.pending.at >= AGREE_SECONDS * 1000 ? play(g, g.pending) : null;

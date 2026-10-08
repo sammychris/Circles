@@ -68,14 +68,15 @@ export function canPlay(g: Pick<WhotGame, 'pile' | 'need'>, card: Card): boolean
   return c.shape === t.shape || c.n === t.n;
 }
 
-// Takes `n` cards from the market, refilling it from the pile (all but the top card) when it runs out.
-function draw(g: WhotGame, n: number): { g: WhotGame; cards: Card[] } {
+// Takes `n` cards from the market. When it runs out, the pile (all but the top card) is shuffled to
+// make a new market, so nobody can tell what comes next.
+function draw(g: WhotGame, n: number, random: () => number = Math.random): { g: WhotGame; cards: Card[] } {
   let market = [...g.market];
   let pile = [...g.pile];
   const cards: Card[] = [];
   for (let i = 0; i < n; i++) {
     if (market.length === 0 && pile.length > 1) {
-      market = pile.slice(0, -1);
+      market = shuffle(pile.slice(0, -1), random);
       pile = pile.slice(-1);
     }
     const card = market.shift();
@@ -126,6 +127,11 @@ export const whot: TableGame<WhotGame> = {
     const m = raw as Partial<WhotMove> & Record<string, unknown>;
     if (m?.type === 'market') {
       const d = draw(g, 1);
+      // No cards left anywhere: whoever holds the fewest wins this game.
+      if (d.cards.length === 0) {
+        const fewest = [...g.players].sort((a, b) => (g.hands[a]?.length ?? 0) - (g.hands[b]?.length ?? 0))[0];
+        return { ...g, turnAt: now, winner: fewest, last: `The market is finished. ${name(g, fewest)} has the fewest cards and wins` };
+      }
       const hands = { ...d.g.hands, [by]: [...(d.g.hands[by] ?? []), ...d.cards] };
       return { ...d.g, hands, turn: nextIndex(g, g.turn), turnAt: now, last: `${name(g, by)} went to market` };
     }
@@ -187,7 +193,8 @@ export const whot: TableGame<WhotGame> = {
     let turn = g.turn > leaving ? g.turn - 1 : g.turn;
     if (turn >= players.length) turn = 0;
     if (!g.winner && players.length === 1) return { ...g, players, hands, market, turn: 0, winner: players[0], last: `${name(g, players[0])} won: everyone else left` };
-    return { ...g, players, hands, market, turn };
+    // If it was their go, the next person gets a full minute.
+    return { ...g, players, hands, market, turn, turnAt: leaving === g.turn ? Date.now() : g.turnAt };
   },
 };
 

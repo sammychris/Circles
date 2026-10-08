@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { Pressable, View } from 'react-native';
-import { Crown } from 'lucide-react-native';
+import { Cloud, Crown, Sun } from 'lucide-react-native';
 import { Text } from '../../components/Text';
 import { border, ludo, radius, size, space, teamColors, useColors } from '../../theme';
 import type { Person } from '../../voice/useVoiceRoom';
@@ -28,9 +28,11 @@ export function DraughtsBody({ g, me, people, starter, onMove, onPlayAgain, onBa
   const mySide = sideOf(g.teams, me);
   const myTurn = !g.winner && mySide === g.turn;
   const moves = myTurn ? legalMoves(g) : [];
-  const from = g.chain ?? picked;
-  const targets = from === null ? [] : moves.filter((m) => m.from === from).map((m) => m.to);
   const movable = new Set(moves.map((m) => m.from));
+  // A piece picked before the board changed (a teammate moved it) no longer counts.
+  const stillPicked = picked !== null && movable.has(picked) ? picked : null;
+  const from = g.chain ?? stillPicked;
+  const targets = from === null ? [] : moves.filter((m) => m.from === from).map((m) => m.to);
   // Sky looks at the board from its own side.
   const flip = mySide === 'sky';
 
@@ -39,7 +41,7 @@ export function DraughtsBody({ g, me, people, starter, onMove, onPlayAgain, onBa
     if (from !== null && targets.includes(i)) {
       onMove({ from, to: i });
       setPicked(null);
-    } else if (movable.has(i) && g.chain === null) setPicked(i === picked ? null : i);
+    } else if (movable.has(i) && g.chain === null) setPicked(i === stillPicked ? null : i);
   };
 
   const instruction = g.winner
@@ -80,19 +82,24 @@ export function DraughtsBody({ g, me, people, starter, onMove, onPlayAgain, onBa
               style={{ width: CELL, height: CELL, backgroundColor: darkSquare ? colors.surface : colors.raised, alignItems: 'center', justifyContent: 'center' }}
             >
               {side ? (
+                // Never colour alone: Sun's pieces are solid with a sun, Sky's are hollow with a cloud,
+                // and a king shows a crown.
                 <View
                   style={{
                     width: CELL - space[2],
                     height: CELL - space[2],
                     borderRadius: radius.pill,
-                    backgroundColor: teamColors[side].fg,
-                    borderWidth: ring ? border.selected : 0,
-                    borderColor: colors.text,
+                    backgroundColor: side === 'sun' ? teamColors.sun.fg : 'transparent',
+                    borderWidth: ring || side === 'sky' ? border.selected : 0,
+                    borderColor: ring ? colors.text : teamColors[side].fg,
                     alignItems: 'center',
                     justifyContent: 'center',
                   }}
                 >
-                  {king ? <Crown size={size.iconMeta} color={colors.bg} strokeWidth={size.iconStroke} /> : null}
+                  {(() => {
+                    const Icon = king ? Crown : side === 'sun' ? Sun : Cloud;
+                    return <Icon size={size.iconMeta} color={side === 'sun' ? colors.bg : teamColors.sky.fg} strokeWidth={size.iconStroke} />;
+                  })()}
                 </View>
               ) : isTarget ? (
                 <View style={{ width: space[3], height: space[3], borderRadius: radius.pill, backgroundColor: colors.text }} />

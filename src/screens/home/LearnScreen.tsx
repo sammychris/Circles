@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { Pressable, View } from 'react-native';
 import { ChevronRight, Code, Mic } from 'lucide-react-native';
 import { Button } from '../../components/Button';
@@ -10,8 +10,11 @@ import { listOpenRooms, type OpenRoom, type RoomRequest } from '../../rooms/api'
 import { LANGUAGES, SKILLS, subjectById, type LearnLevel, type LearnSubject } from '../../rooms/learn';
 import { motion, opacity, radius, size, space, useColors } from '../../theme';
 
-function openNow(rooms: OpenRoom[], subject: string): string {
-  const n = rooms.filter((r) => r.language === subject).length;
+const countFor = (rooms: OpenRoom[] | null, subject: string) => (rooms ?? []).filter((r) => r.language === subject).length;
+
+function openNow(rooms: OpenRoom[] | null, failed: boolean, subject: string): string {
+  if (rooms === null) return failed ? "Couldn't check" : 'Checking';
+  const n = countFor(rooms, subject);
   return n === 0 ? 'Be the first' : n === 1 ? '1 group open now' : `${n} groups open now`;
 }
 
@@ -27,7 +30,13 @@ export function LearnScreen({
   onOpenSubject: (subject: string) => void;
 }) {
   const colors = useColors();
-  const [rooms, setRooms] = useState<OpenRoom[]>([]);
+  // null while loading.
+  const [rooms, setRooms] = useState<OpenRoom[] | null>(null);
+  const [failed, setFailed] = useState(false);
+  // Busiest first (learn.md), worked out once when the list first arrives, so tiles don't move under
+  // your thumb while you look.
+  const [order, setOrder] = useState(LANGUAGES);
+  const sorted = useRef(false);
   const [levels, setLevels] = useState<Record<string, LearnLevel>>({});
   const [last, setLast] = useState<string | null>(null);
   const [picking, setPicking] = useState(false);
@@ -35,9 +44,16 @@ export function LearnScreen({
 
   const load = useCallback(async () => {
     try {
-      setRooms(await listOpenRooms('learn'));
+      const list = await listOpenRooms('learn');
+      if (!sorted.current) {
+        sorted.current = true;
+        setOrder([...LANGUAGES].sort((a, b) => countFor(list, b.id) - countFor(list, a.id)));
+      }
+      setRooms(list);
+      setFailed(false);
     } catch {
       // The list is extra: Practise now still works.
+      setFailed(true);
     }
   }, []);
   useEffect(() => {
@@ -78,14 +94,22 @@ export function LearnScreen({
         </>
       }
     >
+      {failed && rooms === null ? (
+        <View style={{ gap: space[1] }}>
+          <Text variant="body" color="textSoft">
+            {"We couldn't check which groups are open. Check that you're online. Practise now still works."}
+          </Text>
+          <Button label="Try again" variant="quiet" onPress={() => void load()} />
+        </View>
+      ) : null}
       <View style={{ gap: space[3] }}>
         <Text variant="heading">Languages</Text>
         <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: space[3] }}>
-          {LANGUAGES.map((l) => (
+          {order.map((l) => (
             <Pressable
               key={l.id}
               accessibilityRole="button"
-              accessibilityLabel={`${l.name}. ${openNow(rooms, l.id)}`}
+              accessibilityLabel={`${l.name}. ${openNow(rooms, failed, l.id)}`}
               onPress={() => onOpenSubject(l.id)}
               style={({ pressed }) => ({
                 flexBasis: '47%',
@@ -103,7 +127,7 @@ export function LearnScreen({
                 {l.greeting}
               </Text>
               <Text variant="meta" color="textMeta">
-                {openNow(rooms, l.id)}
+                {openNow(rooms, failed, l.id)}
               </Text>
             </Pressable>
           ))}
@@ -118,7 +142,7 @@ export function LearnScreen({
             <Pressable
               key={s.id}
               accessibilityRole="button"
-              accessibilityLabel={`${s.name}. ${openNow(rooms, s.id)}`}
+              accessibilityLabel={`${s.name}. ${openNow(rooms, failed, s.id)}`}
               onPress={() => onOpenSubject(s.id)}
               style={({ pressed }) => ({ minHeight: size.avatarRoom, flexDirection: 'row', alignItems: 'center', gap: space[4], opacity: pressed ? opacity.pressed : 1 })}
             >
@@ -128,7 +152,7 @@ export function LearnScreen({
               <View style={{ flex: 1, gap: space[1] }}>
                 <Text variant="bodyStrong">{s.name}</Text>
                 <Text variant="meta" color="textSoft">
-                  {openNow(rooms, s.id)}
+                  {openNow(rooms, failed, s.id)}
                 </Text>
               </View>
               <ChevronRight size={size.icon} color={colors.textSoft} strokeWidth={size.iconStroke} />

@@ -37,4 +37,13 @@ describe('chess in teams', () => {
     }
     expect(g.winner).toBe('sky');
   });
+
+  it('keeps the first suggestion\'s clock, so suggesting again cannot hold up the game', () => {
+    const g = game(['a', 'c'], ['b']);
+    const first = chessGame.apply(g, { type: 'suggest', from: 'e2', to: 'e4' }, 'a', 1000)!;
+    const second = chessGame.apply(first, { type: 'suggest', from: 'd2', to: 'd4' }, 'c', 50_000)!;
+    expect(second.pending?.at).toBe(1000);
+    const played = chessGame.tick!(second, 61_000, [])!;
+    expect(played.lastMove).toEqual({ from: 'd2', to: 'd4' });
+  });
 });

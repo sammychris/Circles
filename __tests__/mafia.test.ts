@@ -31,8 +31,10 @@ describe('mafia', () => {
   it('day: votes are counted, never shown by name, and voting the Mafia out wins for the town', () => {
     let g: MafiaGame = { ...game(), phase: 'day', endsAt: 1000 + DAY_SECONDS * 1000 };
     g = mafia.apply(g, { type: 'vote', target: 'a' }, 'b', 1000)!;
-    const pub = mafia.publicView(g) as { tally: Record<string, number>; voted: number };
-    expect(pub.tally).toEqual({ a: 1 });
+    const pub = mafia.publicView(g) as { voted: number };
+    // Only how many have voted, never the running counts or who.
+    expect(pub.voted).toBe(1);
+    expect(pub).not.toHaveProperty('tally');
     expect(JSON.stringify(pub)).not.toContain('"b":"a"');
     g = mafia.apply(g, { type: 'vote', target: 'a' }, 'c', 1000)!;
     g = mafia.apply(g, { type: 'vote', target: 'skip' }, 'd', 1000)!;
@@ -54,5 +56,11 @@ describe('mafia', () => {
     let g: MafiaGame = { ...game(), out: ['b', 'c'] };
     g = mafia.apply(g, { type: 'night', target: 'd' }, 'a', 1000)!;
     expect(g.winner).toBe('mafia');
+  });
+
+  it('tells each Mafia who their partner is, and nobody else', () => {
+    const g: MafiaGame = { ...game(), roles: { a: 'mafia', b: 'mafia', c: 'detective', d: 'town' } };
+    expect((mafia.secretFor!(g, 'a') as { partners: string[] }).partners).toEqual(['b']);
+    expect((mafia.secretFor!(g, 'd') as { partners: string[] }).partners).toEqual([]);
   });
 });

@@ -29,7 +29,7 @@ import { DraughtsBody } from '../games/draughts/DraughtsBody';
 import { ChessBody } from '../games/chess/ChessBody';
 import { WhotBody } from '../games/whot/WhotBody';
 import { MafiaBody } from '../games/mafia/MafiaBody';
-import type { MafiaPublic, MafiaSecret } from '../games/mafia/engine';
+import { NIGHT_SECONDS, type MafiaPublic, type MafiaSecret } from '../games/mafia/engine';
 import type { WhotPublic } from '../games/whot/engine';
 import type { ChessGame } from '../games/chess/engine';
 import type { DraughtsGame } from '../games/draughts/engine';
@@ -289,9 +289,21 @@ export function RoomScreen({ me, request, onLeft, onMove }: Props) {
   }, [micAllowed, micLive, voice]);
 
   // Mafia's night: everyone's mic is paused, at most 20 seconds, and the screen says why (activities.md ›
-  // pausesMics). It never mutes anyone outside the night.
-  const mafiaNight =
-    tableItem.item?.kind === 'game' && tableItem.item.game === 'mafia' && (tableItem.state.g as MafiaPublic | undefined)?.phase === 'night';
+  // pausesMics). It never mutes anyone outside the night. Each phone lifts the pause on its own clock
+  // a moment after the night should end, even if the narrator's phone goes quiet.
+  const mafiaG =
+    tableItem.item?.kind === 'game' && tableItem.item.game === 'mafia' ? (tableItem.state.g as MafiaPublic | undefined) : undefined;
+  const nightKey = mafiaG?.phase === 'night' && tableItem.item ? `${tableItem.item.id}-${mafiaG.round}` : null;
+  const [nightOver, setNightOver] = useState<string | null>(null);
+  useEffect(() => {
+    if (!nightKey || !mafiaG) return;
+    const ms = Math.min(Math.max(0, mafiaG.endsAt - mafiaG.sentAt), NIGHT_SECONDS * 1000) + 2000;
+    const timer = setTimeout(() => setNightOver(nightKey), ms);
+    return () => clearTimeout(timer);
+    // Worked out once per night, from the first message about it.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [nightKey]);
+  const mafiaNight = !!nightKey && nightOver !== nightKey;
   const micState: MicState =
     (phase && phase !== 'live') || mafiaNight
       ? 'paused'
@@ -309,8 +321,17 @@ export function RoomScreen({ me, request, onLeft, onMove }: Props) {
       : phase === 'countdown'
         ? 'Finding a third person'
         : 'Rooms need three people';
+  // People whose mic the night paused are told when they can talk again.
+  const pausedByNight = useRef(false);
   useEffect(() => {
-    if (mafiaNight && micLive) void voice.setMic(false);
+    if (mafiaNight && micLive) {
+      pausedByNight.current = true;
+      void voice.setMic(false);
+    }
+    if (!mafiaNight && pausedByNight.current) {
+      pausedByNight.current = false;
+      setToast('Night is over. Tap the mic to talk.');
+    }
   }, [mafiaNight, micLive, voice.setMic]);
 
   // --- people: save, block, report ---
@@ -602,13 +623,23 @@ export function RoomScreen({ me, request, onLeft, onMove }: Props) {
     ]);
   }
 
+  // Starts a Table game when there are enough people for it.
+  function playTableGame(id: GameId) {
+    const engine = GAMES[id];
+    if (engine && people.length < engine.min) {
+      setToast(id === 'mafia' ? 'Mafia needs at least 5 people: a narrator and 4 players.' : `${engine.name} needs at least ${engine.min} people.`);
+      return;
+    }
+    void tableItem.startGame(id);
+  }
+
   function onTablePick(choice: TableChoice) {
     setPutOpen(false);
     confirmReplace(() => {
       if (GAME_IDS.includes(choice as GameId)) {
         const engine = GAMES[choice as GameId];
         if (engine && people.length < engine.min) {
-          setToast(choice === 'mafia' ? 'Mafia needs at least 5 people: a narrator and 4 players.' : `${engine.name} needs at least ${engine.min} people.`);
+          playTableGame(choice as GameId);
           return;
         }
         if (tableItem.item) tableItem.takeOff();
@@ -642,8 +673,8 @@ export function RoomScreen({ me, request, onLeft, onMove }: Props) {
               people={people}
               starter={tableItem.mine}
               onMove={tableItem.sendMove}
-              onPlayAgain={() => void tableItem.startGame('draughts')}
-              onBackToTalking={tableItem.takeOff}
+              onPlayAgain={() => playTableGame('draughts')}
+              onBackToTalking={tableItem.mine ? tableItem.takeOff : tableItem.hideItem}
             />
           ) : null}
           {item.kind === 'game' && item.game === 'chess' && tableItem.state.g ? (
@@ -653,8 +684,8 @@ export function RoomScreen({ me, request, onLeft, onMove }: Props) {
               people={people}
               starter={tableItem.mine}
               onMove={tableItem.sendMove}
-              onPlayAgain={() => void tableItem.startGame('chess')}
-              onBackToTalking={tableItem.takeOff}
+              onPlayAgain={() => playTableGame('chess')}
+              onBackToTalking={tableItem.mine ? tableItem.takeOff : tableItem.hideItem}
             />
           ) : null}
           {item.kind === 'game' && item.game === 'whot' && tableItem.state.g ? (
@@ -665,8 +696,8 @@ export function RoomScreen({ me, request, onLeft, onMove }: Props) {
               people={people}
               starter={tableItem.mine}
               onMove={tableItem.sendMove}
-              onPlayAgain={() => void tableItem.startGame('whot')}
-              onBackToTalking={tableItem.takeOff}
+              onPlayAgain={() => playTableGame('whot')}
+              onBackToTalking={tableItem.mine ? tableItem.takeOff : tableItem.hideItem}
             />
           ) : null}
           {item.kind === 'game' && item.game === 'mafia' && tableItem.state.g ? (
@@ -677,8 +708,8 @@ export function RoomScreen({ me, request, onLeft, onMove }: Props) {
               people={people}
               starter={tableItem.mine}
               onMove={tableItem.sendMove}
-              onPlayAgain={() => void tableItem.startGame('mafia')}
-              onBackToTalking={tableItem.takeOff}
+              onPlayAgain={() => playTableGame('mafia')}
+              onBackToTalking={tableItem.mine ? tableItem.takeOff : tableItem.hideItem}
             />
           ) : null}
           {item.kind === 'words' ? (
@@ -784,6 +815,13 @@ export function RoomScreen({ me, request, onLeft, onMove }: Props) {
   // A game on the table: whoever started it can end it (play.md › Ludo on the table).
   if (!tableAction && connected && tableItem.item?.kind === 'game' && tableItem.canTakeOff) {
     tableAction = <RowButton Icon={X} label="End game" onPress={tableItem.takeOff} />;
+  } else if (!tableAction && connected && tableItem.item?.kind === 'game') {
+    // Anyone else can leave the game and stay in the room (activities.md rule 4). Someone only watching
+    // can close it on their phone. Once it's over, the card has its own "Back to talking".
+    const where = tableGameStatus(tableItem.item.game, tableItem.state.g, me.id);
+    if (where === 'playing') tableAction = <RowButton Icon={X} label="Leave game" onPress={tableItem.leaveGame} />;
+    else if (where === 'watching') tableAction = <RowButton Icon={X} label="Stop watching" onPress={tableItem.hideItem} />;
+    else tableAction = <RowButton Icon={X} label="Close" onPress={tableItem.hideItem} />;
   }
   if (!tableAction && connected) tableAction = <RowButton Icon={SquarePlus} label="Table" onPress={openTable} />;
 
@@ -1289,6 +1327,24 @@ export function RoomScreen({ me, request, onLeft, onMove }: Props) {
       </Sheet>
     </SafeAreaView>
   );
+}
+
+// Whether this person is playing the game on the table, only watching it, or it's over.
+function tableGameStatus(game: GameId, g: unknown, me: string): 'playing' | 'watching' | 'over' {
+  if (!g) return 'watching';
+  if (game === 'draughts' || game === 'chess') {
+    const x = g as DraughtsGame | ChessGame;
+    if (x.winner) return 'over';
+    return x.teams.sun.includes(me) || x.teams.sky.includes(me) ? 'playing' : 'watching';
+  }
+  if (game === 'whot') {
+    const x = g as WhotPublic;
+    if (x.winner) return 'over';
+    return x.players.includes(me) ? 'playing' : 'watching';
+  }
+  const x = g as MafiaPublic;
+  if (x.phase === 'over') return 'over';
+  return x.players.includes(me) && !x.out.includes(me) ? 'playing' : 'watching';
 }
 
 // Room bottom row button: 56 tall, radius 20, icon over a tiny label (design direction › Room bottom row).

@@ -328,6 +328,13 @@ export function WordsSheet({ visible, onClose, onPut }: { visible: boolean; onCl
       setError('Write at least one word.');
       return;
     }
+    // Tell the person rather than quietly dropping words past the tenth.
+    const lines = text.split('\n').filter((line) => line.trim()).length;
+    if (lines > WORDS_MAX) {
+      const extra = lines - WORDS_MAX;
+      setError(`Only ${WORDS_MAX} fit. Take out ${extra} ${extra === 1 ? 'line' : 'lines'}, or put them on next time.`);
+      return;
+    }
     onPut(words);
   };
   return (

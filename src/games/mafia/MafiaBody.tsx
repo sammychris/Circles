@@ -14,6 +14,7 @@ const ROLE: Record<Role, { title: string; line: string }> = {
   detective: { title: "You're the Detective", line: 'At night, check one person. Only you learn the answer.' },
   town: { title: "You're a Townsperson", line: 'Talk, listen, and vote out the Mafia.' },
 };
+const ROLE_NAME: Record<Role, string> = { mafia: 'Mafia', doctor: 'Doctor', detective: 'Detective', town: 'Townsperson' };
 const NIGHT_ASK: Record<Exclude<Role, 'town'>, string> = {
   mafia: 'Who will the Mafia take out?',
   doctor: 'Who will you save?',
@@ -98,6 +99,11 @@ export function MafiaBody({ g, secret, me, people, starter, onMove, onPlayAgain,
               <Text variant="meta" color="textSoft">
                 {ROLE[player.role].line}
               </Text>
+              {player.role === 'mafia' && player.partners.length > 0 ? (
+                <Text variant="meta" color="textSoft">
+                  {`Your partner: ${player.partners.map(name).join(' and ')}. You choose together.`}
+                </Text>
+              ) : null}
               {player.role === 'detective' && player.checks.length > 0 ? (
                 <Text variant="meta" color="textSoft">
                   {player.checks.map((c) => `${name(c.target)} ${c.mafia ? 'IS the Mafia' : 'is not the Mafia'}`).join('. ')}
@@ -115,7 +121,14 @@ export function MafiaBody({ g, secret, me, people, starter, onMove, onPlayAgain,
           </Text>
           {g.players.map((p) => (
             <Text key={p} variant="meta" color={g.out.includes(p) ? 'textMeta' : 'textSoft'}>
-              {`${name(p)}: ${narrator.roles[p]}${g.out.includes(p) ? ' (out)' : ''}${night && Object.entries(narrator.night).some(([, t]) => t === p) ? ` ← ${Object.entries(narrator.night).filter(([, t]) => t === p).map(([r]) => r).join(', ')}` : ''}`}
+              {`${name(p)}: ${ROLE_NAME[narrator.roles[p]]}${g.out.includes(p) ? ' (out)' : ''}${
+                night && Object.values(narrator.night).includes(p)
+                  ? `. Chosen tonight by the ${Object.entries(narrator.night)
+                      .filter(([, t]) => t === p)
+                      .map(([r]) => ROLE_NAME[r as Role])
+                      .join(' and the ')}`
+                  : ''
+              }`}
             </Text>
           ))}
         </View>
@@ -125,14 +138,14 @@ export function MafiaBody({ g, secret, me, people, starter, onMove, onPlayAgain,
         <>
           {g.roles ? (
             <Text variant="meta" color="textSoft">
-              {g.players.map((p) => `${name(p)}: ${g.roles?.[p]}`).join(' · ')}
+              {g.players.map((p) => `${name(p)}: ${g.roles?.[p] ? ROLE_NAME[g.roles[p]] : ''}`).join('. ')}
             </Text>
           ) : null}
           <GameOver result={g.winner === 'town' ? 'Town wins' : g.winner === 'mafia' ? 'Mafia wins' : 'Game over'} canRestart={starter} onPlayAgain={onPlayAgain} onBackToTalking={onBackToTalking} />
         </>
       ) : iAmOut ? (
         <Text variant="body" color="textSoft">
-          {"You're out of this game. You can still listen, talk after it, and chat."}
+          {"You're out of this game. You can still listen, talk and chat."}
         </Text>
       ) : night && player ? (
         player.role === 'town' ? (
@@ -144,7 +157,7 @@ export function MafiaBody({ g, secret, me, people, starter, onMove, onPlayAgain,
             <Text variant="bodyStrong">{NIGHT_ASK[player.role]}</Text>
             <View accessibilityRole="radiogroup" style={{ gap: space[1] }}>
               {living
-                .filter((p) => player.role === 'doctor' || p !== me)
+                .filter((p) => (player.role === 'doctor' || p !== me) && !player.partners.includes(p))
                 .map((p) => (
                   <RadioRow key={p} title={name(p)} selected={player.myNight === p} onPress={() => onMove({ type: 'night', target: p })} />
                 ))}
@@ -153,7 +166,7 @@ export function MafiaBody({ g, secret, me, people, starter, onMove, onPlayAgain,
         )
       ) : !night && player ? (
         <View style={{ gap: space[2] }}>
-          <Text variant="bodyStrong">{`Talk it over, then vote. ${g.voted} of ${living.length} have voted.`}</Text>
+          <Text variant="bodyStrong">{`Talk it over, then vote. ${g.voted} of ${living.length} have voted. The result comes at the end of the day.`}</Text>
           <View accessibilityRole="radiogroup" style={{ gap: space[1] }}>
             {living
               .filter((p) => p !== me)
@@ -161,7 +174,6 @@ export function MafiaBody({ g, secret, me, people, starter, onMove, onPlayAgain,
                 <RadioRow
                   key={p}
                   title={name(p)}
-                  line={g.tally[p] ? `${g.tally[p]} ${g.tally[p] === 1 ? 'vote' : 'votes'}` : undefined}
                   selected={player.myVote === p}
                   onPress={() => onMove({ type: 'vote', target: p })}
                 />

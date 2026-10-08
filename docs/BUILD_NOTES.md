@@ -325,6 +325,8 @@ Then on each phone: open Circles, close it fully (swipe it away), and open it ag
 - **Matching** puts you with people learning the same language at the same level, up to 7 per room. If there's no room, you start one and others at your level join you.
 - **Words on the Table** (Learn rooms only): up to 10 words with meanings, one per line ("kedu = how are you"). You show them one at a time, so the room can try saying each one first.
 - In a Learn room the Table offers notes, Words, Take turns and Quiz.
+- Languages are sorted with the busiest first. While the list loads it says "Checking"; if you're offline it says so, with **Try again**. Practise now works either way.
+- More than 10 words? It tells you, instead of quietly dropping the extra ones. A screen reader reads each new word as it's shown.
 
 **Choices I made (open to change)**
 - **Pidgin and English are added** to the design's four languages, because they suit Nigeria. Tell me which languages and skills you want.
@@ -344,17 +346,21 @@ Then on each phone: open Circles, close it fully (swipe it away), and open it ag
 
 All four are under Table, then Games, in game rooms, next to Ludo and Find the Impostor.
 
-**How they run:** whoever starts a game holds it on their phone. Everyone else's moves go there, are checked against the game's rules, and the result goes to everyone. Anything hidden (a Whot hand, a Mafia role) is sent only to the person it belongs to. Nothing is kept: no points, streaks or rankings. Whoever started a game can end it ("End game" in the bottom row), and "Play again" or "Back to talking" come at the end.
+**How they run:** whoever starts a game holds it on their phone. Everyone else's moves go there, are checked against the game's rules, and the result goes to everyone. Anything hidden (a Whot hand, a Mafia role) is sent only to the person it belongs to. Nothing is kept: no points, streaks or rankings. Whoever started a game can end it ("End game" in the bottom row). Everyone else gets **Leave game**: they stop playing but stay in the room. At the end, the starter gets "Play again" (only when there are still enough people), and everyone gets "Back to talking".
+- **A short drop-out doesn't throw you out.** If your signal drops, your place in the game (your Whot hand, your Mafia role) is kept for 30 seconds while you come back.
 
 **Draughts** (our own code)
 - Two teams, Sun and Sky, on the common 8 × 8 board.
 - Capturing is compulsory and a piece can jump several times in one turn. A piece that reaches the far side becomes a king, which moves one square in any diagonal direction.
 - Your team talks it over, then anyone on it taps a piece (it has a ring) and where it goes. Team Sky sees the board from its own side.
+- Pieces don't rely on colour: Sun's are solid with a sun, Sky's are hollow with a cloud, and kings have a crown.
 - It's a draw after 80 moves without a capture. A team with nobody left loses.
 
 **Chess in teams** (rules from chess.js, a free, open-source chess library, BSD licence)
 - Team Sun plays white, Team Sky black.
-- On your team's turn, anyone taps a piece and a square to suggest a move, for example "Ada_K suggests Knight to f3". It's played when most of the team taps **Agree**, or after 60 seconds with the latest suggestion, as the design says.
+- On your team's turn, anyone taps a piece and a square to suggest a move, for example "Ada_K suggests Knight to f3". It's played when most of the team taps **Agree**, or after 60 seconds with the latest suggestion, as the design says. Teammates can tap **Suggest another**.
+- The 60 seconds start with the first suggestion and don't restart, so nobody can hold the game up by suggesting again and again.
+- Sun's pieces are outlined, Sky's are solid, so they don't rely on colour.
 
 **Whot** (our own code, Nigerian rules)
 - 54 cards, 5 each.
@@ -362,18 +368,23 @@ All four are under Table, then Games, in game rooms, next to Ludo and Find the I
 - Stuck? **Go to market**. First to finish wins.
 - **Your hand is only on your phone.** Everyone sees how many cards each person has.
 - Anyone who takes more than 60 seconds goes to market, so the game never stalls.
+- When the market runs out, the played cards are shuffled into a new market. If there are no cards left at all, whoever holds the fewest wins.
 
 **Mafia** (our own code)
 - **The person who starts it is the narrator**, as in the real game. They don't play, and they see the roles so they can narrate. It needs at least 5 people: a narrator and 4 players.
-- Roles: Mafia (two Mafia with 6 or more players), Doctor, Detective, and Townspeople. Each player sees only their own role, and can hide it.
+- Roles: Mafia (two Mafia with 6 or more players), Doctor, Detective, and Townspeople. Each player sees only their own role, and can hide it. Two Mafia are told who their partner is.
 - **Night lasts at most 20 seconds, and everyone's mic is paused**, with "Night: the Mafia is choosing" shown on the mic. The design allows this for short secret phases only.
-- **Day:** everyone talks, then votes. The counts show, never who voted for whom.
+  - Every phone lifts the pause by itself after about 22 seconds, even if the narrator's phone goes quiet.
+  - People whose mic was on are told "Night is over. Tap the mic to talk."
+- **Day:** everyone talks, then votes. While voting, only "3 of 5 have voted" shows. The result, with the number of votes, comes at the end of the day. Live counts would let people work out who voted for whom from the timing.
 - **"Out" players stay in the room**, keep listening and can chat; they just can't vote. Nobody is ever muted or removed for real.
 
 **Choices I made (open to change)**
 - **Draughts is 8 × 8.** Many Nigerians play 10 × 10 (international draughts); tell me if you'd like that instead.
 - **Whot's "General market" lets the player go again.** House rules vary; tell me yours.
 - **The starter's phone holds the whole game,** including everyone's Whot hand. Someone with a changed app could peek at the hands of a game they started. For the open test that's fine. Later, the cards can be dealt by the server, the way Find the Impostor's words already are.
+- **Nobody suggests a chess move, or a draughts team never moves?** There's no forced move: these are talking games, and the starter can End game. Tell me if you'd like a turn limit.
+- **Question for you: board size.** The boards are 280 points wide, as in the design, so each square is 35 points. That is smaller than the 44-point minimum for taps. A full-width board (about 340 on most phones) would give 42-point squares. Shall I widen it?
 - **Not built yet:** Draw and Guess, Ayo, Finish the Line, Story Chain, and On the Same Wave.
 
 **Phone checklist** (3 or more phones, in a game room)

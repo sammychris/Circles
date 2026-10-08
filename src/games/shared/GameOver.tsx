@@ -13,16 +13,13 @@ export function GameOver({ result, canRestart, onPlayAgain, onBackToTalking }: {
       <Text variant="meta" color="textMeta" center>
         Good game. Nothing is kept: no points, no rankings.
       </Text>
-      {canRestart ? (
-        <>
-          <TableAction label="Play again" onPress={onPlayAgain} />
-          <Pressable accessibilityRole="button" onPress={onBackToTalking} style={{ minHeight: size.minTarget, alignItems: 'center', justifyContent: 'center' }}>
-            <Text variant="bodyStrong" color="textSoft">
-              Back to talking
-            </Text>
-          </Pressable>
-        </>
-      ) : null}
+      {canRestart ? <TableAction label="Play again" onPress={onPlayAgain} /> : null}
+      {/* Everyone can close it: for the starter it comes off the table, for others just on their phone. */}
+      <Pressable accessibilityRole="button" onPress={onBackToTalking} style={{ minHeight: size.minTarget, alignItems: 'center', justifyContent: 'center' }}>
+        <Text variant="bodyStrong" color="textSoft">
+          Back to talking
+        </Text>
+      </Pressable>
     </View>
   );
 }

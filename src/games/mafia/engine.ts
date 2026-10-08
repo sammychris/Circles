@@ -43,8 +43,8 @@ export type MafiaPublic = {
   phase: Phase;
   round: number;
   endsAt: number;
-  // How many votes each person has, never who voted.
-  tally: Record<string, number>;
+  // How many people have voted so far. Neither who voted nor the running count for each person is
+  // shown: in a voice room the timing would give away who voted for whom. The result comes at the end.
   voted: number;
   winner: 'mafia' | 'town' | null;
   last: string;
@@ -56,7 +56,7 @@ export type MafiaPublic = {
 };
 
 export type MafiaSecret =
-  | { role: Role; checks: { target: string; mafia: boolean }[]; myVote: string | null; myNight: string | null }
+  | { role: Role; checks: { target: string; mafia: boolean }[]; myVote: string | null; myNight: string | null; partners: string[] }
   // The narrator sees everything, as in the real game.
   | { role: 'narrator'; roles: Record<string, Role>; night: MafiaGame['night'] };
 
@@ -98,7 +98,9 @@ function endDay(g: MafiaGame, now: number): MafiaGame {
   const tie = ranked.length > 1 && ranked[0][1] === ranked[1][1];
   const chosen = ranked.length > 0 && !tie ? ranked[0][0] : null;
   const out = chosen ? [...g.out, chosen] : g.out;
-  const last = chosen ? `The town voted ${name(g, chosen)} out. They can still listen and chat.` : 'No decision today: nobody was voted out.';
+  const last = chosen
+    ? `The town voted ${name(g, chosen)} out, with ${counts[chosen]} ${counts[chosen] === 1 ? 'vote' : 'votes'}. They can still listen and chat.`
+    : 'No decision today: nobody was voted out.';
   const after = finish({ ...g, out, last }, now);
   return after.phase === 'over' ? after : startNight(after, now, `${last} Night is falling.`);
 }
@@ -158,8 +160,6 @@ export const mafia: TableGame<MafiaGame> = {
     return null;
   },
   publicView(g): MafiaPublic {
-    const tally: Record<string, number> = {};
-    for (const t of Object.values(g.votes)) if (t !== 'skip') tally[t] = (tally[t] ?? 0) + 1;
     return {
       narrator: g.narrator,
       players: g.players,
@@ -167,7 +167,6 @@ export const mafia: TableGame<MafiaGame> = {
       phase: g.phase,
       round: g.round,
       endsAt: g.endsAt,
-      tally,
       voted: Object.keys(g.votes).length,
       winner: g.winner,
       last: g.last,
@@ -181,7 +180,9 @@ export const mafia: TableGame<MafiaGame> = {
     const role = g.roles[person];
     if (!role) return null;
     const myNight = role === 'town' ? null : g.night[role];
-    return { role, checks: role === 'detective' ? g.checks : [], myVote: g.votes[person] ?? null, myNight: g.phase === 'night' ? myNight : null };
+    // The Mafia know each other, as in the real game.
+    const partners = role === 'mafia' ? g.players.filter((p) => p !== person && g.roles[p] === 'mafia') : [];
+    return { role, checks: role === 'detective' ? g.checks : [], myVote: g.votes[person] ?? null, myNight: g.phase === 'night' ? myNight : null, partners };
   },
   tick(g, now) {
     if (g.phase === 'over' || now < g.endsAt) return null;

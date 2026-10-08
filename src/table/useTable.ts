@@ -24,7 +24,12 @@ type Subscribe = (topic: string, listener: DataListener) => () => void;
 export type NewTableItem = TableItem extends infer T ? (T extends TableItem ? Omit<T, 'id' | 'by' | 'byName' | 'at'> : never) : never;
 
 // A phone sending more table messages than this is ignored for a while (a changed app flooding the room).
+// The person whose item is on the table sends one update per move to everyone, so they get more room.
 const MESSAGES_PER_10S = 20;
+const PRESENTER_MESSAGES_PER_10S = 120;
+// A player who drops out of the room keeps their place in a game this long, in case they come back
+// (activities.md rule 7: a game survives a 30-second reconnect).
+const LEAVE_GRACE_MS = 30_000;
 // Someone arriving asks what's on the table, and asks again in case the presenter didn't know them yet.
 const HELLO_RETRY_MS = [3000, 8000];
 // The presenter answers each person's "what's on the table?" at most this often.
@@ -89,7 +94,10 @@ export function useTable(
   const [myAnswer, setMyAnswer] = useState<number | null>(null);
   // Games: the whole game, on the starter's phone only; and this person's own hand or role.
   const fullGame = useRef<unknown>(null);
-  const [mySecret, setMySecret] = useState<unknown>(null);
+  // Kept with the id of the game it belongs to, so it can arrive in the same moment as the game itself.
+  const [secretFor, setMySecret] = useState<{ id: string; data: unknown } | null>(null);
+  // Items this phone closed for itself (left the game, or done with a finished one).
+  const [hiddenId, setHiddenId] = useState<string | null>(null);
   const answered = useRef(new Map<string, number>());
 
   const send = useCallback(
@@ -102,7 +110,7 @@ export function useTable(
     const stop = onData(TABLE_TOPIC, (payload, from) => {
       const now = Date.now();
       const times = (heard.current.get(from.id) ?? []).filter((t) => now - t < 10_000);
-      if (times.length >= MESSAGES_PER_10S) return;
+      if (times.length >= (itemRef.current?.by === from.id ? PRESENTER_MESSAGES_PER_10S : MESSAGES_PER_10S)) return;
       heard.current.set(from.id, [...times, now]);
       let msg: TableMessage;
       try {
@@ -156,7 +164,7 @@ export function useTable(
         playMove(current.game, msg.move, from.id);
       } else if (msg.k === 'secret') {
         // Only ever believed from the starter of the game on the table.
-        if (current && current.kind === 'game' && current.id === msg.id && current.by === from.id) setMySecret(msg.data);
+        if (current && current.kind === 'game' && current.id === msg.id && current.by === from.id) setMySecret({ id: msg.id, data: msg.data });
       } else if (msg.k === 'off') {
         // Only the presenter, or a trained host, can take something off the table.
         if (current && current.id === msg.id && (current.by === from.id || hostsRef.current.has(from.id))) {
@@ -265,7 +273,7 @@ export function useTable(
       setState(next);
       void send({ k: 'state', id: current.id, state: next });
       if (engine.secretFor) {
-        setMySecret(engine.secretFor(full, me.id));
+        setMySecret({ id: current.id, data: engine.secretFor(full, me.id) });
         for (const person of peopleRef.current) {
           if (person === me.id) continue;
           const secret = engine.secretFor(full, person);
@@ -282,6 +290,11 @@ export function useTable(
   function playMove(gameId: GameId, move: unknown, by: string) {
     const engine = GAMES[gameId];
     if (!engine || fullGame.current === null) return;
+    // Anyone can leave a game without leaving the room (activities.md rule 4).
+    if ((move as { type?: unknown } | null)?.type === 'leave') {
+      if (engine.leave && by !== me.id) commitRef.current(gameId, engine.leave(fullGame.current, by));
+      return;
+    }
     const next = engine.apply(fullGame.current, move, by, Date.now());
     if (next) commitRef.current(gameId, next);
   }
@@ -315,42 +328,64 @@ export function useTable(
     [me.id, send],
   );
 
-  // The starter's phone: timers (a chess vote, a Mafia night) and people leaving.
+  // Leaves the game on the table, staying in the room. The card closes on this phone.
+  const leaveGame = useCallback(() => {
+    const current = itemRef.current;
+    if (!current || current.kind !== 'game' || current.by === me.id) return;
+    void send({ k: 'move', id: current.id, move: { type: 'leave' } }, [current.by]);
+    setHiddenId(current.id);
+  }, [me.id, send]);
+  // Closes the card on this phone only (a finished game someone else started).
+  const hideItem = useCallback(() => {
+    if (itemRef.current) setHiddenId(itemRef.current.id);
+  }, []);
+
+  // The starter's phone, every second: timers (a chess vote, a Mafia night), and players who left the
+  // room more than 30 seconds ago leave the game.
   const gameItem = item && item.kind === 'game' && item.by === me.id ? item : null;
-  const playersKey = people.map((p) => p.id).join(',');
-  const lastPeople = useRef<string[]>([]);
+  const gameItemId = gameItem?.id;
+  const gameId = gameItem?.kind === 'game' ? gameItem.game : null;
   useEffect(() => {
-    if (!gameItem) return;
-    const engine = GAMES[gameItem.game];
-    if (!engine || fullGame.current === null) return;
-    const gone = lastPeople.current.filter((id) => !peopleRef.current.includes(id));
-    lastPeople.current = [...peopleRef.current];
-    if (gone.length > 0 && engine.leave) {
-      let full: unknown = fullGame.current;
-      for (const id of gone) full = engine.leave(full, id);
-      commitRef.current(gameItem.game, full);
-    }
-    // playersKey stands in for people.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [gameItem?.id, playersKey]);
-  useEffect(() => {
-    if (!gameItem) return;
-    const engine = GAMES[gameItem.game];
-    if (!engine?.tick) return;
+    if (!gameItemId || !gameId) return;
+    const engine = GAMES[gameId];
+    if (!engine) return;
+    const goneSince = new Map<string, number>();
+    let seen = new Set(peopleRef.current);
     const timer = setInterval(() => {
       if (fullGame.current === null) return;
-      const next = engine.tick?.(fullGame.current, Date.now(), peopleRef.current);
-      if (next) commitRef.current(gameItem.game, next);
+      const now = Date.now();
+      const here = peopleRef.current;
+      for (const id of here) {
+        seen.add(id);
+        goneSince.delete(id);
+      }
+      for (const id of seen) if (!here.includes(id) && !goneSince.has(id)) goneSince.set(id, now);
+      let full: unknown = fullGame.current;
+      let changed = false;
+      for (const [id, since] of goneSince) {
+        if (now - since < LEAVE_GRACE_MS) continue;
+        goneSince.delete(id);
+        seen = new Set([...seen].filter((p) => p !== id));
+        if (engine.leave) {
+          full = engine.leave(full, id);
+          changed = true;
+        }
+      }
+      const ticked = engine.tick?.(full, now, here);
+      if (ticked) {
+        full = ticked;
+        changed = true;
+      }
+      if (changed) commitRef.current(gameId, full);
     }, 1000);
     return () => clearInterval(timer);
-  }, [gameItem]);
+  }, [gameItemId, gameId]);
 
-  // A new item: forget the last quiz answer and any hand or role.
+  // A new item: forget the last quiz answer. (A hand or role is kept with its own game's id.)
   const itemId = item?.id;
   useEffect(() => {
     setMyAnswer(null);
-    if (itemRef.current?.by !== me.id) setMySecret(null);
-  }, [itemId, me.id]);
+  }, [itemId]);
 
   // Quiz: send your answer to the presenter only. You can change it until the reveal.
   const answer = useCallback(
@@ -419,10 +454,11 @@ export function useTable(
     return () => clearInterval(timer);
   }, [item, me.id, send, setState]);
 
-  const mine = !!item && item.by === me.id;
+  const shown = item && item.id !== hiddenId ? item : null;
+  const mine = !!shown && shown.by === me.id;
   const clearBumped = useCallback(() => setBumped(false), []);
   return {
-    item,
+    item: shown,
     state,
     mine,
     canTakeOff: mine || iAmHost,
@@ -437,8 +473,10 @@ export function useTable(
     answer,
     reveal,
     passTurn,
-    mySecret,
+    mySecret: secretFor && item && secretFor.id === item.id ? secretFor.data : null,
     startGame,
     sendMove,
+    leaveGame,
+    hideItem,
   };
 }
