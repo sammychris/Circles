@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from 'react';
-import { allowReminders, syncReminders } from '../lib/reminders';
+import { allowReminders, reminderNote, syncReminders } from '../lib/reminders';
 import { listGroups, setReminder, upcomingRooms, type Group, type ScheduledRoom } from './schedule';
 
 // Scheduled rooms (and, when asked, weekly groups) for a page, kept fresh every minute. Each load
@@ -35,19 +35,19 @@ export function useSchedule(userId: string, withGroups = false) {
       ),
     );
 
-  // Returns false if it didn't work, so the page can say so.
+  // Returns a short note for the page to show: done, notifications are off, or it didn't work.
   const toggleReminder = useCallback(
-    async (room: ScheduledRoom): Promise<boolean> => {
+    async (room: ScheduledRoom): Promise<string> => {
       const on = !room.reminded;
       flip(room.id, on);
       try {
         await setReminder(room.id, on);
-        if (on) await allowReminders();
+        const note = on ? reminderNote(await allowReminders()) || 'Reminder set.' : 'Reminder removed.';
         void load();
-        return true;
+        return note;
       } catch {
         flip(room.id, !on);
-        return false;
+        return "That didn't work. Check that you're online.";
       }
     },
     [load],

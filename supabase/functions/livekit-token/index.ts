@@ -201,7 +201,11 @@ function cleanWhen(body: Record<string, unknown>, now = Date.now()): When | null
   const days = Array.isArray(weekly.days) ? [...new Set(weekly.days)] : [];
   if (days.length < 1 || days.length > 7 || !days.every((d) => Number.isInteger(d) && (d as number) >= 0 && (d as number) <= 6)) return null;
   if (typeof weekly.time !== 'string' || !/^([01]\d|2[0-3]):[0-5]\d$/.test(weekly.time)) return null;
-  const timeZone = typeof weekly.timeZone === 'string' && weekly.timeZone.length <= 64 ? weekly.timeZone : 'Africa/Lagos';
+  // Region names only ("Africa/Lagos", "UTC"), as Postgres knows them; anything else is Lagos time.
+  const timeZone =
+    typeof weekly.timeZone === 'string' && weekly.timeZone.length <= 64 && /^(UTC|[A-Z][A-Za-z_]+(\/[A-Z][A-Za-z0-9_+-]+){1,2})$/.test(weekly.timeZone)
+      ? weekly.timeZone
+      : 'Africa/Lagos';
   try {
     new Intl.DateTimeFormat('en', { timeZone });
   } catch {
@@ -669,6 +673,11 @@ Deno.serve(async (req) => {
       .eq('id', String(body.scheduledId ?? ''))
       .maybeSingle();
     if (!s || s.cancelled) return json({ error: 'This room has ended', status: 'ended' }, 410);
+    // Someone Sammy removed: their rooms don't open.
+    const { data: hostBan } = await admin.from('bans').select('until').eq('user_id', s.created_by).maybeSingle();
+    if (hostBan && (!hostBan.until || Date.parse(hostBan.until as string) > Date.now())) {
+      return json({ error: 'This room has ended', status: 'ended' }, 410);
+    }
     if (s.group_id) {
       const { data: g } = await admin.from('groups').select('ended_at').eq('id', s.group_id).maybeSingle();
       if (!g || g.ended_at) return json({ error: 'This room has ended', status: 'ended' }, 410);

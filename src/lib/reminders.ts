@@ -52,10 +52,23 @@ async function saveIds(userId: string, ids: Record<string, string>) {
   }
 }
 
+// The end of "Ludo night is set for 8 pm. …": a promise only when the phone will really remind them.
+export function reminderNote(allowed: boolean): string {
+  if (allowed) return "We'll remind you.";
+  return supported ? 'Turn on notifications for Circles to get a reminder.' : '';
+}
+
 // Makes this phone's reminders match the rooms it should remind about: the ones you set "Remind me"
-// for, and your weekly groups' meetings. Called whenever the lists are loaded.
-export async function syncReminders(userId: string, rooms: ScheduledRoom[]): Promise<void> {
-  if (!supported) return;
+// for, and your weekly groups' meetings. Called whenever the lists are loaded. One at a time, so two
+// pages loading together never set the same reminder twice (or lose one that then can't be cancelled).
+let queue: Promise<void> = Promise.resolve();
+export function syncReminders(userId: string, rooms: ScheduledRoom[]): Promise<void> {
+  if (!supported) return Promise.resolve();
+  queue = queue.then(() => syncNow(userId, rooms));
+  return queue;
+}
+
+async function syncNow(userId: string, rooms: ScheduledRoom[]): Promise<void> {
   try {
     const granted = (await Notifications.getPermissionsAsync()).granted;
     if (!granted) return;
@@ -91,8 +104,14 @@ export async function syncReminders(userId: string, rooms: ScheduledRoom[]): Pro
 }
 
 // Logging out: no more reminders for that account on this phone.
-export async function clearReminders(userId: string | null): Promise<void> {
-  if (!supported) return;
+export function clearReminders(userId: string | null): Promise<void> {
+  if (!supported) return Promise.resolve();
+  // After any sync already running, so nothing is set again behind it.
+  queue = queue.then(() => clearNow(userId));
+  return queue;
+}
+
+async function clearNow(userId: string | null): Promise<void> {
   try {
     await Notifications.cancelAllScheduledNotificationsAsync();
     if (userId) await AsyncStorage.removeItem(KEY(userId));
@@ -107,11 +126,16 @@ export function onReminderTap(open: (scheduledId: string, startsAt: Date | null)
   const take = (response: Notifications.NotificationResponse | null) => {
     const data = response?.notification.request.content.data;
     const at = typeof data?.startsAt === 'string' ? new Date(data.startsAt) : null;
-    if (typeof data?.scheduledId === 'string') open(data.scheduledId, at && !isNaN(at.getTime()) ? at : null);
+    if (typeof data?.scheduledId !== 'string') return;
+    // Handled once: logging in again (or as someone else) never reopens it.
+    Notifications.clearLastNotificationResponse();
+    open(data.scheduledId, at && !isNaN(at.getTime()) ? at : null);
   };
-  void Notifications.getLastNotificationResponseAsync()
-    .then(take)
-    .catch(() => {});
+  try {
+    take(Notifications.getLastNotificationResponse());
+  } catch {
+    // Nothing was tapped.
+  }
   const sub = Notifications.addNotificationResponseReceivedListener(take);
   return () => sub.remove();
 }

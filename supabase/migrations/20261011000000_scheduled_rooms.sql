@@ -74,6 +74,18 @@ create policy "group_members: own" on public.group_members for select to authent
 revoke insert, update, delete on public.reminders, public.group_members from anon, authenticated;
 revoke all on public.groups, public.scheduled_rooms from anon, authenticated;
 
+-- Removed from Circles (Sammy's bans): their scheduled rooms and groups stop showing and stop meeting.
+create or replace function public.is_banned(p_user uuid)
+returns boolean
+language sql
+stable
+security definer
+set search_path = public
+as $$
+  select exists (select 1 from public.bans where user_id = p_user and (until is null or until > now()));
+$$;
+revoke all on function public.is_banned(uuid) from public, anon, authenticated;
+
 -- Can this person see this scheduled room? Public ones, or private ones they made, are a regular of,
 -- or set a reminder for (they had the link). Never one made by someone they blocked or who blocked them.
 create or replace function public.can_see_scheduled(p_room public.scheduled_rooms, p_user uuid)
@@ -83,7 +95,8 @@ stable
 security definer
 set search_path = public
 as $$
-  select not exists (
+  select not public.is_banned(p_room.created_by)
+    and not exists (
       select 1 from public.blocks b
       where (b.blocker_id = p_user and b.blocked_id = p_room.created_by)
          or (b.blocker_id = p_room.created_by and b.blocked_id = p_user)
@@ -105,15 +118,25 @@ security definer
 set search_path = public
 as $$
 begin
+  -- Only groups that can meet: not ended, host not removed, and a time zone Postgres knows (an unknown
+  -- one would stop every list loading, so such a group just waits). Picked first, so no time is ever
+  -- worked out in an unknown zone.
+  with ok as materialized (
+    select g.* from public.groups g
+    where g.ended_at is null
+      and g.time_zone in (select name from pg_timezone_names)
+      and not public.is_banned(g.created_by)
+  ),
+  dates as (
+    select ok.*, ((((now() at time zone ok.time_zone)::date + d) + ok.start_time) at time zone ok.time_zone) as at,
+           extract(dow from ((now() at time zone ok.time_zone)::date + d))::smallint as dow
+    from ok cross join generate_series(0, 7) as d
+  )
   insert into public.scheduled_rooms (group_id, door, title, topic, language, level, capacity, starts_at, private, created_by)
-  select g.id, g.door, g.name, g.topic, g.language, g.level, g.capacity,
-         ((((now() at time zone g.time_zone)::date + d) + g.start_time) at time zone g.time_zone),
-         g.private, g.created_by
-  from public.groups g
-  cross join generate_series(0, 7) as d
-  where g.ended_at is null
-    and extract(dow from ((now() at time zone g.time_zone)::date + d))::smallint = any (g.days)
-    and ((((now() at time zone g.time_zone)::date + d) + g.start_time) at time zone g.time_zone) > now() - interval '2 hours'
+  select id, door, name, topic, language, level, capacity, at, private, created_by
+  from dates
+  -- Never a meeting from before the group was made (one made at 9 pm doesn't get tonight's 8 pm).
+  where dow = any (days) and at > greatest(now() - interval '2 hours', created_at)
   on conflict (group_id, starts_at) do nothing;
 end;
 $$;
@@ -222,6 +245,7 @@ begin
     order by s.starts_at limit 1
   ) n on true
   where g.ended_at is null
+    and not public.is_banned(g.created_by)
     and not exists (
       select 1 from public.blocks b
       where (b.blocker_id = auth.uid() and b.blocked_id = g.created_by)
@@ -277,8 +301,10 @@ begin
   if auth.uid() is null then
     raise exception 'not_signed_in';
   end if;
-  select * into g from public.groups where id = p_group and ended_at is null;
+  -- Locked, so two people joining at once can't take the group past its size.
+  select * into g from public.groups where id = p_group and ended_at is null for update;
   if g.id is null
+     or public.is_banned(g.created_by)
      or (g.private and g.created_by <> auth.uid())
      or exists (
        select 1 from public.blocks b

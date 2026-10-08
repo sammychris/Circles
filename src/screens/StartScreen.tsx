@@ -9,7 +9,7 @@ import { RoomRulesSheet } from '../components/RoomRulesSheet';
 import { Text } from '../components/Text';
 import { TextField } from '../components/TextField';
 import { WEB_URL } from '../config';
-import { allowReminders } from '../lib/reminders';
+import { allowReminders, reminderNote } from '../lib/reminders';
 import { WEEKDAYS_SHORT, WEEK_ORDER, clockWords, dayAndTime, weeklyWords } from '../lib/when';
 import { BadTitleError, TooManyRoomsError, scheduleRoom, type RoomRequest } from '../rooms/api';
 import { LEARN_CAPACITY, LEVELS, subjectById, type LearnLevel } from '../rooms/learn';
@@ -59,7 +59,9 @@ function TimeStepper({ minutes, onChange }: { minutes: number; onChange: (m: num
     <Pressable
       accessibilityRole="button"
       accessibilityLabel={label}
+      accessibilityHint="Press and hold to move a whole hour."
       onPress={() => onChange((minutes + delta + DAY_MIN) % DAY_MIN)}
+      onLongPress={() => onChange((minutes + delta * 4 + DAY_MIN) % DAY_MIN)}
       style={({ pressed }) => ({
         width: size.minTarget + space[2],
         height: size.minTarget + space[2],
@@ -175,11 +177,12 @@ export function StartScreen({ door: firstDoor, subject, draft, onBack, onStart, 
           ? { startsAt: laterAt.toISOString() }
           : { weekly: { days: weekDays, time, timeZone: Intl.DateTimeFormat().resolvedOptions().timeZone || 'Africa/Lagos' } }),
       });
-      await allowReminders();
+      const note = reminderNote(await allowReminders());
       onScheduled(
-        when === 'later'
-          ? `${cleanTitle} is set for ${dayAndTime(laterAt).replace(/^\w/, (c) => c.toLowerCase())}. We'll remind you.`
-          : `${cleanTitle} meets ${weeklyWords(weekDays, time).replace(/^Every/, 'every')}. We'll remind you.`,
+        (when === 'later'
+          ? `${cleanTitle} is set for ${dayAndTime(laterAt).replace(/^(Today|Tonight|Tomorrow)/, (w) => w.toLowerCase())}. ${note}`
+          : `${cleanTitle} meets ${weeklyWords(weekDays, time).replace(/^Every/, 'every')}. ${note}`
+        ).trim(),
       );
     } catch (e) {
       if (e instanceof BadTitleError) setError("That name can't be used. Pick another.");
@@ -347,16 +350,19 @@ export function StartScreen({ door: firstDoor, subject, draft, onBack, onStart, 
                   style={({ pressed }) => ({
                     minHeight: size.minTarget,
                     minWidth: size.minTarget + space[3],
-                    paddingHorizontal: space[2],
+                    paddingHorizontal: space[3],
                     borderRadius: radius.pill,
                     borderWidth: border.selected,
                     borderColor: on ? colors.selectedBorder : 'transparent',
                     backgroundColor: on ? colors.raised : colors.surface,
+                    flexDirection: 'row',
+                    gap: space[1],
                     alignItems: 'center',
                     justifyContent: 'center',
                     opacity: pressed ? opacity.pressed : 1,
                   })}
                 >
+                  {on ? <Check size={size.iconMeta} color={colors.text} strokeWidth={size.iconStroke} /> : null}
                   <Text variant="metaStrong" style={on ? { fontFamily: fonts.extraBold } : undefined}>
                     {WEEKDAYS_SHORT[d]}
                   </Text>

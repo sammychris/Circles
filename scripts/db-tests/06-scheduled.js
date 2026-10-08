@@ -19,11 +19,15 @@ module.exports = async ({ users: older, as, fails, check, assert, db }) => {
 
   await check('support rooms can never be scheduled', async () => {
     await fails(
-      db.query(`insert into public.scheduled_rooms (door, title, starts_at, created_by) values ('support', 'Quiet room', ${soon}, $1)`, [users.ada]),
+      db.query(`insert into public.scheduled_rooms (door, title, starts_at, created_by) values ('support', 'Quiet room', ${soon}, $1)`, [
+        users.ada,
+      ]),
       'scheduled_rooms_door_check',
     );
     await fails(
-      db.query("insert into public.groups (name, door, days, start_time, created_by) values ('Quiet', 'support', '{1}', '19:00', $1)", [users.ada]),
+      db.query("insert into public.groups (name, door, days, start_time, created_by) values ('Quiet', 'support', '{1}', '19:00', $1)", [
+        users.ada,
+      ]),
       'groups_door_check',
     );
   });
@@ -32,7 +36,10 @@ module.exports = async ({ users: older, as, fails, check, assert, db }) => {
     await insertRoom(ids.pub, users.ada);
     await fails(as(users.bayo, 'select * from public.scheduled_rooms'), 'permission denied');
     await fails(as(users.bayo, 'select * from public.groups'), 'permission denied');
-    await fails(as(users.bayo, 'insert into public.reminders (user_id, scheduled_id) values ($1, $2)', [users.bayo, ids.pub]), 'permission denied');
+    await fails(
+      as(users.bayo, 'insert into public.reminders (user_id, scheduled_id) values ($1, $2)', [users.bayo, ids.pub]),
+      'permission denied',
+    );
   });
 
   await check('public scheduled rooms are listed with a count of who is going, never who', async () => {
@@ -46,7 +53,8 @@ module.exports = async ({ users: older, as, fails, check, assert, db }) => {
     assert.strictEqual((await as(users.bayo, 'select * from public.reminders')).rows.length, 1);
     assert.strictEqual((await as(users.dami, 'select * from public.reminders')).rows.length, 0);
     await as(users.chi, 'select public.set_reminder($1, false)', [ids.pub]);
-    const after = (await as(users.dami, "select going from public.upcoming_rooms(now() + interval '1 day') where id = $1", [ids.pub])).rows[0];
+    const after = (await as(users.dami, "select going from public.upcoming_rooms(now() + interval '1 day') where id = $1", [ids.pub]))
+      .rows[0];
     assert.strictEqual(after.going, 1);
   });
 
@@ -61,7 +69,10 @@ module.exports = async ({ users: older, as, fails, check, assert, db }) => {
 
   await check("rooms made by someone you blocked don't show up", async () => {
     await insertRoom(ids.blocked, users.dami);
-    await as(users.chi, "insert into public.blocks (blocker_id, blocked_id, blocked_nickname) values ($1, $2, 'Dami')", [users.chi, users.dami]);
+    await as(users.chi, "insert into public.blocks (blocker_id, blocked_id, blocked_nickname) values ($1, $2, 'Dami')", [
+      users.chi,
+      users.dami,
+    ]);
     const seen = (await as(users.chi, "select id from public.upcoming_rooms(now() + interval '1 day') where id = $1", [ids.blocked])).rows;
     assert.strictEqual(seen.length, 0);
     // The other way round too.
@@ -87,7 +98,9 @@ module.exports = async ({ users: older, as, fails, check, assert, db }) => {
     const again = (await as(users.bayo, 'select regulars, regular from public.list_groups() where id = $1', [g])).rows[0];
     assert.deepStrictEqual([again.regulars, again.regular], [2, true]);
     // A regular counts as going to each meeting.
-    const next = (await as(users.dami, "select going from public.upcoming_rooms(now() + interval '8 days') where group_id = $1 limit 1", [g])).rows[0];
+    const next = (
+      await as(users.dami, "select going from public.upcoming_rooms(now() + interval '8 days') where group_id = $1 limit 1", [g])
+    ).rows[0];
     assert.strictEqual(next.going, 2);
     await as(users.chi, 'select public.leave_group($1)', [g]);
     assert.strictEqual((await as(users.bayo, 'select regulars from public.list_groups() where id = $1', [g])).rows[0].regulars, 1);
@@ -107,6 +120,48 @@ module.exports = async ({ users: older, as, fails, check, assert, db }) => {
     assert.strictEqual((await as(users.bayo, 'select * from public.list_groups() where id = $1', [g])).rows.length, 0);
     const left = (await as(users.bayo, "select * from public.upcoming_rooms(now() + interval '8 days') where group_id = $1", [g])).rows;
     assert.strictEqual(left.length, 0);
+  });
+
+  await check("a removed person's rooms and groups stop showing, and nobody can join their group", async () => {
+    const host = (await db.query('select gen_random_uuid() as id')).rows[0].id;
+    await db.query('insert into auth.users (id) values ($1)', [host]);
+    const room = (await db.query('select gen_random_uuid() as id')).rows[0].id;
+    await insertRoom(room, host);
+    const g = (
+      await db.query(
+        "insert into public.groups (name, door, days, start_time, time_zone, created_by) values ('Removed club', 'talk', '{0,1,2,3,4,5,6}', '23:59', 'UTC', $1) returning id",
+        [host],
+      )
+    ).rows[0].id;
+    await db.query("insert into public.bans (user_id, reason) values ($1, 'test')", [host]);
+    assert.strictEqual(
+      (await as(users.bayo, "select id from public.upcoming_rooms(now() + interval '1 day') where id = $1", [room])).rows.length,
+      0,
+    );
+    assert.strictEqual((await as(users.bayo, 'select id from public.list_groups() where id = $1', [g])).rows.length, 0);
+    await fails(as(users.bayo, 'select public.join_group($1)', [g]), 'not_found');
+    assert.strictEqual((await db.query('select count(*)::int as n from public.scheduled_rooms where group_id = $1', [g])).rows[0].n, 0);
+  });
+
+  await check('a new group never gets a meeting from before it was made', async () => {
+    const g = (
+      await db.query(
+        "insert into public.groups (name, door, days, start_time, time_zone, created_by) values ('Late start', 'talk', '{0,1,2,3,4,5,6}', (now() at time zone 'UTC' - interval '1 hour')::time, 'UTC', $1) returning id",
+        [users.bayo],
+      )
+    ).rows[0].id;
+    await as(users.bayo, 'select * from public.list_groups()');
+    const first = (await db.query('select min(starts_at) > now() as later from public.scheduled_rooms where group_id = $1', [g])).rows[0];
+    assert.strictEqual(first.later, true);
+  });
+
+  await check("a group with a time zone Postgres doesn't know doesn't break the lists", async () => {
+    await db.query(
+      "insert into public.groups (name, door, days, start_time, time_zone, created_by) values ('Odd zone', 'talk', '{1}', '19:00', 'Not/AZone', $1)",
+      [users.bayo],
+    );
+    await as(users.dami, 'select * from public.list_groups()');
+    await as(users.dami, "select * from public.upcoming_rooms(now() + interval '1 day')");
   });
 
   await check('deleting an account takes its reminders and group places with it', async () => {

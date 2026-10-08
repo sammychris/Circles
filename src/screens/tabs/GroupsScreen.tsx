@@ -1,10 +1,10 @@
 import { useCallback, useEffect, useState } from 'react';
-import { Pressable, RefreshControl, ScrollView, View } from 'react-native';
+import { Alert, Pressable, RefreshControl, ScrollView, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Bell, CalendarClock, Lock } from 'lucide-react-native';
 import { Avatar } from '../../components/Avatar';
 import { Button } from '../../components/Button';
-import { GroupCard } from '../../components/Scheduled';
+import { GroupCard, LoadError, SkeletonRows } from '../../components/Scheduled';
 import { Text } from '../../components/Text';
 import { Toast } from '../../components/Toast';
 import { WEB_URL } from '../../config';
@@ -12,7 +12,7 @@ import { myConnections, type PersonRef } from '../../lib/people';
 import { clockWords, dayAndTime, inWords } from '../../lib/when';
 import { useScreenEdges, useTabScroll } from '../../navigation/TabBar';
 import type { RoomRequest } from '../../rooms/api';
-import { canGoIn, type Group, type ScheduledRoom } from '../../rooms/schedule';
+import { canGoIn, cancelScheduled, type Group, type ScheduledRoom } from '../../rooms/schedule';
 import { useSchedule } from '../../rooms/useSchedule';
 import { opacity, radius, size, space, useColors } from '../../theme';
 
@@ -55,10 +55,26 @@ export function GroupsScreen({
   const yours = (schedule.rooms ?? []).filter((r) => (r.reminded || r.regular || r.mine) && r.startsAt.getTime() > now - 2 * 60 * 60_000);
   const nextUp: ScheduledRoom | null = yours[0] ?? null;
   const myGroups = (schedule.groups ?? []).filter((g) => g.regular || g.mine);
-  const reminders = (schedule.rooms ?? []).filter((r) => r.reminded && !r.regular && r.startsAt.getTime() > now);
+  // Rooms you scheduled yourself (not group meetings): you can cancel them.
+  const made = (schedule.rooms ?? []).filter((r) => r.mine && !r.groupId && r.startsAt.getTime() > now);
+  const reminders = (schedule.rooms ?? []).filter((r) => r.reminded && !r.regular && !r.mine && r.startsAt.getTime() > now);
+  const cancel = (room: ScheduledRoom) =>
+    Alert.alert(`Cancel ${room.title}?`, 'It leaves Explore, and nobody gets a reminder for it.', [
+      { text: 'Keep it', style: 'cancel' },
+      {
+        text: 'Cancel it',
+        style: 'destructive',
+        onPress: () =>
+          void cancelScheduled(room.id)
+            .then(() => {
+              setToast(`${room.title} is cancelled.`);
+              return schedule.load();
+            })
+            .catch(() => setToast("That didn't work. Check that you're online.")),
+      },
+    ]);
   const toggle = async (room: ScheduledRoom) => {
-    if (await schedule.toggleReminder(room)) setToast(room.reminded ? 'Reminder removed.' : "We'll remind you.");
-    else setToast("That didn't work. Check that you're online.");
+    setToast(await schedule.toggleReminder(room));
   };
 
   const load = useCallback(async () => {
@@ -96,6 +112,12 @@ export function GroupsScreen({
           </Text>
           <Button label="Start a group" variant="primary" onPress={onStartGroup} />
         </View>
+
+        {schedule.failed && !schedule.rooms ? (
+          <LoadError what="your groups and reminders" onRetry={() => void schedule.load()} />
+        ) : schedule.rooms === null ? (
+          <SkeletonRows />
+        ) : null}
 
         {nextUp ? (
           <View style={{ gap: space[2], backgroundColor: colors.surface, borderRadius: radius.card, padding: space[4] }}>
@@ -204,6 +226,27 @@ export function GroupsScreen({
           </View>
         </View>
 
+        {made.length > 0 ? (
+          <View style={{ gap: space[1] }}>
+            <Text variant="heading" accessibilityRole="header">
+              Rooms you scheduled
+            </Text>
+            {made.map((r) => (
+              <View key={r.id} style={{ flexDirection: 'row', alignItems: 'center', gap: space[3], minHeight: size.minTarget + space[2] }}>
+                <View style={{ flex: 1, gap: space[1] }}>
+                  <Text variant="bodyStrong" numberOfLines={1}>
+                    {r.title}
+                  </Text>
+                  <Text variant="meta" color="textMeta">
+                    {`${dayAndTime(r.startsAt)}. ${r.going} going`}
+                  </Text>
+                </View>
+                <Button label="Cancel" variant="quiet" onPress={() => cancel(r)} style={{ width: size.rowAction }} />
+              </View>
+            ))}
+          </View>
+        ) : null}
+
         {reminders.length > 0 ? (
           <View style={{ gap: space[1] }}>
             <Text variant="heading" accessibilityRole="header">
@@ -238,7 +281,7 @@ export function GroupsScreen({
           </View>
         ) : null}
 
-        {schedule.rooms && schedule.groups && myGroups.length === 0 && reminders.length === 0 && !nextUp ? (
+        {schedule.rooms && schedule.groups && myGroups.length === 0 && reminders.length === 0 && made.length === 0 && !nextUp ? (
           <View style={{ gap: space[3] }}>
             <View style={{ flexDirection: 'row', alignItems: 'center', gap: space[3] }}>
               <CalendarClock size={size.icon} color={colors.textSoft} strokeWidth={size.iconStroke} />

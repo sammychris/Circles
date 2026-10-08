@@ -1,6 +1,6 @@
 import { Pressable, View } from 'react-native';
 import { Bell, ChevronRight } from 'lucide-react-native';
-import { clockWords, dayAndTime, weeklyWords } from '../lib/when';
+import { WEEKDAYS_SHORT, clockWords, dayAndTime, weeklyWords } from '../lib/when';
 import { canGoIn, type Group, type ScheduledRoom } from '../rooms/schedule';
 import { opacity, radius, size, space, useColors } from '../theme';
 import { Button } from './Button';
@@ -33,10 +33,11 @@ export function ScheduledRow({
 }) {
   const colors = useColors();
   const open = canGoIn(room.startsAt);
-  // Your own room, or one of your groups' meetings: the reminder comes with it.
-  const automatic = room.mine || room.regular;
+  // One of your groups' meetings: the reminder comes with the group. (Your own rooms start with a
+  // reminder you can turn off like any other.)
+  const automatic = room.regular;
   const on = room.reminded || automatic;
-  const day = isToday(room.startsAt) ? null : dayAndTime(room.startsAt).split(' at ')[0];
+  const day = isToday(room.startsAt) ? null : WEEKDAYS_SHORT[room.startsAt.getDay()];
   return (
     <View style={{ flexDirection: 'row', alignItems: 'center', gap: space[3], paddingVertical: space[3] }} accessible={false}>
       <View
@@ -58,7 +59,7 @@ export function ScheduledRow({
         >
           {day ? (
             <Text variant="tiny" color="textSoft">
-              {day.slice(0, 3)}
+              {day}
             </Text>
           ) : null}
           <Text variant="metaStrong" style={{ fontVariant: ['tabular-nums'] }}>
@@ -79,7 +80,7 @@ export function ScheduledRow({
       ) : (
         <Pressable
           accessibilityRole="switch"
-          accessibilityLabel={automatic ? 'Reminder on. It comes with your group or room.' : 'Remind me'}
+          accessibilityLabel={automatic ? 'Reminder on. It comes with your group.' : 'Remind me'}
           accessibilityState={{ checked: on, disabled: disabled || automatic }}
           disabled={disabled || automatic}
           onPress={onToggle}
@@ -137,5 +138,42 @@ export function GroupCard({ group, onPress }: { group: Group; onPress: () => voi
       </View>
       <ChevronRight size={size.icon} color={colors.textMeta} strokeWidth={size.iconStroke} />
     </Pressable>
+  );
+}
+
+// Loading: rows in the shape of the content (tabs.md › Loading).
+export function SkeletonRows({ rows = 2 }: { rows?: number }) {
+  const colors = useColors();
+  return (
+    <View style={{ gap: space[3] }} accessibilityLabel="Loading">
+      {Array.from({ length: rows }, (_, i) => (
+        <View key={i} style={{ flexDirection: 'row', alignItems: 'center', gap: space[3], paddingVertical: space[3] }}>
+          <View
+            style={{
+              width: size.avatarList + space[5],
+              height: size.avatarList,
+              borderRadius: radius.small,
+              backgroundColor: colors.raised,
+            }}
+          />
+          <View style={{ flex: 1, gap: space[2] }}>
+            <View style={{ height: space[4], width: '60%', borderRadius: radius.small, backgroundColor: colors.raised }} />
+            <View style={{ height: space[3], width: '35%', borderRadius: radius.small, backgroundColor: colors.raised }} />
+          </View>
+        </View>
+      ))}
+    </View>
+  );
+}
+
+// Couldn't load: say so in plain words, with Try again.
+export function LoadError({ what, onRetry }: { what: string; onRetry: () => void }) {
+  return (
+    <View style={{ gap: space[3] }}>
+      <Text variant="body" color="textSoft">
+        {`We couldn't load ${what}. Check that you're online.`}
+      </Text>
+      <Button label="Try again" onPress={onRetry} />
+    </View>
   );
 }

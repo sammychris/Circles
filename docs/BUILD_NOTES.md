@@ -567,15 +567,15 @@ Built from `docs/design/pages/tabs.md` (your decision, 2026-10-08), the first ha
 
 Part C of `docs/design/pages/tabs.md`, with `start-something.md` and `circle-detail.md`.
 - **Start something** now asks **Once or every week?**
-  - **Just once:** **Now** (as before), or a day (Today, Tomorrow, or a day this week) and a time, in 15-minute steps. The button says **Schedule the room**.
+  - **Just once:** **Now** (as before), or a day (Today, Tomorrow, or a day this week) and a time, in 15-minute steps (press and hold − or + to move a whole hour). The button says **Schedule the room**.
   - **Every week:** tick the days (Mon to Sun) and a time. This makes a **group**; each meeting opens a room. The button says **Create group**.
   - From Explore or Groups you can also choose **Talk** or **Play**. Learn groups start from a language's page, as before.
 - **Explore** has two new sections under Live now:
   - **Tonight:** rooms later today (and tomorrow's after 9 pm). Each row has the time, the name, "4 going, hosted by Ada" and a **bell**: tap it and you get a reminder. From 5 minutes before, the bell becomes **Go in**.
   - **Every week:** group cards ("Igbo practice. Every Tuesday and Thursday at 7 pm. 5 regulars"). Tap one for its page.
 - **A group's page:** when it meets, the next meeting, who hosts it, how many regulars, the next 3 dates, and **Join this group** (you become a regular and get a reminder before every meeting). Regulars can **Leave group**; the host can **End this group**. When it's full it says so.
-- **Groups tab:** **Start a group** (the one orange button), **Next up** (your next room, with Go in when it's open), **Your groups**, My people, and **Your reminders** (tap the bell to remove one).
-- **Home:** **Coming up** shows the next 2 scheduled rooms, yours first, with **See all** (opens Explore).
+- **Groups tab:** **Start a group** (the one orange button), **Next up** (your next room, with Go in when it's open), **Your groups**, My people, **Rooms you scheduled** (with **Cancel**), and **Your reminders** (tap the bell to remove one).
+- **Home:** **Coming up** shows up to 2 of tonight's scheduled rooms, yours first, with **See all** (opens Explore).
 - **Reminders:** your phone shows "Ludo night starts in 15 minutes" by itself, so no extra account or server is needed. Tapping it opens Groups, where **Next up** shows the room (or the room itself, once it's open). The first time you set one, the phone asks if Circles may send notifications. Logging out clears them.
 
 **Kept safe**
@@ -583,12 +583,14 @@ Part C of `docs/design/pages/tabs.md`, with `start-something.md` and `circle-det
 - Only counts are shown ("4 going", "5 regulars"), never who.
 - Someone you blocked (or who blocked you) never sees your scheduled rooms or groups, and you never see theirs.
 - Limits against spam: at most 5 scheduled rooms a day, and 3 weekly groups at a time, per person.
+- When you remove someone from Circles, their scheduled rooms and groups disappear at once and don't open.
+- If the phone isn't allowed to show notifications, Circles says "Turn on notifications for Circles to get a reminder" instead of promising one.
 
 **Choices I made (open to change)**
 - **No separate "Starting soon" screen.** Go in opens the real room from 5 minutes before; the room's own waiting state ("waiting for someone to join") does that job.
 - **Scheduled rooms and groups are for anyone** during the open test. Invite-only ones come with invitations, next.
 - **Reminders come 15 minutes before** and only from your own phone. If someone sets a reminder on one phone, a second phone doesn't know about it until they open Circles there.
-- **No description box yet** (the design has an optional 280-character one). Easy to add if you want it.
+- **Not on the group page yet** (they're in the design): a description, the host's picture, Share, **Report group**, and "Remind me if a spot opens". Report group is the one I'd add soonest, since group names are written by people.
 - **Group times** are written in the group's own time zone (Lagos for nearly everyone). The next meeting's time is always shown in your phone's time.
 
 **What you need to do**

@@ -78,6 +78,7 @@ Short version:
 3. ~~Bottom bar and the Home, Explore, Groups and Me pages (B).~~ Done for what works with today's rooms (2026-10-08; `docs/BUILD_NOTES.md` part 17). Still to come with C: Explore's Tonight and Every week, Groups' Next up, invitations, your groups and reminders, the bell on Home, Coming up, and Start a group.
 4. ~~Scheduled and weekly rooms and reminders (C).~~ Done (2026-10-08; `docs/BUILD_NOTES.md` part 18). Reminders are set by the phone itself, so no server job or Firebase account was needed.
 5. Invitations (the rest of C): "Ada invited you to Ludo" on Groups, invite-only scheduled rooms and groups. Only people who saved each other can invite; never from support rooms. A real push notification for an invitation needs Firebase (a free Google account step for Sammy); ask him first. **Next.**
+6. Group page extras from `circle-detail.md`: **Report group** first (group names are written by people), then Share, a description, the host's picture, and "Remind me if a spot opens".
 
 After each part: tests, the `circles-reviewer` agent, then update BUILD_NOTES, PROGRESS and this file.
 

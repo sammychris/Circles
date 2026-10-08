@@ -4,9 +4,10 @@ import { CalendarClock, Users } from 'lucide-react-native';
 import { Button } from '../components/Button';
 import { DoorLayout } from '../components/DoorLayout';
 import { ErrorLine } from '../components/ErrorLine';
+import { LoadError, SkeletonRows } from '../components/Scheduled';
 import { Text } from '../components/Text';
 import { Toast } from '../components/Toast';
-import { allowReminders, syncReminders } from '../lib/reminders';
+import { allowReminders, reminderNote, syncReminders } from '../lib/reminders';
 import { dayAndTime, inWords, weeklyWords } from '../lib/when';
 import type { RoomRequest } from '../rooms/api';
 import { levelLabel, subjectById } from '../rooms/learn';
@@ -65,12 +66,12 @@ export function GroupScreen({ me, groupId, first, backLabel, onBack, onEnter }: 
     return () => clearInterval(timer);
   }, [load]);
 
-  const act = async (work: () => Promise<void>, done: string) => {
+  // `work` can return the note to show, instead of `done`.
+  const act = async (work: () => Promise<string | void>, done: string) => {
     setBusy(true);
     setError(null);
     try {
-      await work();
-      setToast(done);
+      setToast((await work()) || done);
       await load();
     } catch (e) {
       setError(e instanceof GroupFullError ? 'This group just filled up.' : "That didn't work. Check that you're online, then try again.");
@@ -85,18 +86,7 @@ export function GroupScreen({ me, groupId, first, backLabel, onBack, onEnter }: 
   if (!group) {
     return (
       <DoorLayout title="" onBack={onBack} backLabel={backLabel}>
-        {failed ? (
-          <View style={{ gap: space[3] }}>
-            <Text variant="body" color="textSoft">
-              {"We couldn't load this group. Check that you're online."}
-            </Text>
-            <Button label="Try again" onPress={() => void load()} />
-          </View>
-        ) : (
-          <Text variant="body" color="textSoft" accessibilityLabel="Loading">
-            {' '}
-          </Text>
-        )}
+        {failed ? <LoadError what="this group" onRetry={() => void load()} /> : <SkeletonRows rows={3} />}
       </DoorLayout>
     );
   }
@@ -133,7 +123,7 @@ export function GroupScreen({ me, groupId, first, backLabel, onBack, onEnter }: 
         onPress={() =>
           void act(async () => {
             await joinGroup(group.id);
-            await allowReminders();
+            return `You're a regular of ${group.name}. ${reminderNote(await allowReminders())}`.trim();
           }, `You're a regular of ${group.name}.`)
         }
       />

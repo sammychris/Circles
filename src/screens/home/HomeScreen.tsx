@@ -7,10 +7,12 @@ import { ScheduledRow } from '../../components/Scheduled';
 import { Button } from '../../components/Button';
 import { Glow } from '../../components/Glow';
 import { Text } from '../../components/Text';
+import { Toast } from '../../components/Toast';
 import { greeting, peopleInRooms, timeWord } from '../../lib/timeOfDay';
 import { forYou, goBackRoom, loadVisits } from '../../lib/roomHistory';
 import { useScreenEdges, useTabScroll } from '../../navigation/TabBar';
 import { listOpenRoomsAt, roomStats, type ListedRoom, type RoomRequest } from '../../rooms/api';
+import { tonight } from '../../rooms/schedule';
 import { useSchedule } from '../../rooms/useSchedule';
 import { doorColors, opacity, radius, size, space, useColors } from '../../theme';
 
@@ -109,10 +111,10 @@ export function HomeScreen({ me, onOpen, onEnter, onExplore }: Props) {
   // Go back in, and For you: from your own last rooms, kept on this phone (never support rooms).
   const [back, setBack] = useState<ListedRoom | null>(null);
   const [picks, setPicks] = useState<{ room: ListedRoom; reason: string }[]>([]);
-  // Coming up: the next scheduled rooms, yours first.
+  // Coming up: tonight's scheduled rooms (the same as Explore › Tonight, behind See all), yours first.
   const schedule = useSchedule(me.id);
-  const coming = (schedule.rooms ?? [])
-    .filter((r) => r.startsAt.getTime() > Date.now() - 2 * 60 * 60_000)
+  const [note, setNote] = useState<string | null>(null);
+  const coming = tonight(schedule.rooms ?? [])
     .sort((a, b) => Number(b.reminded || b.regular || b.mine) - Number(a.reminded || a.regular || a.mine))
     .slice(0, 2)
     .sort((a, b) => a.startsAt.getTime() - b.startsAt.getTime());
@@ -275,7 +277,7 @@ export function HomeScreen({ me, onOpen, onEnter, onExplore }: Props) {
               <ScheduledRow
                 key={r.id}
                 room={r}
-                onToggle={() => void schedule.toggleReminder(r)}
+                onToggle={() => void schedule.toggleReminder(r).then(setNote)}
                 onGoIn={() => onEnter({ kind: 'scheduled', scheduledId: r.id })}
               />
             ))}
@@ -283,6 +285,9 @@ export function HomeScreen({ me, onOpen, onEnter, onExplore }: Props) {
           </View>
         ) : null}
       </ScrollView>
+      <View style={{ position: 'absolute', left: 0, right: 0, bottom: space[4] }} pointerEvents="none">
+        <Toast message={note} onDone={() => setNote(null)} />
+      </View>
     </SafeAreaView>
   );
 }

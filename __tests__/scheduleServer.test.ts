@@ -18,7 +18,10 @@ const MIN = 60_000;
 
 describe('scheduling a room', () => {
   it('takes a time from 5 minutes to 7 days ahead', () => {
-    expect(cleanWhen({ startsAt: new Date(NOW + 60 * MIN).toISOString() }, NOW)).toEqual({ kind: 'once', startsAt: new Date(NOW + 60 * MIN).toISOString() });
+    expect(cleanWhen({ startsAt: new Date(NOW + 60 * MIN).toISOString() }, NOW)).toEqual({
+      kind: 'once',
+      startsAt: new Date(NOW + 60 * MIN).toISOString(),
+    });
     expect(cleanWhen({ startsAt: new Date(NOW + 2 * MIN).toISOString() }, NOW)).toBeNull();
     expect(cleanWhen({ startsAt: new Date(NOW + 8 * 24 * 60 * MIN).toISOString() }, NOW)).toBeNull();
     expect(cleanWhen({ startsAt: 'tomorrow' }, NOW)).toBeNull();
@@ -35,6 +38,9 @@ describe('scheduling a room', () => {
     expect(cleanWhen({ weekly: { days: [7], time: '19:30' } }, NOW)).toBeNull();
     expect(cleanWhen({ weekly: { days: [1], time: '25:00' } }, NOW)).toBeNull();
     expect(cleanWhen({ weekly: { days: [1], time: '19:00', timeZone: 'Not/AZone' } }, NOW)).toBeNull();
+    // Offsets and odd spellings aren't region names Postgres is sure to know: Lagos time instead.
+    expect(cleanWhen({ weekly: { days: [1], time: '19:00', timeZone: '+01:00' } }, NOW)).toMatchObject({ timeZone: 'Africa/Lagos' });
+    expect(cleanWhen({ weekly: { days: [1], time: '19:00', timeZone: 'africa/lagos' } }, NOW)).toMatchObject({ timeZone: 'Africa/Lagos' });
   });
 });
 

@@ -4,7 +4,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { Check } from 'lucide-react-native';
 import { Button } from '../../components/Button';
 import { RoomRow } from '../../components/RoomRow';
-import { GroupCard, ScheduledRow } from '../../components/Scheduled';
+import { GroupCard, LoadError, ScheduledRow, SkeletonRows } from '../../components/Scheduled';
 import { Text } from '../../components/Text';
 import { Toast } from '../../components/Toast';
 import { useScreenEdges, useTabScroll } from '../../navigation/TabBar';
@@ -112,7 +112,7 @@ export function ExploreScreen({ me, onEnter, onStart, onOpenGroup }: Props) {
   const nextUp: ScheduledRoom | null = (schedule.rooms ?? []).find((r) => r.startsAt.getTime() > Date.now()) ?? null;
   const startDoor = filter === 'play' || filter === 'learn' ? filter : 'talk';
   const toggle = async (room: ScheduledRoom) => {
-    if (!(await schedule.toggleReminder(room))) setNote("That didn't work. Check that you're online.");
+    setNote(await schedule.toggleReminder(room));
   };
   const goIn = (room: ScheduledRoom) => onEnter({ kind: 'scheduled', scheduledId: room.id });
 
@@ -252,10 +252,10 @@ export function ExploreScreen({ me, onEnter, onStart, onOpenGroup }: Props) {
             Tonight
           </Text>
           {schedule.failed && !schedule.rooms ? (
-            <Text variant="body" color="textSoft">
-              {"We couldn't load what's coming up. Check that you're online."}
-            </Text>
-          ) : schedule.rooms === null ? null : soon.length === 0 ? (
+            <LoadError what="what's coming up" onRetry={() => void schedule.load()} />
+          ) : schedule.rooms === null ? (
+            <SkeletonRows />
+          ) : soon.length === 0 ? (
             <View style={{ gap: space[3] }}>
               <Text variant="body" color="textSoft">
                 Nothing scheduled tonight. Start one and people can set a reminder.
