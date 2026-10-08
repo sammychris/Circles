@@ -57,6 +57,25 @@ module.exports = async ({ as, fails, check, assert, db }) => {
     assert.strictEqual((await as(users.bayo, 'select * from public.my_invitations()')).rows.length, 0);
   });
 
+  await check('a new invitation to the same room comes through after Not now', async () => {
+    assert.strictEqual((await send(users.ada, [users.bayo], room)).rows[0].n, 1);
+    assert.strictEqual((await as(users.bayo, 'select * from public.my_invitations() where room_id = $1', [room])).rows.length, 1);
+  });
+
+  await check('running the scheduled rooms file again keeps invitations working', async () => {
+    const fs = require('fs');
+    const path = require('path');
+    await db.exec(fs.readFileSync(path.join(__dirname, '../../supabase/migrations/20261011000000_scheduled_rooms.sql'), 'utf8'));
+    const g = (
+      await db.query(
+        "insert into public.groups (name, door, days, start_time, time_zone, private, created_by) values ('Rerun club', 'talk', '{1}', '19:00', 'UTC', true, $1) returning id",
+        [users.ada],
+      )
+    ).rows[0].id;
+    await send(users.ada, [users.bayo], null, null, g);
+    assert.strictEqual((await as(users.bayo, 'select id from public.list_groups() where id = $1', [g])).rows.length, 1);
+  });
+
   await check('a closed room takes its invitations with it', async () => {
     const other = `inv-other-${Date.now()}`;
     await db.query(`insert into public.rooms (id, door, title, livekit_room_name) values ($1, 'talk', 'Chat', $1)`, [other]);

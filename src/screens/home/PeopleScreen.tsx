@@ -35,15 +35,16 @@ export function PeopleScreen({ nickname, onBack, onEnter }: Props) {
           <Button
             label="Start a room with friends"
             variant="primary"
-            disabled={!WEB_URL}
+            // With nobody to invite (and no link to share), the room would stay empty.
+            disabled={people?.length === 0 && !WEB_URL}
             onPress={() =>
               onEnter({ kind: 'create', door: 'talk', title: `${nickname} and friends`, topic: null, capacity: 6, private: true })
             }
           />
           <Text variant="meta" color="textMeta" center>
-            {WEB_URL
-              ? 'Only people you send the link to can join. It opens now, with you in it.'
-              : 'Comes once the web version of Circles is online, so invite links work.'}
+            {people?.length === 0 && !WEB_URL
+              ? 'Save people after a room to invite them.'
+              : 'Only people you invite can join. It opens now, with you in it.'}
           </Text>
         </>
       }

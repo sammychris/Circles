@@ -1,7 +1,8 @@
 import { useCallback, useEffect, useState } from 'react';
 import { Alert, View } from 'react-native';
-import { CalendarClock, Users } from 'lucide-react-native';
+import { CalendarClock, Lock, Users } from 'lucide-react-native';
 import { Button } from '../components/Button';
+import { Chip } from '../components/Chip';
 import { DoorLayout } from '../components/DoorLayout';
 import { ErrorLine } from '../components/ErrorLine';
 import { InviteSheet } from '../components/InviteSheet';
@@ -138,7 +139,8 @@ export function GroupScreen({ me, groupId, first, backLabel, onBack, onEnter }: 
   return (
     <DoorLayout
       title={group.name}
-      line={group.private ? `${about}. Invite only` : about}
+      line={about}
+      header={group.private ? <Chip Icon={Lock} label="Invite only" fg={colors.textSoft} bg={colors.raised} /> : undefined}
       onBack={onBack}
       backLabel={backLabel}
       footer={footer}

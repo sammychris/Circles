@@ -87,17 +87,22 @@ $$;
 revoke all on function public.is_banned(uuid) from public, anon, authenticated;
 
 -- Has this person been invited to this private scheduled room or group? Nobody yet: invitations
--- (20261012000000_invitations.sql) fill this in.
-create or replace function public.invited_to(p_user uuid, p_scheduled uuid, p_group uuid)
-returns boolean
-language sql
-stable
-security definer
-set search_path = public
-as $$
-  select false;
-$$;
-revoke all on function public.invited_to(uuid, uuid, uuid) from public, anon, authenticated;
+-- (20261012000000_invitations.sql) fill this in. Only made here when invitations don't exist yet, so
+-- running this file again never switches invitations off.
+do $guard$
+begin
+  if to_regclass('public.invitations') is null then
+    create or replace function public.invited_to(p_user uuid, p_scheduled uuid, p_group uuid)
+    returns boolean
+    language sql
+    stable
+    security definer
+    set search_path = public
+    as $fn$ select false; $fn$;
+    revoke all on function public.invited_to(uuid, uuid, uuid) from public, anon, authenticated;
+  end if;
+end;
+$guard$;
 
 -- Can this person see this scheduled room? Public ones, or private ones they made, are a regular of,
 -- or set a reminder for (they had the link). Never one made by someone they blocked or who blocked them.

@@ -94,6 +94,14 @@ begin
     end if;
   end if;
 
+  -- Mood rooms are reused while they stay open, so an old invitation to the same room (used, turned
+  -- down, or run out) makes way for the new one instead of silently swallowing it.
+  if p_room is not null then
+    delete from public.invitations
+    where room_id = p_room and to_user = any (p_to)
+      and (dismissed_at is not null or created_at < now() - interval '3 hours');
+  end if;
+
   with people as (
     select distinct t.id
     from unnest(p_to) as t(id)

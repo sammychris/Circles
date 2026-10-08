@@ -232,5 +232,5 @@ export async function previewRoom(roomId: string): Promise<RoomPreview> {
 // Anyone who isn't a mutual save is skipped without saying, so nobody learns who saved whom.
 export type InviteTarget = { roomId: string } | { scheduledId: string } | { groupId: string };
 export async function sendInvitations(to: string[], target: InviteTarget): Promise<void> {
-  await call<{ status: string; sent: number }>({ action: 'invite', to, ...target });
+  await call<{ status: string }>({ action: 'invite', to, ...target });
 }

@@ -529,7 +529,7 @@ Deno.serve(async (req) => {
       const here = (await peopleOrNone([r.livekit_room_name as string])).get(r.livekit_room_name as string) ?? [];
       if (!here.includes(user.id)) return json({ error: 'This room has ended', status: 'ended' }, 410);
     }
-    const { data: sent, error } = await admin.rpc('send_invitations', {
+    const { error } = await admin.rpc('send_invitations', {
       p_from: user.id,
       p_to: to,
       p_room: roomId,
@@ -543,7 +543,8 @@ Deno.serve(async (req) => {
       }
       return json({ error: 'Could not send the invitations' }, 500);
     }
-    return json({ status: 'ok', sent: Number(sent ?? 0) });
+    // Never how many went out: that would hint at who saved you, or who left Circles.
+    return json({ status: 'ok' });
   }
 
   // Schedule a room for later, or a weekly group (Start something › Once or every week). Never a support

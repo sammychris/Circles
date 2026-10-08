@@ -616,7 +616,7 @@ The rest of part C, from `docs/design/pages/tabs.md` › Groups › Invitations.
   - **to a weekly group** you host or belong to (**Invite your people** on the group's page),
   - **to a room you scheduled** (Groups › Rooms you scheduled › **Invite**).
 - **Groups › Invitations:** "Ada_K invited you to Ludo night", with **Join** and **Not now**. Join goes into a live room, sets a reminder for a scheduled one (or goes in if it's open), or opens the group's page. A small orange dot on the **Groups** tab means a new invitation.
-- **Invite only now works without the web version.** In Start something, **Invite only** can be chosen for rooms now, later or every week. It isn't listed anywhere; only people you invite can see it and come in. **Start a room with friends** works again too.
+- **Invite only now works without the web version.** In Start something, **Invite only** can be chosen for rooms now, later or every week. It isn't listed anywhere; only people you invite can see it and come in. **Start a room with friends** works again too, once you have people who saved each other with you.
 
 **Kept safe**
 - Never from a support room: there's no Invite button there, and the server refuses it anyway.
@@ -628,6 +628,7 @@ The rest of part C, from `docs/design/pages/tabs.md` › Groups › Invitations.
 **Choices I made (open to change)**
 - **No alert on the lock screen yet.** That needs Firebase (Google's free service for app alerts). If you set it up before your next app build, I can switch alerts on later with a normal update. Without it, people see invitations when they open Circles.
 - **"Invitation sent"** shows even if someone was skipped, so it never gives away who saved you.
+- **On a group's page, Invite is a button on the page**, not a share icon in the top bar as the design shows (the page's top bar only has Back for now).
 - **"Ask the host"** for invite-only groups (from `circle-detail.md`) isn't built: invite-only groups aren't listed, so nobody can find one to ask.
 
 **What you need to do**

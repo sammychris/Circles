@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import { Pressable, ScrollView, View } from 'react-native';
 import { Check, Share2 } from 'lucide-react-native';
 import { myConnections, type PersonRef } from '../lib/people';
-import { sendInvitations, TooManyRoomsError, type InviteTarget } from '../rooms/api';
+import { PausedError, RoomEndedError, sendInvitations, TooManyRoomsError, type InviteTarget } from '../rooms/api';
 import { border, opacity, radius, size, space, useColors } from '../theme';
 import { Avatar } from './Avatar';
 import { Button } from './Button';
@@ -32,14 +32,17 @@ export function InviteSheet({ visible, target, title, onClose, onSent, onShareLi
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  useEffect(() => {
-    if (!visible) return;
-    setChosen([]);
-    setError(null);
+  const load = () => {
     setFailed(false);
     myConnections()
       .then(setPeople)
       .catch(() => setFailed(true));
+  };
+  useEffect(() => {
+    if (!visible) return;
+    setChosen([]);
+    setError(null);
+    load();
   }, [visible]);
 
   const send = async () => {
@@ -51,7 +54,13 @@ export function InviteSheet({ visible, target, title, onClose, onSent, onShareLi
       onSent(chosen.length === 1 ? 'Invitation sent. They’ll find it in Groups.' : 'Invitations sent. They’ll find them in Groups.');
     } catch (e) {
       setError(
-        e instanceof TooManyRoomsError ? 'That’s a lot of invitations. Try again later.' : "That didn't work. Check that you're online.",
+        e instanceof TooManyRoomsError
+          ? 'That’s a lot of invitations. Try again later.'
+          : e instanceof RoomEndedError
+            ? 'This room has ended.'
+            : e instanceof PausedError
+              ? 'Your account is paused.'
+              : "That didn't work. Check that you're online.",
       );
     } finally {
       setBusy(false);
@@ -65,10 +74,25 @@ export function InviteSheet({ visible, target, title, onClose, onSent, onShareLi
         People you saved who saved you too. Nobody else sees who you invited.
       </Text>
       {failed ? (
-        <Text variant="body" color="textSoft">
-          {"We couldn't load your people. Check that you're online."}
-        </Text>
-      ) : people === null ? null : people.length === 0 ? (
+        <View style={{ gap: space[2] }}>
+          <Text variant="body" color="textSoft">
+            {"We couldn't load your people. Check that you're online."}
+          </Text>
+          <Button label="Try again" variant="quiet" onPress={load} />
+        </View>
+      ) : people === null ? (
+        // Loading: faces in the shape of the list.
+        <View style={{ gap: space[3] }} accessibilityLabel="Loading">
+          {[0, 1, 2].map((i) => (
+            <View key={i} style={{ flexDirection: 'row', alignItems: 'center', gap: space[3] }}>
+              <View
+                style={{ width: size.avatarList, height: size.avatarList, borderRadius: radius.pill, backgroundColor: colors.raised }}
+              />
+              <View style={{ height: space[4], width: '40%', borderRadius: radius.small, backgroundColor: colors.raised }} />
+            </View>
+          ))}
+        </View>
+      ) : people.length === 0 ? (
         <Text variant="body" color="textSoft">
           {'Nobody yet. After a room, save the people you clicked with. If they save you too, you can invite them.'}
         </Text>

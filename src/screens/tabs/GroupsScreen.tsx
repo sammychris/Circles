@@ -5,6 +5,7 @@ import { Bell, CalendarClock, Lock } from 'lucide-react-native';
 import { Avatar } from '../../components/Avatar';
 import { Button } from '../../components/Button';
 import { InviteSheet } from '../../components/InviteSheet';
+import { WEB_URL } from '../../config';
 import { GroupCard, LoadError, SkeletonRows } from '../../components/Scheduled';
 import { Text } from '../../components/Text';
 import { Toast } from '../../components/Toast';
@@ -83,16 +84,18 @@ export function GroupsScreen({
   const loadInvites = useCallback(async () => {
     try {
       setInvites(await myInvitations());
+      // Seen while Groups is open, so the tab's dot doesn't come back for these.
+      await markInvitationsSeen(me.id);
+      onSeenInvitations?.();
     } catch {
       // Shown next time; the rest of the page still works.
     }
-  }, []);
+  }, [me.id, onSeenInvitations]);
   useEffect(() => {
     void loadInvites();
-    void markInvitationsSeen(me.id).then(() => onSeenInvitations?.());
     const timer = setInterval(() => void loadInvites(), 60_000);
     return () => clearInterval(timer);
-  }, [loadInvites, me.id, onSeenInvitations]);
+  }, [loadInvites]);
 
   const notNow = (inv: Invitation) => {
     setInvites((list) => list.filter((i) => i.id !== inv.id));
@@ -105,14 +108,13 @@ export function GroupsScreen({
       onOpenGroup(inv.groupId);
       return;
     }
+    // Not dismissed here: if the room is full or has ended, the invitation runs out by itself.
     if (inv.kind === 'room' && inv.roomId) {
-      notNow(inv);
       onEnter({ kind: 'join', roomId: inv.roomId, ...(inv.door === 'learn' ? {} : { door: inv.door }) });
       return;
     }
     if (inv.scheduledId) {
       if (inv.startsAt && canGoIn(inv.startsAt)) {
-        notNow(inv);
         onEnter({ kind: 'scheduled', scheduledId: inv.scheduledId });
         return;
       }
@@ -286,12 +288,16 @@ export function GroupsScreen({
           ) : null}
           <Button
             label="Start a room with friends"
+            // With nobody to invite (and no link to share), the room would stay empty.
+            disabled={people?.length === 0 && !WEB_URL}
             onPress={() =>
               onEnter({ kind: 'create', door: 'talk', title: `${nickname} and friends`, topic: null, capacity: 6, private: true })
             }
           />
           <Text variant="meta" color="textMeta">
-            Only people you invite can join. It opens now, with you in it.
+            {people?.length === 0 && !WEB_URL
+              ? 'Save people after a room to invite them.'
+              : 'Only people you invite can join. It opens now, with you in it.'}
           </Text>
           <View style={{ flexDirection: 'row', alignItems: 'center', gap: space[3] }}>
             <Lock size={size.icon} color={colors.textMeta} strokeWidth={size.iconStroke} />
