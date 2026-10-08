@@ -53,40 +53,24 @@ Sammy said yes to all of this, as long as it follows good UI rules. There are no
 
 **Sammy's goal:** "It feels like a graveyard now." The app should feel lively and full of things happening, without looking scattered. **Never fake activity:** no made-up people, rooms or numbers. When it's quiet, show what's coming up next instead of an empty list.
 
-### A. Game mode (full screen), for every game: Ludo, Draughts, Chess, Whot, Mafia, Find the Impostor
-- **Layout:**
-  - When a game starts, the room switches to a fixed game screen that never scrolls. Today, tapping or dragging a piece scrolls the room page.
-  - **Top:** a thin strip of small faces with the speaking glow, so you still see who's talking. Tap to hide or show it.
-  - **Middle:** the board, as big as the phone allows. This also fixes the 35-point squares.
-  - **Bottom:** only **mic** and **chat**. The mic is never hidden (muting must stay one tap away).
-  - **⋯ menu:** Leave game, End game (starter), Raise hand, Report, and **Leave room**, which asks first. Leave room is no longer a big button that's easy to hit by accident.
-- **Speed:** your move shows on your phone straight away (play it with the same rules on your phone). If the starter's phone rejects it, the piece slides back.
-- **Movement:** pieces slide, captures fade, cards fly to the pile, the Ludo dice roll, and the win has a small celebration. Respect "reduce motion".
-- **Sound:**
-  - Short, quiet sounds (dice, piece click, capture, card slap, "your turn" chime, win) from a free CC0 pack such as Kenney.nl. Note the source in BUILD_NOTES.
-  - A sound on/off switch on the game screen and in Me.
-  - Never in support rooms. Kept soft so voices come first.
-  - Needs `expo-audio` (a new phone feature).
-- **Buzz:** on your turn and on captures (`expo-haptics` is already installed).
+**The full designs are written. Build from them:**
+- `docs/design/pages/game-mode.md`: the full game screen (layout, the ⋯ menu, instant moves, movement, sounds, buzz, each game, states, accessibility).
+- `docs/design/pages/tabs.md`: the bottom bar and the Home, Explore, Groups and Me pages.
+- `CIRCLES_DESIGN_DIRECTION.md` (sections 6 and 9) and `doors.md` are updated to match.
 
-### B. Bottom bar with 4 tabs: Home, Explore, Groups, Me
-This replaces "No tab bar" in `CIRCLES_DESIGN_DIRECTION.md` section 9; update that section. A minimised room bar sits just above the tab bar.
-
-| Tab | What's on it |
-|---|---|
-| **Home** | Kept as it is, a little lighter. Greeting; the support line, always first (as now); the 4 doors; **For you** (1 or 2 rooms like ones you joined before, from your own history, never support rooms); **Go back in** (a room you left that's still open); **Coming up**; "38 people in rooms right now" (real numbers only). |
-| **Explore** | "What's happening." **Live now:** every open room, with chips to filter Talk, Play, Learn, and topics. **Tonight:** scheduled rooms later today. **Every week:** regular groups, e.g. "Igbo practice, Tuesdays and Thursdays at 7 pm". Support rooms are never listed. Today the database already hides them from the room list; keep it that way. |
-| **Groups** | "What's yours." Groups you joined or started; your people (mutual saves only); your reminders; invitations from your people; **Start a group** with a day, time and "every week". |
-| **Me** | Nickname and picture, saved people, add email, sound on/off, help, privacy and terms, delete account, version. |
-
-### C. Scheduled and weekly rooms, reminders, invitations
-- **Rooms:** a room can be scheduled (`rooms.scheduled_at` is in the architecture) and can repeat weekly (add a column). Joining before the time shows "Starts at 7 pm".
-- **Reminders:** "Remind me" on a scheduled room or group.
-- **Invitations:** someone in a Talk, Play or Learn room can invite their mutual connections ("Ada invited you to Ludo"). Never from a support room.
-- **No automatic "your friend is in a room".** It breaks the Never rule: hiding only support rooms would give it away.
-- **Needs push notifications:** `expo-notifications` plus a server job that sends them. Row Level Security on any new table.
-- **Search:** later, once there are many rooms and groups.
-- **Tip for Sammy:** during the open test, schedule a few regular rooms yourself (e.g. "Ludo night, Tuesdays at 8 pm", "Igbo practice, Thursdays at 7 pm"), so Explore always has something real on it.
+Short version:
+- **A. Game mode:**
+  - A full screen that never scrolls: a face strip you can hide, a big board, and only the mic and chat at the bottom. Everything else, including Leave room (which asks first), goes in the ⋯ menu.
+  - Instant moves on your own phone, sliding pieces, quiet sounds with an on/off switch (`expo-audio`), and a buzz on your turn.
+- **B. Four tabs:**
+  - **Home:** the doors, plus For you and Go back in.
+  - **Explore:** Live now, Tonight, Every week.
+  - **Groups:** Next up, invitations, your groups, My people, reminders.
+  - **Me:** profile and settings.
+- **C. Scheduled and weekly rooms, reminders and invitations:** these need `expo-notifications` and a server job that sends them.
+  - **Friends seeing your room** follows `doors.md` › My people exactly. You choose whether friends see the public room you're in. Someone in a support room only ever shows as "Online, not in a room".
+  - **Search:** later.
+- **Tip for Sammy:** schedule a few real regular rooms yourself during the open test, so Explore always has something on it.
 
 ### Order of work
 1. Room sizes (section 1). Small.
