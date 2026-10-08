@@ -25,6 +25,7 @@ import { useImpostor } from '../games/impostor/useImpostor';
 import { NoteSheet, VideoSheet } from '../components/table/ComposeSheets';
 import { PutOnTableSheet, type TableChoice } from '../components/table/PutOnTableSheet';
 import { NoteBody, SeatRow, TableCard, TableOptionsSheet } from '../components/table/TableCard';
+import { WatchBody } from '../components/table/WatchBody';
 import { describeItem, findLink } from '../table/model';
 import { useTable } from '../table/useTable';
 import { PHOTO_URL_START, SHOW_TEST_NUMBERS, WEB_URL } from '../config';
@@ -499,6 +500,16 @@ export function RoomScreen({ me, request, onLeft, onMove }: Props) {
         <SeatRow people={people} onPerson={(p) => setProfile({ id: p.id, nickname: p.nickname, isHost: p.isHost })} />
         <TableCard item={item} me={me.id} onOptions={() => setTableOptionsOpen(true)}>
           {item.kind === 'note' ? <NoteBody item={item} /> : null}
+          {item.kind === 'video' ? (
+            <WatchBody
+              key={item.id}
+              item={item}
+              state={tableItem.state}
+              mine={tableItem.mine}
+              othersTalking={people.some((p) => !p.isMe && p.isSpeaking)}
+              onPresent={tableItem.present}
+            />
+          ) : null}
         </TableCard>
       </View>
     );
