@@ -381,3 +381,19 @@ All four are under Table, then Games, in game rooms, next to Ludo and Find the I
 - [ ] Table, then **Chess in teams**: suggest a move, and a teammate taps **Agree**.
 - [ ] Table, then **Whot**: each phone shows only its own cards. Play a 2, and the next person picks two.
 - [ ] With 5 phones: Table, then **Mafia**. The starter sees everyone's role and the others only their own. At night, mics pause and the night roles choose. By day, vote.
+
+---
+
+## What you need to do now (for parts 6 to 12)
+
+1. **Database:** in Supabase, open SQL Editor, then New query. On GitHub, open `supabase/migrations/20261010000000_open_test_extras.sql`, click **Copy raw file**, paste it, then click **Run**. It should say **Success**. It's safe to run again even if you ran an older copy.
+2. **Room server:** in Supabase, open Edge Functions, then **livekit-token**, then the Code tab. Replace all the code with `supabase/functions/livekit-token/index.ts` from GitHub, then click **Deploy**.
+3. **App:** if you already installed the build with over-the-air updates, send an update. In PowerShell, in your `Circles_app` folder:
+   ```
+   git stash
+   git pull origin claude/gallant-faraday-7s2l1w
+   npm install
+   npx eas-cli update --channel preview --environment development --message "Table, games, Learn, host tools"
+   ```
+   Then on each phone, open Circles, close it fully, and open it again. **Me** shows the new "updated" time.
+   If you haven't built since the updates were set up, do one build instead (`npx eas-cli build --profile preview --platform android`).

@@ -26,6 +26,16 @@ Still open from Step 1: a test with a friend in another place on their own mobil
 
 ## Steps done
 
+### Everything else from the list (2026-10-08), not yet tested on phones
+
+- **Table:** Take turns, Quiz, Words (Learn rooms), and the games Draughts, Chess in teams (chess.js, BSD), Whot and Mafia. Games are held on the starter's phone; hidden parts go only to their owner.
+- **Host tools** for trained hosts: Hands list (Let in, Not now), Mute, Remove with a reason (removals last 3 hours, stored in `room_removals` with an optional appeal).
+- **My people:** Start a room with friends.
+- **10-seat ring**; support rooms hold 10.
+- **Learn together:** Practise now by language or skill and level, language pages, practice groups, and Start a practice group.
+- Voice tickets now last 10 minutes.
+- Tests: 126 app tests, 40 database checks, function type-check.
+
 ### The Table and over-the-air updates (2026-10-08), not yet tested on phones
 
 - **Over-the-air updates:** `expo-updates` linked to Expo project `dc307e92-…`, build channels in `eas.json`, runtime version follows the app version (raise it whenever a phone feature is added). Me shows when the last update arrived.
