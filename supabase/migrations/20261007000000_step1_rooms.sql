@@ -9,6 +9,9 @@ create table if not exists public.profiles (
 alter table public.profiles enable row level security;
 
 -- Only the owner can read or change their own profile.
+drop policy if exists "profiles: read own" on public.profiles;
+drop policy if exists "profiles: insert own" on public.profiles;
+drop policy if exists "profiles: update own" on public.profiles;
 create policy "profiles: read own" on public.profiles
   for select to authenticated using (auth.uid() = id);
 create policy "profiles: insert own" on public.profiles
@@ -30,6 +33,7 @@ create table if not exists public.rooms (
 alter table public.rooms enable row level security;
 
 -- Signed-in people can see rooms. Nobody can change them from the app.
+drop policy if exists "rooms: signed-in can read" on public.rooms;
 create policy "rooms: signed-in can read" on public.rooms
   for select to authenticated using (true);
 
