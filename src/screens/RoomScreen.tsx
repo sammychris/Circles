@@ -26,6 +26,8 @@ import { useImpostor } from '../games/impostor/useImpostor';
 import { NoteSheet, QuizSheet, TurnsSheet, VideoSheet, WordsSheet } from '../components/table/ComposeSheets';
 import { WordsBody } from '../components/table/WordsBody';
 import { DraughtsBody } from '../games/draughts/DraughtsBody';
+import { ChessBody } from '../games/chess/ChessBody';
+import type { ChessGame } from '../games/chess/engine';
 import type { DraughtsGame } from '../games/draughts/engine';
 import { GAME_IDS, type GameId } from '../games/tableGame';
 import { AppealSheet, HandsSheet, HostActionsSheet, REMOVAL_REASONS, RemoveSheet } from '../components/host/HostSheets';
@@ -619,6 +621,17 @@ export function RoomScreen({ me, request, onLeft, onMove }: Props) {
               starter={tableItem.mine}
               onMove={tableItem.sendMove}
               onPlayAgain={() => void tableItem.startGame('draughts')}
+              onBackToTalking={tableItem.takeOff}
+            />
+          ) : null}
+          {item.kind === 'game' && item.game === 'chess' && tableItem.state.g ? (
+            <ChessBody
+              g={tableItem.state.g as ChessGame}
+              me={me.id}
+              people={people}
+              starter={tableItem.mine}
+              onMove={tableItem.sendMove}
+              onPlayAgain={() => void tableItem.startGame('chess')}
               onBackToTalking={tableItem.takeOff}
             />
           ) : null}
