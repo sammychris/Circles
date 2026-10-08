@@ -643,6 +643,41 @@ The rest of part C, from `docs/design/pages/tabs.md` › Groups › Invitations.
 - [ ] Phone B: tap **Not now** on an invitation: it goes away.
 - [ ] In a support room there's no Invite button.
 
+## 20. Firebase, for alerts on the lock screen (your steps)
+
+**What it is:** Firebase is Google's free service that delivers app alerts to Android phones, like "Ada_K invited you to Ludo night" showing up while Circles is closed. The free plan is enough; it doesn't ask for a card.
+
+**Why now:** Firebase leaves one small settings file inside the app. If it's in your next app build, I can switch the alerts on later with a normal update, without another reinstall.
+
+**What I changed:** a file called `app.config.js` picks up Firebase's settings file from expo.dev during the build, so it never goes into GitHub. Without it, the app builds exactly as before.
+
+Some button names may be slightly different on your screen; Google and Expo change them often. If something doesn't match, tell me what you see.
+
+**Part A: Firebase (about 5 minutes)**
+1. Open **console.firebase.google.com** and sign in with your Google (Gmail) account.
+2. Click **Create a project** (it may say "Get started by setting up a Firebase project"). Name it `Circles`, then click **Continue**. Accept the terms if it asks.
+3. When it asks about **Google Analytics**, switch it **off** (Circles doesn't need it). Click **Create project**, wait, then **Continue**.
+4. On the project's home page, click the **Android** icon (or **+ Add app**, then **Android**).
+5. For **Android package name**, type exactly `com.sammychris.circles`. For **App nickname**, type `Circles`. Leave the rest empty. Click **Register app**.
+6. Click **Download google-services.json** and save it in Downloads. Then click **Next**, **Next** and **Continue to console**. Skip the other steps; I've done that part.
+7. Click the **gear icon** next to "Project Overview" (top left), then **Project settings**, then the **Service accounts** tab. Click **Generate new private key**, then **Generate key**. A file downloads with a name like `circles-…-firebase-adminsdk-….json`.
+   - **This file is a secret key.** Don't paste it into this chat, send it to anyone, or put it in GitHub.
+
+**Part B: give both files to Expo (about 3 minutes)**
+8. Open **expo.dev**, sign in, and open the **circles** project.
+9. **The secret key:** in the left menu click **Credentials**, then **Android**, then `com.sammychris.circles`. Under **Service credentials**, find **FCM V1 service account key** and click **Add a service account key**. Upload the `…firebase-adminsdk….json` file from step 7, then **Save**.
+10. **The settings file:** in the left menu click **Environment variables**, then **Add variable** (or **Create**).
+    - Name: `GOOGLE_SERVICES_JSON`
+    - Type: **File** (not text)
+    - Visibility: **Secret**
+    - Environments: tick **development**, **preview** and **production**
+    - Upload `google-services.json` from step 6, then **Save**.
+11. Once both are uploaded, you can delete the two downloaded files. New ones can be made any time.
+
+**Part C: the app build**
+12. Tell me when A and B are done. Then make the new app build from part 14 (in PowerShell, in your `Circles_app` folder: `git pull origin claude/dreamy-meitner-mjoykp`, then `npx eas-cli build --profile preview --platform android`).
+13. I'll add the code that sends the alerts. It comes to the phones as a normal update, no reinstall.
+
 ---
 
 ## What you need to do now (for parts 6 to 12)

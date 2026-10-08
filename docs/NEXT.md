@@ -78,7 +78,7 @@ Short version:
 3. ~~Bottom bar and the Home, Explore, Groups and Me pages (B).~~ Done for what works with today's rooms (2026-10-08; `docs/BUILD_NOTES.md` part 17). Still to come with C: Explore's Tonight and Every week, Groups' Next up, invitations, your groups and reminders, the bell on Home, Coming up, and Start a group.
 4. ~~Scheduled and weekly rooms and reminders (C).~~ Done (2026-10-08; `docs/BUILD_NOTES.md` part 18). Reminders are set by the phone itself, so no server job or Firebase account was needed.
 5. ~~Invitations (the rest of C).~~ Done inside the app (2026-10-08; `docs/BUILD_NOTES.md` part 19). Push alerts wait for Firebase.
-5b. **Firebase for alerts (Sammy's step, before the next app build if he agrees):** a free Google account step. Give him numbered steps, add the settings file to the app, then switch alerts on by update. **Ask him first.**
+5b. **Firebase for alerts:** Sammy agreed (2026-10-08). His steps are in `docs/BUILD_NOTES.md` part 20 (Firebase project, upload the FCM V1 key and `GOOGLE_SERVICES_JSON` file variable on expo.dev, then the new build). `app.config.js` already reads the file. **Next for Claude, once he's done:** save each phone's Expo push token (new table, RLS), and have the room server send "… invited you to …" alerts through Expo's push service. It ships by update. Never send an alert about a support room.
 6. Group page extras from `circle-detail.md`: **Report group** first (group names are written by people), then Share, a description, the host's picture, and "Remind me if a spot opens".
 
 After each part: tests, the `circles-reviewer` agent, then update BUILD_NOTES, PROGRESS and this file.
