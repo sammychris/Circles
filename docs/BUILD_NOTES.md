@@ -607,6 +607,41 @@ Part C of `docs/design/pages/tabs.md`, with `start-something.md` and `circle-det
 - [ ] 5 minutes before the time, the bell turns into **Go in**. Both phones go in and hear each other.
 - [ ] Block someone, then check Explore on their phone: your scheduled rooms are gone for them.
 
+## 19. Invitations (inside the app)
+
+The rest of part C, from `docs/design/pages/tabs.md` › Groups › Invitations. Shown inside the app for now; alerts on the lock screen come once Firebase is set up (see "Choices" below).
+- **Who can invite whom:** only people who saved each other. You never see a list of anyone else, and nobody learns who saved whom: if someone isn't a mutual save, they're simply skipped.
+- **Invite** opens a list of your people with tick boxes, then **Invite**. You can invite:
+  - **to the room you're in** (the Invite button at the top of a room; it opens by itself after you start an invite-only room),
+  - **to a weekly group** you host or belong to (**Invite your people** on the group's page),
+  - **to a room you scheduled** (Groups › Rooms you scheduled › **Invite**).
+- **Groups › Invitations:** "Ada_K invited you to Ludo night", with **Join** and **Not now**. Join goes into a live room, sets a reminder for a scheduled one (or goes in if it's open), or opens the group's page. A small orange dot on the **Groups** tab means a new invitation.
+- **Invite only now works without the web version.** In Start something, **Invite only** can be chosen for rooms now, later or every week. It isn't listed anywhere; only people you invite can see it and come in. **Start a room with friends** works again too.
+
+**Kept safe**
+- Never from a support room: there's no Invite button there, and the server refuses it anyway.
+- An invitation shows only the sender's nickname, never who else was invited or who is in the room.
+- Blocking someone hides their invitations at once, both ways.
+- It ends when the room ends (a live room after 3 hours at most), when a scheduled room's time has passed, or when the group ends.
+- Limits: up to 20 people at once, 40 invitations an hour.
+
+**Choices I made (open to change)**
+- **No alert on the lock screen yet.** That needs Firebase (Google's free service for app alerts). If you set it up before your next app build, I can switch alerts on later with a normal update. Without it, people see invitations when they open Circles.
+- **"Invitation sent"** shows even if someone was skipped, so it never gives away who saved you.
+- **"Ask the host"** for invite-only groups (from `circle-detail.md`) isn't built: invite-only groups aren't listed, so nobody can find one to ask.
+
+**What you need to do**
+1. **Database:** in Supabase, **SQL Editor**, **New query**: first run `supabase/migrations/20261011000000_scheduled_rooms.sql` again (it changed a little; it's safe to run twice), then `supabase/migrations/20261012000000_invitations.sql`. Each should say **Success**.
+2. **Room server:** replace the code in the **livekit-token** Edge Function with the new `supabase/functions/livekit-token/index.ts`, then **Deploy**.
+
+**Phone checklist** (two phones whose people saved each other after a room)
+- [ ] Phone A: Groups › **Start a room with friends**. The invite list opens by itself. Tick phone B's person and tap **Invite**.
+- [ ] Phone B: a dot appears on **Groups** (within a minute). Open Groups: "… invited you to …" with Join and Not now. Tap **Join**: you're in the same room and can hear each other.
+- [ ] Phone A: start a weekly group with **Invite only**. It doesn't show in Explore on phone B. On its page tap **Invite your people**, pick phone B.
+- [ ] Phone B: the invitation opens the group's page; **Join this group** works.
+- [ ] Phone B: tap **Not now** on an invitation: it goes away.
+- [ ] In a support room there's no Invite button.
+
 ---
 
 ## What you need to do now (for parts 6 to 12)

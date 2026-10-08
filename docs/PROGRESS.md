@@ -4,7 +4,7 @@ Claude Code updates this file at the end of every build step. Newest entries at 
 
 ## Current step
 
-**Room sizes, game mode, scores, optional email, the bottom bar, and scheduled rooms with weekly groups and phone reminders (NEXT.md items 1 to 4, except invitations) are built and reviewed, not yet tested on phones. Game mode and reminders need one new app build. Next is invitations (the second half of part C). Everything still waits for Sammy's Supabase updates (including migration `20261011000000_scheduled_rooms.sql`), the new build, and the phone test. The to-do list is in `docs/NEXT.md`. Read it next.**
+**Room sizes, game mode, scores, optional email, the bottom bar, scheduled rooms with weekly groups and phone reminders, and in-app invitations (NEXT.md items 1 to 5) are built and reviewed, not yet tested on phones. Game mode and reminders need one new app build. Lock-screen alerts for invitations wait for Firebase (Sammy's choice whether to set it up before that build). Everything still waits for Sammy's Supabase updates (migrations `20261011000000_scheduled_rooms.sql` and `20261012000000_invitations.sql`), the new build, and the phone test. The to-do list is in `docs/NEXT.md`. Read it next.**
 
 Every choice made so far, and Sammy's click-by-click steps, are in `docs/BUILD_NOTES.md`.
 
@@ -28,6 +28,7 @@ Still open from Step 1: a test with a friend in another place on their own mobil
 - Chess through a set (Sammy, 2026-10-08): teams keep their colours and swap places: the team that moved second moves first next game (they take turns having the white pieces).
 - Bottom bar (Sammy, 2026-10-08; built the same day): Home, Explore, Groups, Me (`docs/design/pages/tabs.md`). Home has Go back in and For you from your last 5 rooms, kept only on the phone (never support rooms). Explore lists live rooms. Details: `docs/BUILD_NOTES.md` part 17.
 - Scheduled rooms and weekly groups (Sammy, 2026-10-08; built the same day): Start something asks Once or every week. Explore has Tonight and Every week, Groups has Start a group, Next up, Your groups and Your reminders, Home has Coming up, and each group has its own page. Reminders come from the phone itself 15 minutes before (no server or extra account). Support rooms can never be scheduled; only counts are shown, never who; blocks hide rooms both ways. Go in opens the live room from 5 minutes before (no separate Starting soon screen). Open test: scheduled rooms and groups are for anyone; invitations come next. Details: `docs/BUILD_NOTES.md` part 18.
+- Invitations (Sammy, 2026-10-08; built the same day, inside the app only): only between people who saved each other, never from a support room, only the sender's nickname shown. Invite from a room, a group's page or a room you scheduled; they show in Groups › Invitations with Join and Not now, and a dot on the Groups tab. Invite only now works without the web version. Push alerts need Firebase (Claude advised setting it up before the next build). Details: `docs/BUILD_NOTES.md` part 19.
 - Age: 18+ for launch. A teen or family version may come later, designed separately (teen-only rooms, parent consent, legal check). Decided 2026-10-08.
 
 ## Steps done
@@ -118,7 +119,7 @@ Sammy wants email as an optional box, and a way to log back in. `EMAIL_ENABLED` 
 - Ludo moves travel on a public Supabase Realtime channel named after the room. Someone technical with the app's public key could listen or send fake moves (game only, never voice or accounts). Before a wide launch, switch to private channels with Realtime access rules.
 - Ludo team colours are Night-theme only (the app is Night-only for now).
 - If LiveKit can't be reached, the room server treats rooms as empty (it can still match people; they just won't connect).
-- Not built yet, though they're in the designs: minimise to a room bar, invitations, push notifications sent from a server, a description on scheduled rooms, the Starting soon screen, "Talk with a trained listener", and the games marked Next (Draw and Guess, Ayo, Finish the Line, Story Chain, On the Same Wave).
+- Not built yet, though they're in the designs: minimise to a room bar, push alerts for invitations (needs Firebase), a description on scheduled rooms, the Starting soon screen, "Talk with a trained listener", and the games marked Next (Draw and Guess, Ayo, Finish the Line, Story Chain, On the Same Wave).
 - Table games, after review: each phone ends a Mafia night's mic pause by itself (about 22 seconds); a player who drops out keeps their place for 30 seconds; players can Leave game; pieces differ by shape, not just colour. Open question for Sammy: widen the 280-point boards so squares reach the 44-point tap size.
 - The under-18 lock is per account. With phone checks later it can become per phone number, as `age-check.md` describes.
 - Android app id is `com.sammychris.circles`. Change it before the first Play Store build if Sammy wants a different one.

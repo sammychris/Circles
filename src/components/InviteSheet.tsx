@@ -62,7 +62,7 @@ export function InviteSheet({ visible, target, title, onClose, onSent, onShareLi
     <Sheet visible={visible} onClose={onClose} dismissable={!busy}>
       <Text variant="title" numberOfLines={2}>{`Invite to ${title}`}</Text>
       <Text variant="body" color="textSoft">
-        People who saved each other with you. Nobody else sees who you invited.
+        People you saved who saved you too. Nobody else sees who you invited.
       </Text>
       {failed ? (
         <Text variant="body" color="textSoft">
