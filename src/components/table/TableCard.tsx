@@ -15,6 +15,7 @@ const VERB: Record<TableItem['kind'], string> = {
   screen: 'is sharing their screen',
   turns: 'started taking turns',
   quiz: 'asked a question',
+  words: 'put words on the table',
 };
 
 // While something is on the table, the seats move up into a row of small avatars (design direction ›

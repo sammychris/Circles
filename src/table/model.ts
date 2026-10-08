@@ -13,8 +13,12 @@ export const QUESTION_MAX = 160;
 export const ANSWER_MAX = 60;
 export const TURN_MINUTES = [1, 2, 3] as const;
 
-export type Door = 'talk' | 'play' | 'support';
-export type TableKind = 'note' | 'video' | 'photos' | 'screen' | 'turns' | 'quiz';
+export type Door = 'talk' | 'play' | 'support' | 'learn';
+export type TableKind = 'note' | 'video' | 'photos' | 'screen' | 'turns' | 'quiz' | 'words';
+export const WORDS_MAX = 10;
+export const WORD_MAX = 40;
+export const MEANING_MAX = 80;
+export type WordPair = { w: string; m: string };
 export type VideoRef = { provider: 'youtube' | 'vimeo'; id: string };
 export type Photo = { url: string; path: string };
 // On the wire a photo is just its storage path and link token; every phone rebuilds the link itself,
@@ -46,6 +50,8 @@ export type TableItem = Common &
     | { kind: 'turns'; topic: string; minutes: number }
     // Quiz: everyone answers privately; the presenter reveals how many chose each. No scores kept.
     | { kind: 'quiz'; question: string; answers: string[]; correct: number | null }
+    // Words (Learn rooms): up to 10 words or phrases with meanings, shown one at a time.
+    | { kind: 'words'; words: WordPair[] }
   );
 
 // Where the presenter is: the photo they're showing, the video's play state, whose turn it is, or a
@@ -73,7 +79,10 @@ export type TableMessage =
 
 // Support rooms only ever get notes and links: no photos, videos or screens (CLAUDE.md, Never list).
 export function allowedKinds(door: Door): TableKind[] {
-  return door === 'support' ? ['note'] : ['note', 'turns', 'quiz', 'video', 'photos', 'screen'];
+  if (door === 'support') return ['note'];
+  // Learn rooms: notes, words, turns and quizzes (design direction › Rules by kind of room).
+  if (door === 'learn') return ['note', 'words', 'turns', 'quiz'];
+  return ['note', 'turns', 'quiz', 'video', 'photos', 'screen'];
 }
 
 const INVISIBLE = /[\u0000-\u0009\u000B\u000C\u000E-\u001F\u007F\u200B-\u200F\u202A-\u202E\u2060-\u2064\u2066-\u2069\uFEFF]/g;
@@ -189,6 +198,16 @@ export function acceptItem(
     return { ...common, kind, photos };
   }
   if (kind === 'screen') return { ...common, kind };
+  if (kind === 'words') {
+    const words = Array.isArray(r.words)
+      ? r.words
+          .slice(0, WORDS_MAX)
+          .map((p) => p as Partial<WordPair>)
+          .map((p) => ({ w: typeof p.w === 'string' ? oneLine(p.w, WORD_MAX) : '', m: typeof p.m === 'string' ? oneLine(p.m, MEANING_MAX) : '' }))
+          .filter((p) => p.w)
+      : [];
+    return words.length > 0 ? { ...common, kind, words } : null;
+  }
   if (kind === 'turns') {
     const topic = typeof r.topic === 'string' ? oneLine(r.topic, TOPIC_MAX) : '';
     const minutes = TURN_MINUTES.includes(r.minutes as 1 | 2 | 3) ? (r.minutes as number) : 2;
@@ -209,6 +228,18 @@ export function acceptItem(
 // One line of plain text, at most `max` characters.
 export function oneLine(text: string, max: number): string {
   return Array.from(cleanNote(text).replace(/\s+/g, ' ').trim()).slice(0, max).join('');
+}
+
+// Words typed one per line: "kedu = how are you" (or with a dash or colon). At most 10.
+export function parseWords(text: string): WordPair[] {
+  return text
+    .split('\n')
+    .map((line) => {
+      const [w, ...rest] = line.split(/\s*(?:=|:|\s-\s|–|—)\s*/);
+      return { w: oneLine(w ?? '', WORD_MAX), m: oneLine(rest.join(' '), MEANING_MAX) };
+    })
+    .filter((p) => p.w)
+    .slice(0, WORDS_MAX);
 }
 
 // Take turns: who speaks next, skipping anyone who left.
@@ -255,6 +286,11 @@ export function cleanState(raw: unknown, kind: TableKind, photoCount: number): T
     const index = typeof r.index === 'number' ? Math.round(r.index) : 0;
     return { seq, index: Math.min(Math.max(index, 0), Math.max(photoCount - 1, 0)) };
   }
+  if (kind === 'words') {
+    // index: how many words are showing.
+    const index = typeof r.index === 'number' ? Math.min(Math.max(Math.round(r.index), 0), WORDS_MAX) : 0;
+    return { seq, index };
+  }
   if (kind === 'turns') {
     const order = Array.isArray(r.order) ? r.order.filter((id): id is string => typeof id === 'string' && id.length <= 64).slice(0, 12) : [];
     const index = typeof r.index === 'number' ? Math.min(Math.max(Math.round(r.index), 0), Math.max(order.length - 1, 0)) : 0;
@@ -278,6 +314,7 @@ export function cleanState(raw: unknown, kind: TableKind, photoCount: number): T
 export function describeItem(item: TableItem): string {
   if (item.kind === 'note') return `On the table, a note by ${item.byName}: "${item.text}"`;
   if (item.kind === 'video') return `On the table, a ${item.video.provider} video by ${item.byName}: ${item.video.id}${item.title ? ` (${item.title})` : ''}`;
+  if (item.kind === 'words') return `On the table, words by ${item.byName}: ${item.words.map((p) => `${p.w} = ${p.m}`).join('; ')}`;
   if (item.kind === 'turns') return `On the table, ${item.byName} started taking turns${item.topic ? `: "${item.topic}"` : ''}`;
   if (item.kind === 'quiz') return `On the table, a quiz by ${item.byName}: "${item.question}" (${item.answers.join(' / ')})`;
   if (item.kind === 'photos') return `On the table, ${item.photos.length} photos by ${item.byName}: ${item.photos.map((p) => p.path).join(', ')}`;

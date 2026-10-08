@@ -311,3 +311,27 @@ Then on each phone: open Circles, close it fully (swipe it away), and open it ag
 **What I built:** the seat circle now draws up to 10 seats. Rooms of 7 to 10 get a wider ring with smaller faces, as the design says. **Support rooms now hold 10**, with a trained host. Your own seat is always at the very bottom, whatever the size.
 
 **Choices I made (open to change):** free rooms stay at 6, and rooms people start can be 4, 5 or 6. The database update raises existing support rooms to 10.
+
+---
+
+## 11. Learn together
+
+**What I built** (`docs/screens/14` and `15`, `learn.md`)
+- **The Learn together door:** **Practise now**, language tiles (Igbo, Yoruba, Hausa, Pidgin, French, English) each with its greeting and how many groups are open, and skills (Public speaking, Coding basics).
+- **Each language or skill has its own page:** **Practise Igbo now**, "Your level: Beginner. Change", the practice groups open now, and **Start an Igbo practice group**.
+- **Your level** is asked the first time ("What's your Igbo like?": Beginner, Getting there, Fluent) and remembered on your phone.
+- **Matching** puts you with people learning the same language at the same level, up to 7 per room. If there's no room, you start one and others at your level join you.
+- **Words on the Table** (Learn rooms only): up to 10 words with meanings, one per line ("kedu = how are you"). You show them one at a time, so the room can try saying each one first.
+- In a Learn room the Table offers notes, Words, Take turns and Quiz.
+
+**Choices I made (open to change)**
+- **Pidgin and English are added** to the design's four languages, because they suit Nigeria. Tell me which languages and skills you want.
+- **No scheduled groups ("Tue 7pm") yet,** and no paid hosted classes. Those need reminders and payments. The page says "Hosted classes with verified teachers come later" instead of showing a made-up price.
+- **No link from the Igbo app yet** (`circles://learn/igbo`).
+
+**What you need to do:** run the database update and update the room server again.
+
+**Phone checklist**
+- [ ] Learn together, then **Igbo**, then **Practise Igbo now**. It asks your level; pick Beginner. You're in an "Igbo practice" room showing "Beginner".
+- [ ] A second phone picks Igbo and Beginner and lands in the same room. A third picking Fluent gets a different room.
+- [ ] In the room, Table, then **Words**: type "kedu = how are you" and two more. Tap **Show the first word**.

@@ -28,6 +28,7 @@ import { PeopleScreen } from './src/screens/home/PeopleScreen';
 import { PlayDoorScreen } from './src/screens/home/PlayDoorScreen';
 import { SupportDoorScreen } from './src/screens/home/SupportDoorScreen';
 import { StartScreen } from './src/screens/StartScreen';
+import { LearnSubjectScreen } from './src/screens/home/LearnSubjectScreen';
 import { TalkDoorScreen } from './src/screens/home/TalkDoorScreen';
 import { Toast } from './src/components/Toast';
 import { myBan, type Ban } from './src/lib/safety';
@@ -93,7 +94,8 @@ type Screen =
   | { name: 'door'; door: DoorName }
   | { name: 'me' }
   | { name: 'addEmail' }
-  | { name: 'start'; door: 'talk' | 'play'; draft?: Extract<RoomRequest, { kind: 'create' }> }
+  | { name: 'start'; door: 'talk' | 'play' | 'learn'; subject?: string; draft?: Extract<RoomRequest, { kind: 'create' }> }
+  | { name: 'learn'; subject: string }
   | { name: 'room'; request: RoomRequest; visit: number }
   | { name: 'after'; summary: RoomSummary };
 
@@ -145,7 +147,8 @@ function SignedIn({
     const sub = BackHandler.addEventListener('hardwareBackPress', () => {
       if (screen.name === 'home') return false;
       if (screen.name === 'room') return true;
-      if (screen.name === 'start') setScreen({ name: 'door', door: screen.door });
+      if (screen.name === 'start') setScreen(screen.door === 'learn' ? { name: 'learn', subject: screen.subject ?? '' } : { name: 'door', door: screen.door });
+      else if (screen.name === 'learn') setScreen({ name: 'door', door: 'learn' });
       else setScreen({ name: 'home' });
       return true;
     });
@@ -219,12 +222,28 @@ function SignedIn({
           }}
         />
       );
+    case 'learn':
+      return (
+        <LearnSubjectScreen
+          subjectId={screen.subject}
+          onBack={() => setScreen({ name: 'door', door: 'learn' })}
+          onEnter={enter}
+          onStart={() => setScreen({ name: 'start', door: 'learn', subject: screen.subject })}
+        />
+      );
     case 'start':
       return (
         <StartScreen
           door={screen.door}
+          subject={screen.subject}
           draft={screen.draft}
-          onBack={() => setScreen({ name: 'door', door: screen.door })}
+          onBack={() =>
+            setScreen(
+              screen.door === 'learn'
+                ? { name: 'learn', subject: screen.subject ?? screen.draft?.language ?? '' }
+                : { name: 'door', door: screen.door },
+            )
+          }
           onStart={enter}
         />
       );
@@ -239,7 +258,7 @@ function SignedIn({
         return <PlayDoorScreen onBack={home} onEnter={enter} onStart={() => setScreen({ name: 'start', door: 'play' })} />;
       }
       if (screen.door === 'people') return <PeopleScreen nickname={nickname} onBack={home} onEnter={enter} />;
-      return <LearnScreen onBack={home} onEnter={enter} />;
+      return <LearnScreen onBack={home} onEnter={enter} onOpenSubject={(subject) => setScreen({ name: 'learn', subject })} />;
     default:
       return (
         <>

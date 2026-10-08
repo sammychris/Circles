@@ -3,15 +3,20 @@ import { Pressable, ScrollView, TextInput, View } from 'react-native';
 import { Check } from 'lucide-react-native';
 import {
   ANSWER_MAX,
+  MEANING_MAX,
   NOTE_MAX,
   QUESTION_MAX,
   TOPIC_MAX,
   TURN_MINUTES,
   VIDEO_TITLE_MAX,
+  WORDS_MAX,
+  WORD_MAX,
   cleanNote,
   oneLine,
   parseVideoLink,
+  parseWords,
   type VideoRef,
+  type WordPair,
 } from '../../table/model';
 import { border, fonts, opacity, radius, rules, size, space, type, useColors } from '../../theme';
 import { Button } from '../Button';
@@ -302,6 +307,68 @@ export function QuizSheet({
         {error ? <ErrorLine message={error} /> : null}
       </ScrollView>
       <Button label="Ask the room" variant="primary" onPress={put} />
+    </Sheet>
+  );
+}
+
+// Words (Learn rooms): one per line, "kedu = how are you". Shown one at a time.
+export function WordsSheet({ visible, onClose, onPut }: { visible: boolean; onClose: () => void; onPut: (words: WordPair[]) => void }) {
+  const colors = useColors();
+  const [text, setText] = useState('');
+  const [error, setError] = useState<string | null>(null);
+  useEffect(() => {
+    if (visible) {
+      setText('');
+      setError(null);
+    }
+  }, [visible]);
+  const put = () => {
+    const words = parseWords(text);
+    if (words.length === 0) {
+      setError('Write at least one word.');
+      return;
+    }
+    onPut(words);
+  };
+  return (
+    <Sheet visible={visible} onClose={onClose}>
+      <View style={{ gap: space[2] }}>
+        <Text variant="title" accessibilityRole="header">
+          Words
+        </Text>
+        <Text variant="body" color="textSoft">
+          {`Up to ${WORDS_MAX} words or phrases, one per line, with the meaning after =. You show them one at a time.`}
+        </Text>
+      </View>
+      <TextInput
+        accessibilityLabel="Words, one per line"
+        value={text}
+        onChangeText={(t) => {
+          setText(t);
+          if (error) setError(null);
+        }}
+        multiline
+        maxLength={WORDS_MAX * (WORD_MAX + MEANING_MAX + 4)}
+        placeholder={'kedu = how are you\nndewo = hello\nnna = father'}
+        placeholderTextColor={colors.textMeta}
+        selectionColor={colors.ember}
+        maxFontSizeMultiplier={rules.maxTextScale}
+        style={{
+          minHeight: size.input * 3,
+          maxHeight: size.sheetList,
+          padding: space[4],
+          borderRadius: radius.small,
+          borderWidth: border.input,
+          borderColor: error ? colors.danger : colors.line,
+          backgroundColor: colors.bg,
+          color: colors.text,
+          fontFamily: fonts.regular,
+          fontSize: type.body.fontSize,
+          textAlignVertical: 'top',
+        }}
+      />
+      {error ? <ErrorLine message={error} /> : null}
+      <Button label="Put them on the table" variant="primary" onPress={put} />
     </Sheet>
   );
 }

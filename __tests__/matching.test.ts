@@ -11,10 +11,10 @@ const js = ts.transpileModule(`${block}\nmodule.exports = { pickRoom, roomTitle,
 const mod: { exports: Record<string, unknown> } = { exports: {} };
 new Function('module', 'exports', js)(mod, mod.exports);
 
-type Room = { id: string; door: 'talk' | 'play' | 'support'; mood: 'chat' | 'laugh' | 'advice' | null; capacity: number; people: string[]; custom?: boolean };
+type Room = { id: string; door: 'talk' | 'play' | 'support' | 'learn'; mood: 'chat' | 'laugh' | 'advice' | null; capacity: number; people: string[]; custom?: boolean; language?: string | null; level?: string | null };
 const pickRoom = mod.exports.pickRoom as (
   rooms: Room[],
-  opts: { door: Room['door']; mood: Room['mood']; me: string; avoid: Set<string>; hosts: Set<string>; excludeRoomId?: string; removedFrom?: Set<string> },
+  opts: { door: Room['door']; mood: Room['mood']; me: string; avoid: Set<string>; hosts: Set<string>; excludeRoomId?: string; removedFrom?: Set<string>; language?: string | null; level?: string | null },
 ) => Room | null;
 const roomTitle = mod.exports.roomTitle as (door: Room['door'], mood: Room['mood']) => string;
 const cleanTitle = mod.exports.cleanTitle as (raw: unknown) => string | null;
@@ -85,6 +85,18 @@ describe('roomTitle', () => {
     expect(roomTitle('talk', 'laugh')).toBe('Want to laugh');
     expect(roomTitle('talk', null)).toBe('Just chat');
     expect(roomTitle('support', null)).toBe('Someone to talk to');
+  });
+});
+
+describe('learn together', () => {
+  it('matches the same language and the same level only', () => {
+    const rooms = [
+      room('igbo-b', ['a'], { door: 'learn', language: 'igbo', level: 'beginner' }),
+      room('igbo-f', ['b', 'c'], { door: 'learn', language: 'igbo', level: 'fluent' }),
+      room('yor-b', ['d', 'e'], { door: 'learn', language: 'yoruba', level: 'beginner' }),
+    ];
+    expect(pickRoom(rooms, { ...base, door: 'learn', mood: null, language: 'igbo', level: 'beginner' })?.id).toBe('igbo-b');
+    expect(pickRoom(rooms, { ...base, door: 'learn', mood: null, language: 'hausa', level: 'beginner' })).toBeNull();
   });
 });
 

@@ -1,20 +1,40 @@
 import { supabase } from '../lib/supabase';
+import type { LearnLevel } from './learn';
 import type { Topic } from './start';
 
-export type Door = 'talk' | 'play' | 'support';
+export type Door = 'talk' | 'play' | 'support' | 'learn';
 export type Mood = 'chat' | 'laugh' | 'advice';
 
-export type RoomInfo = { id: string; door: Door; mood: Mood | null; topic?: Topic | null; title: string; capacity: number };
+export type RoomInfo = {
+  id: string;
+  door: Door;
+  mood: Mood | null;
+  topic?: Topic | null;
+  // Learn together: the language or skill, and the level.
+  language?: string | null;
+  level?: LearnLevel | null;
+  title: string;
+  capacity: number;
+};
 
 export type RoomTicket = { token: string; url: string; roomName: string; room: RoomInfo; isHost: boolean };
 
 // How someone gets into a room: matched through a door, or picked from the Open now list.
 export type RoomRequest =
-  | { kind: 'match'; door: Door; mood: Mood | null; excludeRoomId?: string }
+  | { kind: 'match'; door: Door; mood: Mood | null; excludeRoomId?: string; language?: string; level?: LearnLevel }
   // door: where they found the room, so "Find me another room" looks behind the same door.
   | { kind: 'join'; roomId: string; door?: 'talk' | 'play' }
   // Start something: a room with your own title. Invite-only rooms are only opened by their link.
-  | { kind: 'create'; door: 'talk' | 'play'; title: string; topic: Topic | null; capacity: number; private: boolean };
+  | {
+      kind: 'create';
+      door: 'talk' | 'play' | 'learn';
+      title: string;
+      topic: Topic | null;
+      capacity: number;
+      private: boolean;
+      language?: string;
+      level?: LearnLevel;
+    };
 
 export class RoomFullError extends Error {
   constructor() {
@@ -85,7 +105,14 @@ async function call<T>(body: Record<string, unknown>): Promise<T> {
 export async function getTicket(request: RoomRequest): Promise<RoomTicket> {
   const data = await call<Partial<RoomTicket> & { status?: string }>(
     request.kind === 'match'
-      ? { action: 'match', door: request.door, mood: request.mood, excludeRoomId: request.excludeRoomId }
+      ? {
+          action: 'match',
+          door: request.door,
+          mood: request.mood,
+          excludeRoomId: request.excludeRoomId,
+          language: request.language,
+          level: request.level,
+        }
       : request.kind === 'create'
         ? {
             action: 'create',
@@ -94,6 +121,8 @@ export async function getTicket(request: RoomRequest): Promise<RoomTicket> {
             topic: request.topic,
             capacity: request.capacity,
             private: request.private,
+            language: request.language,
+            level: request.level,
           }
         : { action: 'join', roomId: request.roomId },
   );
@@ -102,7 +131,16 @@ export async function getTicket(request: RoomRequest): Promise<RoomTicket> {
   return data as RoomTicket;
 }
 
-export type OpenRoom = { id: string; title: string; mood: Mood | null; topic?: Topic | null; capacity: number; here: number };
+export type OpenRoom = {
+  id: string;
+  title: string;
+  mood: Mood | null;
+  topic?: Topic | null;
+  language?: string | null;
+  level?: LearnLevel | null;
+  capacity: number;
+  here: number;
+};
 
 export async function listOpenRooms(door: Door = 'talk'): Promise<OpenRoom[]> {
   const data = await call<{ rooms: OpenRoom[] }>({ action: 'list', door });

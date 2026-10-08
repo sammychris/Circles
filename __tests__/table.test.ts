@@ -1,4 +1,4 @@
-import { acceptItem, allowedKinds, nextTurn, tally, findLink, keepsTable, linkSite, parseVideoLink, videoPositionNow, type TableItem } from '../src/table/model';
+import { acceptItem, allowedKinds, nextTurn, parseWords, tally, findLink, keepsTable, linkSite, parseVideoLink, videoPositionNow, type TableItem } from '../src/table/model';
 
 const ada = { id: 'ada', nickname: 'Ada_K' };
 const PHOTOS = 'https://x.supabase.co/storage/v1/object/sign/table/';
@@ -89,6 +89,23 @@ describe('take turns and quiz', () => {
     expect(acceptItem({ id: 't', at: 1, kind: 'turns', topic: 'Stories', minutes: 3 }, ada, 'support', PHOTOS)).toBeNull();
     const turns = acceptItem({ id: 't', at: 1, kind: 'turns', topic: 'Stories', minutes: 99 }, ada, 'talk', PHOTOS);
     expect(turns?.kind === 'turns' && turns.minutes).toBe(2);
+  });
+});
+
+describe('words for learn rooms', () => {
+  it('reads one word per line, with the meaning after =, a colon or a dash', () => {
+    expect(parseWords('kedu = how are you\nndewo: hello\nnna - father\n\n  ')).toEqual([
+      { w: 'kedu', m: 'how are you' },
+      { w: 'ndewo', m: 'hello' },
+      { w: 'nna', m: 'father' },
+    ]);
+    expect(parseWords(Array.from({ length: 15 }, (_, i) => `w${i} = m`).join('\n'))).toHaveLength(10);
+  });
+
+  it('only allows words, notes, turns and quizzes in learn rooms', () => {
+    expect(allowedKinds('learn')).toEqual(['note', 'words', 'turns', 'quiz']);
+    expect(acceptItem({ id: 'w', at: 1, kind: 'words', words: [{ w: 'kedu', m: 'how are you' }] }, ada, 'talk', PHOTOS)).toBeNull();
+    expect(acceptItem({ id: 'w', at: 1, kind: 'words', words: [{ w: 'kedu', m: 'how are you' }] }, ada, 'learn', PHOTOS)?.kind).toBe('words');
   });
 });
 

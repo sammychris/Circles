@@ -23,7 +23,8 @@ import { useLudo } from '../games/ludo/useLudo';
 import { ImpostorTable } from '../games/impostor/ImpostorTable';
 import { ROUNDS_PER_GAME, phaseAt as impostorPhase } from '../games/impostor/logic';
 import { useImpostor } from '../games/impostor/useImpostor';
-import { NoteSheet, QuizSheet, TurnsSheet, VideoSheet } from '../components/table/ComposeSheets';
+import { NoteSheet, QuizSheet, TurnsSheet, VideoSheet, WordsSheet } from '../components/table/ComposeSheets';
+import { WordsBody } from '../components/table/WordsBody';
 import { AppealSheet, HandsSheet, HostActionsSheet, REMOVAL_REASONS, RemoveSheet } from '../components/host/HostSheets';
 import { utf8Decode, utf8Encode } from '../rooms/chat';
 import { appealRemoval, hostAction, type RemovalReason } from '../rooms/api';
@@ -46,6 +47,7 @@ import { formatJoinTime } from '../lib/seats';
 import type { RoomRequest } from '../rooms/api';
 import type { Person } from '../voice/useVoiceRoom';
 import { MOOD_STYLE } from '../rooms/moods';
+import { levelLabel } from '../rooms/learn';
 import { topicLabel } from '../rooms/start';
 import { roomPhase, secondsLeft } from '../rooms/phase';
 import { micPermissionGranted, requestMicPermission } from '../voice/foregroundService';
@@ -136,7 +138,7 @@ export function RoomScreen({ me, request, onLeft, onMove }: Props) {
     voice.reconnects,
   );
   const [putOpen, setPutOpen] = useState(false);
-  const [compose, setCompose] = useState<'note' | 'video' | 'turns' | 'quiz' | null>(null);
+  const [compose, setCompose] = useState<'note' | 'video' | 'turns' | 'quiz' | 'words' | null>(null);
   const [tableOptionsOpen, setTableOptionsOpen] = useState(false);
   const [photosBusy, setPhotosBusy] = useState(false);
   // What was on the table when the report was opened, kept even if it comes off while they write.
@@ -238,7 +240,13 @@ export function RoomScreen({ me, request, onLeft, onMove }: Props) {
     setCountdownFrom(null);
     ludo.leaveGame();
     await voice.leave();
-    onMove({ kind: 'match', door: room.door, mood: room.mood, excludeRoomId: room.id });
+    onMove({
+      kind: 'match',
+      door: room.door,
+      mood: room.mood,
+      excludeRoomId: room.id,
+      ...(room.door === 'learn' && room.language && room.level ? { language: room.language, level: room.level } : {}),
+    });
   }, [room, voice, onMove, ludo]);
 
   // --- mic ---
@@ -392,7 +400,7 @@ export function RoomScreen({ me, request, onLeft, onMove }: Props) {
   // --- what to show ---
   const { joinMs, firstVoiceMs, quality } = voice.numbers;
   const mood = room?.mood ? MOOD_STYLE[room.mood] : null;
-  const topic = topicLabel(room?.topic);
+  const topic = topicLabel(room?.topic) ?? (room?.door === 'learn' ? levelLabel(room.level) : null);
   // During Find the Impostor the header shows the game and the round (docs/screens/12).
   const impostorOn = connected && room?.door === 'play' && phase === 'live' && !ludo.game && !!impostor.round;
   const title = impostorOn
@@ -586,7 +594,7 @@ export function RoomScreen({ me, request, onLeft, onMove }: Props) {
         setWordHidden(false);
         if (choice === 'ludo') ludo.start(everyone);
         else impostor.startGame(everyone);
-      } else if (choice === 'note' || choice === 'video' || choice === 'turns' || choice === 'quiz') {
+      } else if (choice === 'note' || choice === 'video' || choice === 'turns' || choice === 'quiz' || choice === 'words') {
         setTimeout(() => setCompose(choice), motion.slow);
       } else if (choice === 'photos') {
         setTimeout(() => void putPhotos(), motion.slow);
@@ -603,6 +611,9 @@ export function RoomScreen({ me, request, onLeft, onMove }: Props) {
         <SeatRow people={people} onPerson={onSeat} />
         <TableCard item={item} me={me.id} onOptions={() => setTableOptionsOpen(true)}>
           {item.kind === 'note' ? <NoteBody item={item} /> : null}
+          {item.kind === 'words' ? (
+            <WordsBody key={item.id} item={item} state={tableItem.state} mine={tableItem.mine} onPresent={tableItem.present} />
+          ) : null}
           {item.kind === 'turns' ? (
             <TurnsBody key={item.id} item={item} state={tableItem.state} me={me.id} people={people} onPass={tableItem.passTurn} />
           ) : null}
@@ -1132,6 +1143,14 @@ export function RoomScreen({ me, request, onLeft, onMove }: Props) {
           // Everyone here, starting with you; people who arrive later join the end.
           const order = [me.id, ...people.filter((p) => !p.isMe).map((p) => p.id)];
           void tableItem.put({ kind: 'turns', topic, minutes }, { order, index: 0, startedAt: Date.now() });
+        }}
+      />
+      <WordsSheet
+        visible={compose === 'words'}
+        onClose={() => setCompose(null)}
+        onPut={(words) => {
+          setCompose(null);
+          void tableItem.put({ kind: 'words', words }, { index: 0 });
         }}
       />
       <QuizSheet

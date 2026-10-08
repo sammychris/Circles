@@ -27,7 +27,7 @@ function json(body: unknown, status = 200) {
 
 // --- room rules (tested by __tests__/matching.test.ts; keep this block free of Deno and npm imports) ---
 // BEGIN MATCHING
-type Door = 'talk' | 'play' | 'support';
+type Door = 'talk' | 'play' | 'support' | 'learn';
 type Mood = 'chat' | 'laugh' | 'advice';
 
 type Candidate = {
@@ -38,11 +38,28 @@ type Candidate = {
   people: string[]; // LiveKit identities (user ids) in the room right now
   // Started by a person (Start something): found in the Open now list or by link, never filled by matching.
   custom?: boolean;
+  // Learn together: the language or skill, and the level.
+  language?: string | null;
+  level?: string | null;
 };
 
 // Free rooms hold 6. Support rooms, with a trained host, hold up to 10 (design direction › Rules by
 // kind of room); the room circle draws 10 seats for them.
-const CAPACITY: Record<Door, number> = { talk: 6, play: 6, support: 10 };
+const CAPACITY: Record<Door, number> = { talk: 6, play: 6, support: 10, learn: 7 };
+
+// Learn together (learn.md): practice rooms by language or skill, and level. Keep in step with
+// src/rooms/learn.ts.
+const SUBJECTS: Record<string, string> = {
+  igbo: 'Igbo',
+  yoruba: 'Yoruba',
+  hausa: 'Hausa',
+  pidgin: 'Pidgin',
+  french: 'French',
+  english: 'English',
+  public_speaking: 'Public speaking',
+  coding: 'Coding basics',
+};
+const LEVELS = ['beginner', 'getting_there', 'fluent'];
 
 const TITLES: Record<string, string> = {
   'talk:chat': 'Just chat',
@@ -52,6 +69,10 @@ const TITLES: Record<string, string> = {
   'play:': "Let's play",
   'support:': 'Someone to talk to',
 };
+
+function learnTitle(language: string): string {
+  return `${SUBJECTS[language] ?? 'Practice'} practice`;
+}
 
 function roomTitle(door: Door, mood: Mood | null): string {
   return TITLES[`${door}:${mood ?? ''}`] ?? 'Just chat';
@@ -69,6 +90,8 @@ function pickRoom(
     avoid: Set<string>;
     hosts: Set<string>;
     excludeRoomId?: string;
+    language?: string | null;
+    level?: string | null;
     // Rooms a host removed this person from.
     removedFrom?: Set<string>;
   },
@@ -78,6 +101,8 @@ function pickRoom(
     if (room.custom) return false;
     if (room.id === opts.excludeRoomId) return false;
     if (opts.removedFrom?.has(room.id)) return false;
+    // Learn rooms: the same language (or skill) and the same level.
+    if (room.door === 'learn' && (room.language !== opts.language || room.level !== opts.level)) return false;
     // A talk room with no mood is a "Just chat" room.
     if (opts.mood && (room.mood ?? (room.door === 'talk' ? 'chat' : null)) !== opts.mood) return false;
     const others = room.people.filter((p) => p !== opts.me);
@@ -154,7 +179,7 @@ function customRoomEnded(
 }
 // END MATCHING
 
-const DOORS: Door[] = ['talk', 'play', 'support'];
+const DOORS: Door[] = ['talk', 'play', 'support', 'learn'];
 const MOODS: Mood[] = ['chat', 'laugh', 'advice'];
 
 Deno.serve(async (req) => {
@@ -307,7 +332,7 @@ Deno.serve(async (req) => {
     // Invite-only rooms are never listed: only their link opens them.
     const { data: rooms } = await admin
       .from('rooms')
-      .select('id, title, mood, topic, capacity, custom, created_at, active_at, livekit_room_name')
+      .select('id, title, mood, topic, language, level, capacity, custom, created_at, active_at, livekit_room_name')
       .eq('status', 'open')
       .eq('private', false)
       .eq('door', door);
@@ -317,7 +342,16 @@ Deno.serve(async (req) => {
     const list = (rooms ?? [])
       .map((r) => ({ ...r, people: people.get(r.livekit_room_name as string) ?? [] }))
       .filter((r) => r.people.length > 0 && !r.people.some((p) => avoid.has(p)))
-      .map((r) => ({ id: r.id, title: r.title, mood: r.mood, topic: r.topic, capacity: r.capacity, here: r.people.length }))
+      .map((r) => ({
+        id: r.id,
+        title: r.title,
+        mood: r.mood,
+        topic: r.topic,
+        language: r.language,
+        level: r.level,
+        capacity: r.capacity,
+        here: r.people.length,
+      }))
       .sort((a, b) => Number(a.here >= a.capacity) - Number(b.here >= b.capacity) || b.here - a.here);
     return json({ rooms: list });
   }
@@ -464,20 +498,26 @@ Deno.serve(async (req) => {
     custom?: boolean;
     created_at?: string;
     active_at?: string | null;
+    language?: string | null;
+    level?: string | null;
     livekit_room_name: string;
   };
-  const ROOM_FIELDS = 'id, door, mood, topic, title, capacity, status, custom, created_at, active_at, livekit_room_name';
+  const ROOM_FIELDS = 'id, door, mood, topic, language, level, title, capacity, status, custom, created_at, active_at, livekit_room_name';
   let room: RoomRow | null = null;
 
   if (action === 'create') {
     // Start something: a Talk or Play room with the person's own title. Never a support room: those
     // only ever open for trained hosts, through the door.
-    const door: Door | null = body.door === 'talk' || body.door === 'play' ? body.door : null;
+    const door: Door | null = body.door === 'talk' || body.door === 'play' || body.door === 'learn' ? body.door : null;
     const title = cleanTitle(body.title);
-    if (!door) return json({ error: 'Rooms you start can be Talk or Play', status: 'bad_room' }, 400);
+    if (!door) return json({ error: 'Rooms you start can be Talk, Play or Learn', status: 'bad_room' }, 400);
     if (!title) return json({ error: 'That title can’t be used', status: 'bad_title' }, 400);
     const topic = door === 'talk' && TOPICS.includes(String(body.topic)) ? String(body.topic) : null;
-    const capacity = SIZES.includes(Number(body.capacity)) ? Number(body.capacity) : CAPACITY[door];
+    const language = door === 'learn' && SUBJECTS[String(body.language)] ? String(body.language) : null;
+    const level = door === 'learn' && LEVELS.includes(String(body.level)) ? String(body.level) : null;
+    if (door === 'learn' && (!language || !level)) return json({ error: 'Choose a language and level', status: 'bad_room' }, 400);
+    const sizes = door === 'learn' ? [...SIZES, CAPACITY.learn] : SIZES;
+    const capacity = sizes.includes(Number(body.capacity)) ? Number(body.capacity) : CAPACITY[door];
     // A few rooms an hour is plenty for anyone, and stops one person flooding the lists.
     const { count } = await admin
       .from('rooms')
@@ -494,6 +534,8 @@ Deno.serve(async (req) => {
         door,
         mood: null,
         topic,
+        language,
+        level,
         kind: 'peer',
         title,
         capacity,
@@ -534,6 +576,9 @@ Deno.serve(async (req) => {
   } else {
     const door = DOORS.includes(body.door as Door) ? (body.door as Door) : 'talk';
     const mood = door === 'talk' && MOODS.includes(body.mood as Mood) ? (body.mood as Mood) : null;
+    const language = door === 'learn' && SUBJECTS[String(body.language)] ? String(body.language) : null;
+    const level = door === 'learn' && LEVELS.includes(String(body.level)) ? String(body.level) : null;
+    if (door === 'learn' && (!language || !level)) return json({ error: 'Choose a language and level' }, 400);
     const { data: rows } = await admin
       .from('rooms')
       .select(ROOM_FIELDS)
@@ -550,6 +595,8 @@ Deno.serve(async (req) => {
       capacity: r.capacity,
       people: people.get(r.livekit_room_name) ?? [],
       custom: !!r.custom,
+      language: r.language ?? null,
+      level: r.level ?? null,
     }));
     const picked = pickRoom(candidates, {
       door,
@@ -559,6 +606,8 @@ Deno.serve(async (req) => {
       hosts,
       excludeRoomId: typeof body.excludeRoomId === 'string' ? body.excludeRoomId : undefined,
       removedFrom,
+      language,
+      level,
     });
 
     if (picked) {
@@ -576,6 +625,7 @@ Deno.serve(async (req) => {
           !removedFrom.has(c.id) &&
           c.id !== body.excludeRoomId &&
           (c.mood ?? (door === 'talk' ? 'chat' : null)) === newMood &&
+          (door !== 'learn' || (c.language === language && c.level === level)) &&
           (door !== 'support' || isHost),
       );
       if (empty) {
@@ -588,8 +638,10 @@ Deno.serve(async (req) => {
             id,
             door,
             mood: newMood,
+            language,
+            level,
             kind: door === 'support' ? 'hosted' : 'peer',
-            title: roomTitle(door, newMood),
+            title: door === 'learn' && language ? learnTitle(language) : roomTitle(door, newMood),
             capacity: CAPACITY[door],
             status: 'open',
             created_by: user.id,
@@ -637,6 +689,8 @@ Deno.serve(async (req) => {
       door: room.door,
       mood: room.mood,
       topic: room.topic ?? null,
+      language: room.language ?? null,
+      level: room.level ?? null,
       title: room.title ?? roomTitle(room.door, room.mood),
       capacity: room.capacity,
     },

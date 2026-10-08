@@ -173,3 +173,18 @@ grant execute on function public.appeal_removal(text, text) to authenticated;
 
 -- Support rooms hold up to 10 now that the room circle draws 10 seats.
 update public.rooms set capacity = 10 where door = 'support' and capacity < 10;
+
+-- Learn together: practice rooms by language or skill, and level -----------------------------------
+alter table public.rooms add column if not exists language text;
+alter table public.rooms add column if not exists level text;
+alter table public.rooms drop constraint if exists rooms_door_check;
+alter table public.rooms add constraint rooms_door_check check (door in ('talk', 'play', 'support', 'learn'));
+alter table public.rooms drop constraint if exists rooms_language_check;
+alter table public.rooms add constraint rooms_language_check check (language is null or language in
+  ('igbo', 'yoruba', 'hausa', 'pidgin', 'french', 'english', 'public_speaking', 'coding'));
+alter table public.rooms drop constraint if exists rooms_level_check;
+alter table public.rooms add constraint rooms_level_check check (level is null or level in ('beginner', 'getting_there', 'fluent'));
+alter table public.rooms drop constraint if exists rooms_custom_door_check;
+alter table public.rooms add constraint rooms_custom_door_check check (not custom or door in ('talk', 'play', 'learn'));
+grant select (id, door, mood, title, topic, capacity, status, language, level) on public.rooms to authenticated;
+create index if not exists rooms_learn on public.rooms (door, language, level) where door = 'learn';

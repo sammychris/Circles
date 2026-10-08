@@ -1,6 +1,6 @@
 import type { ComponentType } from 'react';
 import { Platform, Pressable, View } from 'react-native';
-import { CircleHelp, Dice5, FileText, Images, ListOrdered, MonitorPlay, MonitorUp, Search } from 'lucide-react-native';
+import { CircleHelp, Dice5, FileText, Images, Languages, ListOrdered, MonitorPlay, MonitorUp, Search } from 'lucide-react-native';
 import type { Door, TableKind } from '../../table/model';
 import { allowedKinds } from '../../table/model';
 import { doorColors, moodColors, opacity, radius, size, space, useColors } from '../../theme';
@@ -109,6 +109,9 @@ export function PutOnTableSheet({ visible, door, gamesReady, onClose, onPick }: 
           <Text variant="metaStrong" color="textMeta">
             Do together
           </Text>
+          {allowed.includes('words') ? (
+            <Row Icon={Languages} title="Words" line="Up to 10 words with meanings, shown one at a time" onPress={() => onPick('words')} />
+          ) : null}
           {allowed.includes('turns') ? (
             <Row Icon={ListOrdered} title="Take turns" line="A speaking order for stories and debates" onPress={() => onPick('turns')} />
           ) : null}

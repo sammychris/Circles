@@ -2,6 +2,7 @@ import { Pressable, View } from 'react-native';
 import { Hash } from 'lucide-react-native';
 import type { OpenRoom } from '../rooms/api';
 import { MOOD_STYLE } from '../rooms/moods';
+import { levelLabel } from '../rooms/learn';
 import { topicLabel } from '../rooms/start';
 import { radius, size, space, useColors } from '../theme';
 import { Button } from './Button';
@@ -10,7 +11,7 @@ import { Text } from './Text';
 // One room in an "Open now" list: its icon, title, topic and seats, and Join.
 export function RoomRow({ room, onJoin }: { room: OpenRoom; onJoin: () => void }) {
   const colors = useColors();
-  const topic = topicLabel(room.topic);
+  const topic = topicLabel(room.topic) ?? levelLabel(room.level);
   // Rooms people started show their topic; the others show their mood.
   const mood = topic || !room.mood ? { Icon: Hash, fg: colors.textSoft, bg: colors.raised } : MOOD_STYLE[room.mood];
   const full = room.here >= room.capacity;
