@@ -10,7 +10,6 @@ import { Text } from '../components/Text';
 import { Toast } from '../components/Toast';
 import { ROOM_CAPACITY, SHOW_TEST_NUMBERS } from '../config';
 import { formatJoinTime } from '../lib/seats';
-import { supabase } from '../lib/supabase';
 import { micPermissionGranted, requestMicPermission } from '../voice/foregroundService';
 import { useVoiceRoom } from '../voice/useVoiceRoom';
 import { radius, size, space, useColors } from '../theme';
@@ -25,12 +24,20 @@ const QUALITY_WORDS = {
   unknown: 'still being measured',
 } as const;
 
-export function RoomScreen({ nickname }: { nickname: string }) {
+type Props = {
+  nickname: string;
+  hasEmail: boolean;
+  emailJustAdded: boolean;
+  onAddEmail: () => void;
+  onLogOut: () => void;
+};
+
+export function RoomScreen({ nickname, hasEmail, emailJustAdded, onAddEmail, onLogOut }: Props) {
   const colors = useColors();
   const room = useVoiceRoom(ROOM_TITLE);
   const [micAllowed, setMicAllowed] = useState(false);
   const [micDenied, setMicDenied] = useState(false);
-  const [toast, setToast] = useState<string | null>(null);
+  const [toast, setToast] = useState<string | null>(emailJustAdded ? 'Email added. Your account is safe.' : null);
   const [askOpen, setAskOpen] = useState(false);
   const [blockedOpen, setBlockedOpen] = useState(false);
 
@@ -203,7 +210,10 @@ export function RoomScreen({ nickname }: { nickname: string }) {
               </Text>
             )}
             {room.status !== 'connecting' ? (
-              <Button label="Log out" variant="quiet" onPress={() => void supabase.auth.signOut()} />
+              <>
+                {!hasEmail ? <Button label="Add your email" variant="quiet" onPress={onAddEmail} /> : null}
+                <Button label="Log out" variant="quiet" onPress={onLogOut} />
+              </>
             ) : null}
           </>
         )}

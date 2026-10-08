@@ -57,3 +57,8 @@ export const NICKNAME_PROBLEM_TEXT: Record<Exclude<NicknameProblem, null>, strin
   badCharacters: 'Use only letters, numbers and _ (no spaces).',
   looksLikeNumber: "That looks like a phone number. Pick something that isn't.",
 };
+
+// supabase-js reports a dropped connection as a failed fetch rather than a status code.
+export function looksOffline(message: string | undefined): boolean {
+  return !!message && /network request failed|failed to fetch|fetch failed/i.test(message);
+}

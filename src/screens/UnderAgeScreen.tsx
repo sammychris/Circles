@@ -29,14 +29,17 @@ export function UnderAgeScreen({ onClose }: { onClose: () => void }) {
           Circles is for adults
         </Text>
         <Text variant="body" color="textSoft" center>
-          You need to be 18 or older to use Circles. If you're going through something hard, you can still talk to
-          someone:
+          {YOUTH_HELPLINE
+            ? "You need to be 18 or older to use Circles. If you're going through something hard, you can still talk to someone:"
+            : "You need to be 18 or older to use Circles. If you're going through something hard, please talk to an adult you trust, like a parent, teacher or family member."}
         </Text>
-        <View style={{ backgroundColor: colors.surface, borderRadius: radius.card, padding: space[4] }}>
-          <Text variant="bodyStrong" center>
-            {YOUTH_HELPLINE}
-          </Text>
-        </View>
+        {YOUTH_HELPLINE ? (
+          <View style={{ backgroundColor: colors.surface, borderRadius: radius.card, padding: space[4] }}>
+            <Text variant="bodyStrong" center>
+              {YOUTH_HELPLINE}
+            </Text>
+          </View>
+        ) : null}
       </View>
       <View style={{ paddingHorizontal: space.gutter, paddingBottom: space[4] }}>
         <Button label="Close" variant="primary" onPress={onClose} />

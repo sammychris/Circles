@@ -7,14 +7,15 @@ import { TextField } from '../components/TextField';
 import { supabase } from '../lib/supabase';
 import { cleanCode, isCodeComplete } from '../lib/validation';
 import { space } from '../theme';
-import { OFFLINE_TEXT, friendlyAuthError, isOffline } from './EmailScreen';
+import { OFFLINE_TEXT, friendlyAuthError, isOffline, sendEmailCode, type EmailPurpose } from './EmailScreen';
 
 const RESEND_SECONDS = 60;
 
-type Props = { email: string; onBack: () => void };
+type Props = { purpose: EmailPurpose; email: string; onBack: () => void; onDone?: () => void };
 
-// After a correct code, Supabase signs the person in and App moves on by itself.
-export function CodeScreen({ email, onBack }: Props) {
+// Signing in: after a correct code Supabase signs the person in and App moves on by itself.
+// Adding an email: after a correct code the email is saved to this account, then onDone.
+export function CodeScreen({ purpose, email, onBack, onDone }: Props) {
   const [code, setCode] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
@@ -35,7 +36,11 @@ export function CodeScreen({ email, onBack }: Props) {
     }
     setBusy(true);
     setError(null);
-    const { error: verifyError } = await supabase.auth.verifyOtp({ email, token: value, type: 'email' });
+    const { error: verifyError } = await supabase.auth.verifyOtp({
+      email,
+      token: value,
+      type: purpose === 'add' ? 'email_change' : 'email',
+    });
     setBusy(false);
     if (verifyError) {
       setError(
@@ -45,7 +50,9 @@ export function CodeScreen({ email, onBack }: Props) {
             ? OFFLINE_TEXT
             : "That code didn't work. Check it, or ask for a new one.",
       );
+      return;
     }
+    onDone?.();
   }
 
   async function resend() {
@@ -53,7 +60,7 @@ export function CodeScreen({ email, onBack }: Props) {
     setError(null);
     setResent(false);
     setResending(true);
-    const { error: sendError } = await supabase.auth.signInWithOtp({ email, options: { shouldCreateUser: true } });
+    const sendError = await sendEmailCode(purpose, email);
     setResending(false);
     if (sendError) {
       setError(friendlyAuthError(sendError.status));
@@ -66,7 +73,11 @@ export function CodeScreen({ email, onBack }: Props) {
   return (
     <AuthLayout
       title="Check your email"
-      body={`We sent a code to ${email}. It can take a minute to arrive. Check your spam folder too.`}
+      body={
+        purpose === 'signIn'
+          ? `If ${email} has a Circles account, we sent it a code. It can take a minute to arrive. Check your spam folder too.`
+          : `We sent a code to ${email}. It can take a minute to arrive. Check your spam folder too.`
+      }
       onBack={onBack}
       footer={<Button label="Continue" variant="primary" loading={busy} onPress={() => void verify()} />}
     >

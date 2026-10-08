@@ -3,9 +3,6 @@
 -- The app can only write through the two functions below, so the rules (18+, nickname format, unique
 -- nickname, birth date set once) can't be skipped. Safe to run more than once.
 
--- Step 1 test people (anonymous sign-ins) are no longer used.
-delete from public.profiles p using auth.users u where u.id = p.id and u.is_anonymous;
-
 alter table public.profiles alter column nickname drop not null;
 
 create table if not exists public.birth_dates (
@@ -19,6 +16,11 @@ alter table public.birth_dates enable row level security;
 drop policy if exists "birth_dates: read own" on public.birth_dates;
 create policy "birth_dates: read own" on public.birth_dates
   for select to authenticated using (auth.uid() = id);
+
+-- Step 1 test profiles had no date of birth. Clear them so those people go through the 18+ question.
+-- (Everyone else gets a birth date before a profile, so this only ever touches Step 1 leftovers.)
+delete from public.profiles p
+where not exists (select 1 from public.birth_dates b where b.id = p.id);
 
 alter table public.profiles drop constraint if exists profiles_nickname_check;
 alter table public.profiles drop constraint if exists profiles_nickname_format;

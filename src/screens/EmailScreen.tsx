@@ -18,9 +18,22 @@ export function friendlyAuthError(status: number | undefined): string {
   return "We couldn't send the code. Try again in a moment.";
 }
 
-type Props = { initialEmail: string; onBack: () => void; onCodeSent: (email: string) => void };
+// signIn: someone who added an email before, signing back in. add: saving an email to this account.
+export type EmailPurpose = 'signIn' | 'add';
 
-export function EmailScreen({ initialEmail, onBack, onCodeSent }: Props) {
+type Props = {
+  purpose: EmailPurpose;
+  initialEmail: string;
+  onBack: () => void;
+  onCodeSent: (email: string) => void;
+};
+
+export async function sendEmailCode(purpose: EmailPurpose, email: string) {
+  if (purpose === 'add') return (await supabase.auth.updateUser({ email })).error;
+  return (await supabase.auth.signInWithOtp({ email, options: { shouldCreateUser: false } })).error;
+}
+
+export function EmailScreen({ purpose, initialEmail, onBack, onCodeSent }: Props) {
   const [email, setEmail] = useState(initialEmail);
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
@@ -33,13 +46,17 @@ export function EmailScreen({ initialEmail, onBack, onCodeSent }: Props) {
     }
     setBusy(true);
     setError(null);
-    const { error: sendError } = await supabase.auth.signInWithOtp({
-      email: clean,
-      options: { shouldCreateUser: true },
-    });
+    const sendError = await sendEmailCode(purpose, clean);
     setBusy(false);
     if (sendError) {
-      setError(friendlyAuthError(sendError.status));
+      if (purpose === 'signIn' && sendError.status === 422) {
+        // No account with that email. Carry on as if we sent one, so nobody can test which emails use Circles.
+        onCodeSent(clean);
+      } else if (purpose === 'add' && sendError.status === 422) {
+        setError('That email is already used by another account.');
+      } else {
+        setError(friendlyAuthError(sendError.status));
+      }
       return;
     }
     onCodeSent(clean);
@@ -47,8 +64,12 @@ export function EmailScreen({ initialEmail, onBack, onCodeSent }: Props) {
 
   return (
     <AuthLayout
-      title="What's your email?"
-      body="We'll send you a code to check it's you. Nobody else ever sees your email."
+      title={purpose === 'add' ? 'Add your email' : "What's your email?"}
+      body={
+        purpose === 'add'
+          ? "If you change or lose your phone, you can sign back in and keep your nickname. Nobody else ever sees your email."
+          : "Use the email you added to your account. We'll send you a code. Nobody else ever sees your email."
+      }
       onBack={onBack}
       footer={<Button label="Send me a code" variant="primary" loading={busy} onPress={() => void sendCode()} />}
     >

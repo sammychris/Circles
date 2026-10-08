@@ -32,8 +32,8 @@ Deno.serve(async (req) => {
   const { data: userData, error: userError } = await supabase.auth.getUser();
   if (userError || !userData.user) return json({ error: 'Please sign in' }, 401);
   const user = userData.user;
-  // Nobody speaks before their email is confirmed and they have chosen a nickname (CLAUDE.md, Never list).
-  if (user.is_anonymous || !user.email_confirmed_at) return json({ error: 'Please confirm your email first' }, 403);
+  // Nobody speaks before they've passed the 18+ question and chosen a nickname (CLAUDE.md, Never list).
+  // During the open test email is optional, so accounts without one are allowed.
 
   const { data: profile } = await supabase.from('profiles').select('nickname').eq('id', user.id).maybeSingle();
   const nickname = profile?.nickname ?? '';

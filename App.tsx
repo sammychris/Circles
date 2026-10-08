@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { ActivityIndicator, View } from 'react-native';
+import { ActivityIndicator, Alert, BackHandler, View } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { Nunito_400Regular, Nunito_700Bold, Nunito_800ExtraBold, useFonts } from '@expo-google-fonts/nunito';
@@ -10,6 +10,7 @@ import { missingConfig } from './src/config';
 import { supabase } from './src/lib/supabase';
 import { useProfile } from './src/lib/useProfile';
 import { isAdult } from './src/lib/validation';
+import { AddEmailFlow } from './src/screens/AddEmailFlow';
 import { AgeScreen } from './src/screens/AgeScreen';
 import { ConfigMissingScreen } from './src/screens/ConfigMissingScreen';
 import { NicknameScreen } from './src/screens/NicknameScreen';
@@ -31,9 +32,28 @@ function signOut() {
   void supabase.auth.signOut();
 }
 
+// Without an email, logging out loses the account for good, so ask first.
+function confirmSignOut(hasEmail: boolean) {
+  if (hasEmail) {
+    signOut();
+    return;
+  }
+  Alert.alert(
+    'Log out without an email?',
+    "You haven't added an email, so you won't be able to get this account or nickname back.",
+    [
+      { text: 'Stay', style: 'cancel' },
+      { text: 'Log out', style: 'destructive', onPress: signOut },
+    ],
+  );
+}
+
 // Signed in: date of birth first, then a nickname, then the room. Nobody reaches the room without both.
 function SignedIn({ session }: { session: Session }) {
   const { state, reload } = useProfile(session.user.id);
+  const [addingEmail, setAddingEmail] = useState(false);
+  const [emailJustAdded, setEmailJustAdded] = useState(false);
+  const hasEmail = !!session.user.email;
 
   if (state.status === 'loading') return <Centered />;
   if (state.status === 'error') {
@@ -43,16 +63,36 @@ function SignedIn({ session }: { session: Session }) {
           We couldn't load your account. Check that you're online.
         </Text>
         <Button label="Try again" onPress={() => void reload()} />
-        <Button label="Log out" variant="quiet" onPress={signOut} />
+        <Button label="Log out" variant="quiet" onPress={() => confirmSignOut(hasEmail)} />
       </Centered>
     );
   }
 
   const { nickname, dateOfBirth } = state.profile;
   if (!dateOfBirth) return <AgeScreen onSaved={() => void reload()} onBack={signOut} />;
-  if (!isAdult(new Date(dateOfBirth))) return <UnderAgeScreen onClose={signOut} />;
+  // Stay signed in, so the same phone can't just try another date. Close leaves the app.
+  if (!isAdult(new Date(dateOfBirth))) return <UnderAgeScreen onClose={() => BackHandler.exitApp()} />;
   if (!nickname) return <NicknameScreen onSaved={() => void reload()} onBack={signOut} />;
-  return <RoomScreen nickname={nickname} />;
+  if (addingEmail) {
+    return (
+      <AddEmailFlow
+        onClose={() => setAddingEmail(false)}
+        onAdded={() => {
+          setAddingEmail(false);
+          setEmailJustAdded(true);
+        }}
+      />
+    );
+  }
+  return (
+    <RoomScreen
+      nickname={nickname}
+      hasEmail={hasEmail}
+      emailJustAdded={emailJustAdded}
+      onAddEmail={() => setAddingEmail(true)}
+      onLogOut={() => confirmSignOut(hasEmail)}
+    />
+  );
 }
 
 export default function App() {
@@ -71,16 +111,10 @@ export default function App() {
     return () => data.subscription.unsubscribe();
   }, [missing.length]);
 
-  // Step 1 test people signed in without an email. They have to sign in properly now.
-  const oldTestSession = !!session && (session.user.is_anonymous || !session.user.email_confirmed_at);
-  useEffect(() => {
-    if (oldTestSession) signOut();
-  }, [oldTestSession]);
-
   let content;
   if (!fontsLoaded || (missing.length === 0 && !sessionChecked)) content = <Centered />;
   else if (missing.length > 0) content = <ConfigMissingScreen missing={missing} />;
-  else if (!session || oldTestSession) content = <SignInFlow />;
+  else if (!session) content = <SignInFlow />;
   else content = <SignedIn key={session.user.id} session={session} />;
 
   return (

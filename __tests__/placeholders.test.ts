@@ -3,9 +3,8 @@ import { join } from 'path';
 const { findPlaceholders } = require('../scripts/check-placeholders.js');
 
 describe('placeholder guard for production builds', () => {
-  it('finds the helpline placeholder that must be replaced before real users', () => {
-    const hits: string[] = findPlaceholders(join(__dirname, '..', 'src'));
-    expect(hits.some((h) => h.includes('[VERIFIED NIGERIA YOUTH OR CRISIS LINE]'))).toBe(true);
+  it('finds no placeholder text in the app today', () => {
+    expect(findPlaceholders(join(__dirname, '..', 'src'))).toEqual([]);
   });
 });
 

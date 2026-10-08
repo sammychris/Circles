@@ -3,7 +3,8 @@ import { AuthLayout } from '../components/AuthLayout';
 import { Button } from '../components/Button';
 import { TextField } from '../components/TextField';
 import { supabase } from '../lib/supabase';
-import { NICKNAME_MAX, NICKNAME_PROBLEM_TEXT, nicknameProblem } from '../lib/validation';
+import { NICKNAME_MAX, NICKNAME_PROBLEM_TEXT, looksOffline, nicknameProblem } from '../lib/validation';
+import { OFFLINE_TEXT } from './EmailScreen';
 
 type Props = { onSaved: () => void; onBack: () => void };
 
@@ -25,7 +26,7 @@ export function NicknameScreen({ onSaved, onBack }: Props) {
     if (saveError) {
       if (saveError.message.includes('nickname_taken')) setError('Someone already has that nickname. Try another.');
       else if (saveError.message.includes('invalid_nickname')) setError(NICKNAME_PROBLEM_TEXT.badCharacters);
-      else setError("We couldn't save that. Try again.");
+      else setError(looksOffline(saveError.message) ? OFFLINE_TEXT : "We couldn't save that. Try again.");
       return;
     }
     onSaved();
@@ -36,7 +37,7 @@ export function NicknameScreen({ onSaved, onBack }: Props) {
       title="Pick a nickname"
       body="It's the only name people in Circles will see. Don't use your real name or your number."
       onBack={onBack}
-      backHint="Logs you out, so you can use a different email"
+      backHint="Takes you back to the start"
       footer={<Button label="Continue" variant="primary" loading={busy} onPress={() => void save()} />}
     >
       <TextField

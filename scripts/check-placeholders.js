@@ -1,4 +1,4 @@
-// Stops a production build while placeholder text like [VERIFIED NIGERIA CRISIS LINE] is still in the app.
+// Stops any EAS build (preview builds go to testers too) while placeholder text like [VERIFIED NIGERIA CRISIS LINE] is in the app.
 // EAS runs this before installing (see "eas-build-pre-install" in package.json).
 const fs = require('fs');
 const path = require('path');
@@ -21,11 +21,10 @@ function findPlaceholders(dir) {
 module.exports = { findPlaceholders };
 
 if (require.main === module) {
-  const profile = process.env.EAS_BUILD_PROFILE;
-  if (profile !== 'production') process.exit(0);
+  if (!process.env.EAS_BUILD_PROFILE) process.exit(0);
   const hits = findPlaceholders(path.join(__dirname, '..', 'src'));
   if (hits.length > 0) {
-    console.error('Placeholder text must be replaced before a production build:\n' + hits.join('\n'));
+    console.error('Placeholder text must be replaced before building for testers or users:\n' + hits.join('\n'));
     process.exit(1);
   }
 }

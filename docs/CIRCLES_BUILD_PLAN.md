@@ -20,9 +20,13 @@ Decision gate: if voice is laggy or drops on Lagos mobile data, try Agora before
 
 Sammy's checklist: 2–3 phones (or friends) join the same room, talk, lock the screen, switch apps, test on mobile data and Wi-Fi.
 
-## Step 2 — Real login
+## Step 2 — Easy sign-up (open test)
 
-Email code login (Supabase), 18+ age check, choose a nickname, nickname is the only name shown. Phone verification (Supabase + Termii) comes later, to keep out bots and stop banned people returning.
+Get started → 18+ question → choose a nickname → in. Email is optional ("Add your email" keeps the account if you change phones); people who added one can sign back in with an email code. Nickname is the only name shown. Every room is open to everyone during the open test. Email, then phone (Supabase + Termii), become required later, when Sammy decides.
+
+## Step 2b — Safety basics
+
+Block and Report on every person in a room. Reports go to a list only Sammy can see. Sammy can remove someone from the app.
 
 ## Step 3 — Finding a room
 

@@ -5,7 +5,8 @@ import { Button } from '../components/Button';
 import { TextField } from '../components/TextField';
 import { ErrorLine } from '../components/ErrorLine';
 import { supabase } from '../lib/supabase';
-import { parseDateOfBirth, toIsoDate } from '../lib/validation';
+import { looksOffline, parseDateOfBirth, toIsoDate } from '../lib/validation';
+import { OFFLINE_TEXT } from './EmailScreen';
 import { space } from '../theme';
 
 type Props = { onSaved: () => void; onBack: () => void };
@@ -38,7 +39,13 @@ export function AgeScreen({ onSaved, onBack }: Props) {
         onSaved();
         return;
       }
-      setError(saveError.message.includes('invalid_date') ? 'Check the date.' : "We couldn't save that. Try again.");
+      setError(
+        saveError.message.includes('invalid_date')
+          ? 'Check the date.'
+          : looksOffline(saveError.message)
+            ? OFFLINE_TEXT
+            : "We couldn't save that. Try again.",
+      );
       return;
     }
     onSaved();
@@ -51,7 +58,7 @@ export function AgeScreen({ onSaved, onBack }: Props) {
       title="When were you born?"
       body="Circles is for people 18 and over. We don't show your age to anyone."
       onBack={onBack}
-      backHint="Logs you out, so you can use a different email"
+      backHint="Takes you back to the start"
       footer={
         <Button label="Continue" variant="primary" loading={busy} disabled={!complete} onPress={() => void save()} />
       }

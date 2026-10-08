@@ -4,9 +4,9 @@ Claude Code updates this file at the end of every build step. Newest entries at 
 
 ## Current step
 
-**Step 2 (real login): code written and checked, waiting for Sammy's Supabase setup and phone test.**
+**Step 2 (easy sign-up for the open test): code written and checked, waiting for Sammy's Supabase setup and phone test.** Next: Step 2b (Block, Report, removing someone), which must be done before the open test starts.
 
-Built: Welcome screen, email and code screens, the 18+ age check (with the under-18 stop screen), the nickname screen, and log out. The database now has a private `birth_dates` table (owner-only, set once) and two server functions (`set_date_of_birth`, `set_nickname`) that enforce the rules. The voice function only gives a ticket to people with a confirmed email, a nickname and 18+. Tests: 28 passing.
+Built: Welcome; Get started makes an account straight away (Supabase anonymous account); the 18+ question (with the under-18 stop screen); the nickname screen; optional "Add your email" (same account, keeps the nickname); "I already have an account" signs back in with that email; Log out warns people who have no email that they'll lose the account. The database has a private `birth_dates` table (owner-only, set once) and two server functions (`set_date_of_birth`, `set_nickname`) that enforce the rules. The voice function only gives a ticket to people with a nickname who passed the 18+ question.
 
 Still open from Step 1: a test with a friend in another place on their own mobile data (the Lagos mobile-data check, and a proper echo check).
 
@@ -15,7 +15,8 @@ Still open from Step 1: a test with a friend in another place on their own mobil
 - Stack: Expo React Native, Supabase, LiveKit Cloud (Agora as backup), Termii for SMS codes. See `CIRCLES_ARCHITECTURE.md`.
 - Design: Lamplight (warm dark theme, Nunito, one ember action colour). See `CIRCLES_DESIGN_DIRECTION.md`.
 - No tab bar: Home has the doors (see `docs/screens/01-home.png`).
-- Login: email code first, so signing up is easy. Phone verification comes later (bots, ban evasion). Decided 2026-10-08.
+- Sign-up for the open test (5–6 days of public testing): nickname + 18+ question only, email optional, every room open to everyone, no bot check. Sammy will make email and then phone required later. Decided 2026-10-08, after hearing the risks (abusers coming back, vulnerable people in support rooms).
+- Block and Report (Step 2b) get built before the open test starts.
 - Age: 18+ for launch. A teen or family version may come later, designed separately (teen-only rooms, parent consent, legal check). Decided 2026-10-08.
 
 ## Steps done
@@ -39,10 +40,15 @@ Setup notes:
 ## Notes for later steps
 
 - Sammy pasted the LiveKit API secret and the Supabase database password into a chat with Claude. Nothing was saved from them. Reset both on their websites after testing (LiveKit: Settings › Keys, make a new key and update the Supabase secrets; Supabase: Project Settings › Database › Reset password).
-- Supabase settings Step 2 relies on: **Confirm email ON** (otherwise someone could sign up with a made-up email and count as confirmed) and **anonymous sign-ins OFF**. Email templates must include the code (`{{ .Token }}`).
+- Supabase settings Step 2 relies on: **anonymous sign-ins ON** (open test), **Confirm email ON** (so an added email is really theirs), and the email templates "Magic Link" and "Change Email Address" must include the code (`{{ .Token }}`).
+- Supabase allows about 30 new anonymous accounts per hour from one internet address. Nigerian mobile networks put many people behind one address, so raise this limit (Authentication › Rate Limits) before publicising the open test.
+- During the open test the 18+ question and bans are easy to get around (a new account takes seconds). Sammy accepted this for the test; email and phone checks come later.
 - The join-time numbers under the room circle (`SHOW_TEST_NUMBERS` in `src/config.ts`) stay on until the mobile-data test with a friend is done, then turn off before real users.
 - Supabase's built-in email only sends to the project team's own addresses, a few an hour. Before anyone else signs up, set up a free email-sending service (custom SMTP) in Supabase.
-- Before real users: Terms and Privacy pages (the Welcome screen mentions them), the verified youth helpline (`src/content/helplines.ts`; production builds refuse to build while the placeholder is there).
+- Before publicising the open test: Terms and Privacy pages (the Welcome screen mentions them; people give a date of birth and maybe an email).
+- Youth helpline: `src/content/helplines.ts` is empty until Sammy gives a real, checked number. Until then the under-18 screen says to talk to a trusted adult. Any EAS build (preview or production) refuses to build while bracketed placeholder text is in `src/`.
+- Leftover accounts: people who log out without an email, or tap Back on the 18+ or nickname screen, leave an anonymous account (with its private date of birth) behind. Plan a cleanup, e.g. delete anonymous accounts with no nickname or no email after 30 days.
+- The voice function treats any error from LiveKit's participant list as "room empty" (from Step 1). Fine while LiveKit is up; tighten when capacity matters (Step 3).
 - The under-18 lock is per account. With phone checks later it can become per phone number, as `age-check.md` describes.
 - Before any real users: a real Report flow and a Block control (CLAUDE.md says both must be reachable in every room; Step 1 only has a Report button that says it isn't built yet). Not on the build plan yet, so Sammy to decide which step.
 - Room capacity is enforced by the token function (6 people). Step 3 should read capacity from the `rooms` table everywhere.

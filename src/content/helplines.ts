@@ -1,3 +1,3 @@
-// Sammy must replace this with a real, checked number before any build for real users.
-// scripts/check-placeholders.js stops production builds while bracketed placeholder text remains.
-export const YOUTH_HELPLINE = '[VERIFIED NIGERIA YOUTH OR CRISIS LINE]';
+// A real, checked Nigerian youth or crisis helpline, from Sammy. Never guess one.
+// Until Sammy provides it this stays null, and the under-18 screen points to a trusted adult instead.
+export const YOUTH_HELPLINE: string | null = null;
