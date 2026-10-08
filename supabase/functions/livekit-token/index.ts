@@ -11,6 +11,7 @@
 //   { action: 'preview', roomId }                     a room link's title and seat count, before signing up
 //   { action: 'schedule', door, title, ..., startsAt | weekly }  sets a room for later, or a weekly group
 //   { action: 'go_in', scheduledId }                  opens (or joins) the room for a scheduled time
+//   { action: 'invite', to, roomId | scheduledId | groupId }  invites people who saved each other with you
 // Secrets (set in Supabase, never in the app): LIVEKIT_API_KEY, LIVEKIT_API_SECRET, LIVEKIT_URL.
 import { createClient } from 'npm:@supabase/supabase-js@2';
 import { AccessToken, RoomServiceClient, TrackSource } from 'npm:livekit-server-sdk@2';
@@ -485,7 +486,14 @@ Deno.serve(async (req) => {
     return json({ error: 'Unknown host action' }, 400);
   }
 
-  if (action !== 'match' && action !== 'join' && action !== 'create' && action !== 'schedule' && action !== 'go_in') {
+  if (
+    action !== 'match' &&
+    action !== 'join' &&
+    action !== 'create' &&
+    action !== 'schedule' &&
+    action !== 'go_in' &&
+    action !== 'invite'
+  ) {
     return json({ error: 'Unknown action' }, 400);
   }
 
@@ -502,6 +510,40 @@ Deno.serve(async (req) => {
   eighteenYearsAgo.setFullYear(eighteenYearsAgo.getFullYear() - 18);
   if (!birth?.date_of_birth || new Date(birth.date_of_birth) > eighteenYearsAgo) {
     return json({ error: 'Circles is for adults' }, 403);
+  }
+
+  // Invite people to the room you're in, a scheduled room, or a group you're in. Only people who saved
+  // each other with you get one (the database skips anyone else without saying). Never a support room.
+  if (action === 'invite') {
+    const isId = (v: unknown): v is string => typeof v === 'string' && /^[0-9a-f-]{36}$/i.test(v);
+    const to = Array.isArray(body.to) ? [...new Set((body.to as unknown[]).filter(isId))] : [];
+    if (to.length === 0 || to.length > 20) return json({ error: 'Choose up to 20 people', status: 'bad_invite' }, 400);
+    const roomId = typeof body.roomId === 'string' && body.roomId.length <= 64 ? body.roomId : null;
+    const scheduledId = isId(body.scheduledId) ? body.scheduledId : null;
+    const groupId = isId(body.groupId) ? body.groupId : null;
+    if ([roomId, scheduledId, groupId].filter(Boolean).length !== 1) return json({ error: 'Invite to one room', status: 'bad_invite' }, 400);
+    if (roomId) {
+      // A live room: only someone in it right now can invite to it.
+      const { data: r } = await admin.from('rooms').select('livekit_room_name, door, status').eq('id', roomId).maybeSingle();
+      if (!r || r.status !== 'open' || r.door === 'support') return json({ error: 'This room has ended', status: 'ended' }, 410);
+      const here = (await peopleOrNone([r.livekit_room_name as string])).get(r.livekit_room_name as string) ?? [];
+      if (!here.includes(user.id)) return json({ error: 'This room has ended', status: 'ended' }, 410);
+    }
+    const { data: sent, error } = await admin.rpc('send_invitations', {
+      p_from: user.id,
+      p_to: to,
+      p_room: roomId,
+      p_scheduled: scheduledId,
+      p_group: groupId,
+    });
+    if (error) {
+      if (error.message.includes('too_many')) return json({ error: 'That’s a lot of invitations. Try again later.', status: 'too_many' }, 429);
+      if (error.message.includes('ended') || error.message.includes('bad_invite')) {
+        return json({ error: 'This room has ended', status: 'ended' }, 410);
+      }
+      return json({ error: 'Could not send the invitations' }, 500);
+    }
+    return json({ status: 'ok', sent: Number(sent ?? 0) });
   }
 
   // Schedule a room for later, or a weekly group (Start something › Once or every week). Never a support
@@ -682,15 +724,21 @@ Deno.serve(async (req) => {
       const { data: g } = await admin.from('groups').select('ended_at').eq('id', s.group_id).maybeSingle();
       if (!g || g.ended_at) return json({ error: 'This room has ended', status: 'ended' }, 410);
     }
-    // Private ones: only the person who set it, its regulars, and people with a reminder for it.
+    // Private ones: only the person who set it, its regulars, people with a reminder for it, and people invited.
     if (s.private && s.created_by !== user.id) {
-      const [{ data: member }, { data: reminder }] = await Promise.all([
+      const [{ data: member }, { data: reminder }, { data: invited }] = await Promise.all([
         s.group_id
           ? admin.from('group_members').select('user_id').eq('group_id', s.group_id).eq('user_id', user.id).maybeSingle()
           : Promise.resolve({ data: null }),
         admin.from('reminders').select('user_id').eq('scheduled_id', s.id).eq('user_id', user.id).maybeSingle(),
+        admin
+          .from('invitations')
+          .select('id')
+          .eq('to_user', user.id)
+          .or(s.group_id ? `scheduled_id.eq.${s.id},group_id.eq.${s.group_id}` : `scheduled_id.eq.${s.id}`)
+          .limit(1),
       ]);
-      if (!member && !reminder) return json({ error: 'This room has ended', status: 'ended' }, 410);
+      if (!member && !reminder && !(invited && invited.length > 0)) return json({ error: 'This room has ended', status: 'ended' }, 410);
     }
     if (avoid.has(s.created_by as string)) return json({ error: 'This room has ended', status: 'ended' }, 410);
     const window = goInWindow(s.starts_at as string);

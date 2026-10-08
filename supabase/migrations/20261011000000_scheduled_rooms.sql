@@ -86,6 +86,19 @@ as $$
 $$;
 revoke all on function public.is_banned(uuid) from public, anon, authenticated;
 
+-- Has this person been invited to this private scheduled room or group? Nobody yet: invitations
+-- (20261012000000_invitations.sql) fill this in.
+create or replace function public.invited_to(p_user uuid, p_scheduled uuid, p_group uuid)
+returns boolean
+language sql
+stable
+security definer
+set search_path = public
+as $$
+  select false;
+$$;
+revoke all on function public.invited_to(uuid, uuid, uuid) from public, anon, authenticated;
+
 -- Can this person see this scheduled room? Public ones, or private ones they made, are a regular of,
 -- or set a reminder for (they had the link). Never one made by someone they blocked or who blocked them.
 create or replace function public.can_see_scheduled(p_room public.scheduled_rooms, p_user uuid)
@@ -106,6 +119,7 @@ as $$
       or p_room.created_by = p_user
       or exists (select 1 from public.group_members m where m.group_id = p_room.group_id and m.user_id = p_user)
       or exists (select 1 from public.reminders r where r.scheduled_id = p_room.id and r.user_id = p_user)
+      or public.invited_to(p_user, p_room.id, p_room.group_id)
     );
 $$;
 revoke all on function public.can_see_scheduled(public.scheduled_rooms, uuid) from public, anon, authenticated;
@@ -252,7 +266,8 @@ begin
          or (b.blocker_id = g.created_by and b.blocked_id = auth.uid())
     )
     and (not g.private or g.created_by = auth.uid()
-         or exists (select 1 from public.group_members m where m.group_id = g.id and m.user_id = auth.uid()))
+         or exists (select 1 from public.group_members m where m.group_id = g.id and m.user_id = auth.uid())
+         or public.invited_to(auth.uid(), null, g.id))
   order by n.starts_at nulls last
   limit 100;
 end;
@@ -305,7 +320,7 @@ begin
   select * into g from public.groups where id = p_group and ended_at is null for update;
   if g.id is null
      or public.is_banned(g.created_by)
-     or (g.private and g.created_by <> auth.uid())
+     or (g.private and g.created_by <> auth.uid() and not public.invited_to(auth.uid(), null, g.id))
      or exists (
        select 1 from public.blocks b
        where (b.blocker_id = auth.uid() and b.blocked_id = g.created_by)
