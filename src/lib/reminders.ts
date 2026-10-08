@@ -72,8 +72,16 @@ export async function syncReminders(userId: string, rooms: ScheduledRoom[]): Pro
     for (const r of wanted) {
       if (ids[r.id]) continue;
       ids[r.id] = await Notifications.scheduleNotificationAsync({
-        content: { title: `${r.title} starts in 15 minutes`, body: 'Tap to go in when it opens.', data: { scheduledId: r.id } },
-        trigger: { type: Notifications.SchedulableTriggerInputTypes.DATE, date: new Date(r.startsAt.getTime() - BEFORE_MS), channelId: CHANNEL },
+        content: {
+          title: `${r.title} starts in 15 minutes`,
+          body: 'Tap to go in when it opens.',
+          data: { scheduledId: r.id, startsAt: r.startsAt.toISOString() },
+        },
+        trigger: {
+          type: Notifications.SchedulableTriggerInputTypes.DATE,
+          date: new Date(r.startsAt.getTime() - BEFORE_MS),
+          channelId: CHANNEL,
+        },
       });
     }
     await saveIds(userId, ids);
@@ -93,14 +101,17 @@ export async function clearReminders(userId: string | null): Promise<void> {
   }
 }
 
-// Tapping a reminder (also when it opened the app): the scheduled room it's about.
-export function onReminderTap(open: (scheduledId: string) => void): () => void {
+// Tapping a reminder (also when it opened the app): the scheduled room it's about, and when it starts.
+export function onReminderTap(open: (scheduledId: string, startsAt: Date | null) => void): () => void {
   if (!supported) return () => {};
   const take = (response: Notifications.NotificationResponse | null) => {
-    const id = response?.notification.request.content.data?.scheduledId;
-    if (typeof id === 'string') open(id);
+    const data = response?.notification.request.content.data;
+    const at = typeof data?.startsAt === 'string' ? new Date(data.startsAt) : null;
+    if (typeof data?.scheduledId === 'string') open(data.scheduledId, at && !isNaN(at.getTime()) ? at : null);
   };
-  void Notifications.getLastNotificationResponseAsync().then(take).catch(() => {});
+  void Notifications.getLastNotificationResponseAsync()
+    .then(take)
+    .catch(() => {});
   const sub = Notifications.addNotificationResponseReceivedListener(take);
   return () => sub.remove();
 }

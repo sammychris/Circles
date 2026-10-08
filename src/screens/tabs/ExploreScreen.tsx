@@ -218,7 +218,8 @@ export function ExploreScreen({ me, onEnter, onStart, onOpenGroup }: Props) {
               <Text variant="body" color="textSoft">
                 {filter === 'all' ? "It's quiet right now. Start a room and people can join you." : `No ${label} rooms are open right now.`}
               </Text>
-              {nextUp && filter === 'all' ? (
+              {/* Only when Tonight below doesn't already show it. */}
+              {nextUp && filter === 'all' && !soon.some((r) => r.id === nextUp.id) ? (
                 <View>
                   <Text variant="metaStrong" color="textSoft">
                     Next up

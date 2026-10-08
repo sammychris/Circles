@@ -76,7 +76,8 @@ Short version:
 1. ~~Room sizes (section 1).~~ Done.
 2. ~~Game mode (A).~~ Done (2026-10-08), with `expo-audio` and `expo-notifications` added, so one new build covers sounds and later reminders. See `docs/BUILD_NOTES.md` part 14.
 3. ~~Bottom bar and the Home, Explore, Groups and Me pages (B).~~ Done for what works with today's rooms (2026-10-08; `docs/BUILD_NOTES.md` part 17). Still to come with C: Explore's Tonight and Every week, Groups' Next up, invitations, your groups and reminders, the bell on Home, Coming up, and Start a group.
-4. Scheduled and weekly rooms, reminders and invitations (C). **Next.**
+4. ~~Scheduled and weekly rooms and reminders (C).~~ Done (2026-10-08; `docs/BUILD_NOTES.md` part 18). Reminders are set by the phone itself, so no server job or Firebase account was needed.
+5. Invitations (the rest of C): "Ada invited you to Ludo" on Groups, invite-only scheduled rooms and groups. Only people who saved each other can invite; never from support rooms. A real push notification for an invitation needs Firebase (a free Google account step for Sammy); ask him first. **Next.**
 
 After each part: tests, the `circles-reviewer` agent, then update BUILD_NOTES, PROGRESS and this file.
 
@@ -89,13 +90,14 @@ The full click-by-click steps are in `docs/BUILD_NOTES.md`, under "What you need
 1. **Database:**
    1. In Supabase, open SQL Editor and paste in `supabase/migrations/20261010000000_open_test_extras.sql`.
    2. Run it. It should say Success, and it's safe to run again.
+   3. Then do the same with `supabase/migrations/20261011000000_scheduled_rooms.sql` (scheduled rooms and groups).
 2. **Room server:**
    1. Paste `supabase/functions/livekit-token/index.ts` into the `livekit-token` Edge Function.
    2. Click Deploy.
 3. **One new app build,** because new phone features were added: the video viewer, the photo picker, screen sharing, and now game sounds and (for later) reminders. Build from the branch `claude/dreamy-meitner-mjoykp` (steps in `docs/BUILD_NOTES.md` part 14). After that, most changes arrive by over-the-air update.
    - Build: `npx eas-cli build --profile preview --platform android`
    - Update: `npx eas-cli update --channel preview --environment development --message "..."`
-4. **Phone test** with 3 to 5 phones, using the checklists in `docs/BUILD_NOTES.md`, parts 6 to 12.
+4. **Phone test** with 3 to 5 phones, using the checklists in `docs/BUILD_NOTES.md`, parts 6 to 18.
 5. **Still open from Step 1:** a friend somewhere else, on their own mobile data, to check the Lagos voice quality and echo.
 
 ---

@@ -29,7 +29,7 @@ import { PlayDoorScreen } from './src/screens/home/PlayDoorScreen';
 import { SupportDoorScreen } from './src/screens/home/SupportDoorScreen';
 import { StartScreen, type StartWhen } from './src/screens/StartScreen';
 import { GroupScreen } from './src/screens/GroupScreen';
-import type { Group } from './src/rooms/schedule';
+import { canGoIn, type Group } from './src/rooms/schedule';
 import { clearReminders, onReminderTap } from './src/lib/reminders';
 import { LearnSubjectScreen } from './src/screens/home/LearnSubjectScreen';
 import { TalkDoorScreen } from './src/screens/home/TalkDoorScreen';
@@ -158,7 +158,15 @@ function SignedIn({
     [],
   );
 
-  useEffect(() => onReminderTap((scheduledId) => setReminderRequest({ kind: 'scheduled', scheduledId })), []);
+  useEffect(
+    () =>
+      onReminderTap((scheduledId, startsAt) => {
+        // Before it opens (the reminder comes 15 minutes early): Groups, where Next up shows Go in when it's time.
+        if (startsAt && !canGoIn(startsAt)) setScreen((now) => (now.name === 'room' || now.name === 'after' ? now : { name: 'groups' }));
+        else setReminderRequest({ kind: 'scheduled', scheduledId });
+      }),
+    [],
+  );
 
   useEffect(() => {
     void myBan()

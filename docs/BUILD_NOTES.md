@@ -563,6 +563,48 @@ Built from `docs/design/pages/tabs.md` (your decision, 2026-10-08), the first ha
 - [ ] Me shows your email (or Add your email), Game sounds, Help, Room rules, and Delete my account at the bottom.
 - [ ] Android back from Explore, Groups or Me goes to Home.
 
+## 18. Scheduled rooms, weekly groups and reminders
+
+Part C of `docs/design/pages/tabs.md`, with `start-something.md` and `circle-detail.md`.
+- **Start something** now asks **Once or every week?**
+  - **Just once:** **Now** (as before), or a day (Today, Tomorrow, or a day this week) and a time, in 15-minute steps. The button says **Schedule the room**.
+  - **Every week:** tick the days (Mon to Sun) and a time. This makes a **group**; each meeting opens a room. The button says **Create group**.
+  - From Explore or Groups you can also choose **Talk** or **Play**. Learn groups start from a language's page, as before.
+- **Explore** has two new sections under Live now:
+  - **Tonight:** rooms later today (and tomorrow's after 9 pm). Each row has the time, the name, "4 going, hosted by Ada" and a **bell**: tap it and you get a reminder. From 5 minutes before, the bell becomes **Go in**.
+  - **Every week:** group cards ("Igbo practice. Every Tuesday and Thursday at 7 pm. 5 regulars"). Tap one for its page.
+- **A group's page:** when it meets, the next meeting, who hosts it, how many regulars, the next 3 dates, and **Join this group** (you become a regular and get a reminder before every meeting). Regulars can **Leave group**; the host can **End this group**. When it's full it says so.
+- **Groups tab:** **Start a group** (the one orange button), **Next up** (your next room, with Go in when it's open), **Your groups**, My people, and **Your reminders** (tap the bell to remove one).
+- **Home:** **Coming up** shows the next 2 scheduled rooms, yours first, with **See all** (opens Explore).
+- **Reminders:** your phone shows "Ludo night starts in 15 minutes" by itself, so no extra account or server is needed. Tapping it opens Groups, where **Next up** shows the room (or the room itself, once it's open). The first time you set one, the phone asks if Circles may send notifications. Logging out clears them.
+
+**Kept safe**
+- Support rooms can never be scheduled or made into groups. The database refuses it.
+- Only counts are shown ("4 going", "5 regulars"), never who.
+- Someone you blocked (or who blocked you) never sees your scheduled rooms or groups, and you never see theirs.
+- Limits against spam: at most 5 scheduled rooms a day, and 3 weekly groups at a time, per person.
+
+**Choices I made (open to change)**
+- **No separate "Starting soon" screen.** Go in opens the real room from 5 minutes before; the room's own waiting state ("waiting for someone to join") does that job.
+- **Scheduled rooms and groups are for anyone** during the open test. Invite-only ones come with invitations, next.
+- **Reminders come 15 minutes before** and only from your own phone. If someone sets a reminder on one phone, a second phone doesn't know about it until they open Circles there.
+- **No description box yet** (the design has an optional 280-character one). Easy to add if you want it.
+- **Group times** are written in the group's own time zone (Lagos for nearly everyone). The next meeting's time is always shown in your phone's time.
+
+**What you need to do**
+1. **Database:** in Supabase, open **SQL Editor**, then **New query**. On GitHub, open `supabase/migrations/20261011000000_scheduled_rooms.sql`, click **Copy raw file**, paste it, then click **Run**. It should say **Success**.
+2. **Room server:** in Supabase, open **Edge Functions**, then **livekit-token**, then the **Code** tab. Replace all the code with `supabase/functions/livekit-token/index.ts` from GitHub, then click **Deploy**.
+3. **App:** reminders need the new build from part 14 (it has the notifications feature in it). If your phones already have that build, an over-the-air update is enough.
+
+**Phone checklist**
+- [ ] On Groups, tap **Start a group**. Name it, tick two days, pick a time, tap **Create group**. You land on Groups with "… meets every … We'll remind you." and the group under **Your groups**.
+- [ ] On a second phone, open Explore: the group is under **Every week**. Tap it, tap **Join this group**. The first phone's group now says 2 regulars.
+- [ ] On Explore, tap **Schedule a room** (or Start a room, then a day). Pick Today and a time about 30 minutes from now, and schedule it.
+- [ ] On the second phone, find it under **Tonight** and tap the bell. It fills in and the count goes up by one.
+- [ ] 15 minutes before, a reminder appears on the second phone's lock screen. Tapping it opens Circles on Groups, with the room under **Next up**.
+- [ ] 5 minutes before the time, the bell turns into **Go in**. Both phones go in and hear each other.
+- [ ] Block someone, then check Explore on their phone: your scheduled rooms are gone for them.
+
 ---
 
 ## What you need to do now (for parts 6 to 12)

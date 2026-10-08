@@ -6,11 +6,12 @@ import { opacity, radius, size, space, useColors } from '../theme';
 import { Button } from './Button';
 import { Text } from './Text';
 
-// "Hosted by Ada. 4 going": only a count, never who (tabs.md › Tonight).
+// "4 going, hosted by Ada": only a count, never who (tabs.md › Tonight).
 function goingLine(room: ScheduledRoom): string {
-  const host = room.mine ? 'Hosted by you' : room.hostNickname ? `Hosted by ${room.hostNickname}` : null;
+  const host = room.mine ? 'hosted by you' : room.hostNickname ? `hosted by ${room.hostNickname}` : null;
+  // The count first, so a long nickname never hides it.
   const going = `${room.going} going`;
-  return host ? `${host}. ${going}` : going;
+  return host ? `${going}, ${host}` : going;
 }
 
 function isToday(at: Date, now = new Date()): boolean {
@@ -45,7 +46,8 @@ export function ScheduledRow({
       >
         <View
           style={{
-            minWidth: size.avatarList + space[4],
+            // One width for every time ("7:30 pm" is the widest), so the titles line up.
+            width: size.avatarList + space[5] + space[1],
             minHeight: size.avatarList,
             paddingHorizontal: space[2],
             borderRadius: radius.small,
