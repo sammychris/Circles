@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { ScrollView, TextInput, View } from 'react-native';
 import { AlertTriangle, CheckCircle2 } from 'lucide-react-native';
-import { REPORT_DETAILS_MAX, REPORT_REASONS, submitReport, type ReportReason, type ReportTarget } from '../lib/safety';
+import { REPORT_DETAILS_MAX, REPORT_REASONS, addReportEvidence, submitReport, type ReportReason, type ReportTarget } from '../lib/safety';
 import { looksOffline } from '../lib/validation';
 import { border, fonts, radius, rules, size, space, type, useColors } from '../theme';
 import { Avatar } from './Avatar';
@@ -23,13 +23,15 @@ type Props = {
   onAlsoBlock: (person: Person) => void;
   // Opens the help options. Missing until the help screen exists.
   onSeeHelp?: () => void;
+  // What was on the table, sent along with the report (activities.md › Safety).
+  evidence?: string | null;
 };
 
 type Stage = 'who' | 'what' | 'sent';
 const COUNTER_FROM = 400;
 
 // The three report sheets from docs/design/pages/report-and-block.md.
-export function ReportSheet({ visible, roomId, people, startWith, onClose, onAlsoBlock, onSeeHelp }: Props) {
+export function ReportSheet({ visible, roomId, people, startWith, onClose, onAlsoBlock, onSeeHelp, evidence }: Props) {
   const colors = useColors();
   const [stage, setStage] = useState<Stage>(startWith ? 'what' : 'who');
   const [target, setTarget] = useState<ReportTarget | null>(startWith);
@@ -61,6 +63,7 @@ export function ReportSheet({ visible, roomId, people, startWith, onClose, onAls
     setError(null);
     try {
       const result = await submitReport(target, roomId, chosen, details);
+      if (evidence) await addReportEvidence(roomId, evidence).catch(() => {});
       setMerged(result === 'merged');
       setStage('sent');
     } catch (e) {

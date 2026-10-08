@@ -61,3 +61,40 @@ alter table public.rooms add column if not exists active_at timestamptz;
 -- People can read only what a room list needs: never who opened a room, or its voice room name.
 revoke select on public.rooms from anon, authenticated;
 grant select (id, door, mood, title, topic, capacity, status) on public.rooms to authenticated;
+
+-- The Table: what was on the table goes with a report ------------------------------------------
+-- Voice and chat aren't recorded, so a report about something on the table carries a short
+-- description of it (and, for photos, the photo paths, so they're kept for the team to look at).
+alter table public.reports add column if not exists evidence text;
+alter table public.reports drop constraint if exists reports_evidence_check;
+alter table public.reports add constraint reports_evidence_check check (evidence is null or char_length(evidence) <= 4000);
+
+-- Adds evidence to the report you just sent from this room (within 10 minutes).
+create or replace function public.add_report_evidence(p_room text, p_evidence text)
+returns void
+language plpgsql
+security definer
+set search_path = ''
+as $$
+declare
+  uid uuid := auth.uid();
+  latest bigint;
+begin
+  if uid is null then
+    raise exception 'not_signed_in';
+  end if;
+  select id into latest from public.reports
+  where reporter_id = uid and coalesce(room_id, '') = coalesce(p_room, '') and updated_at > now() - interval '10 minutes'
+  order by updated_at desc
+  limit 1;
+  if latest is null then
+    return;
+  end if;
+  update public.reports
+  set evidence = left(concat_ws(E'\n---\n', evidence, nullif(trim(coalesce(p_evidence, '')), '')), 4000)
+  where id = latest;
+end;
+$$;
+
+revoke all on function public.add_report_evidence(text, text) from public, anon;
+grant execute on function public.add_report_evidence(text, text) to authenticated;

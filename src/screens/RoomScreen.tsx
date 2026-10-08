@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { AppState, Linking, Platform, Pressable, ScrollView, Share, View } from 'react-native';
+import { Alert, AppState, Linking, Platform, Pressable, ScrollView, Share, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { Dice5, Eye, EyeOff, Flag, Hand, Hash, Heart, LogOut, MessageCircle, Share2, Shield, X } from 'lucide-react-native';
+import { Eye, EyeOff, Flag, Hand, Hash, Heart, SquarePlus, LogOut, MessageCircle, Share2, Shield, X } from 'lucide-react-native';
 import { BlockSheet } from '../components/BlockSheet';
 import { Button } from '../components/Button';
 import { ChatSheet } from '../components/ChatSheet';
@@ -22,8 +22,12 @@ import { useLudo } from '../games/ludo/useLudo';
 import { ImpostorTable } from '../games/impostor/ImpostorTable';
 import { ROUNDS_PER_GAME, phaseAt as impostorPhase } from '../games/impostor/logic';
 import { useImpostor } from '../games/impostor/useImpostor';
-import { GameSheet } from '../components/GameSheet';
-import { SHOW_TEST_NUMBERS, WEB_URL } from '../config';
+import { NoteSheet, VideoSheet } from '../components/table/ComposeSheets';
+import { PutOnTableSheet, type TableChoice } from '../components/table/PutOnTableSheet';
+import { NoteBody, SeatRow, TableCard, TableOptionsSheet } from '../components/table/TableCard';
+import { describeItem, findLink } from '../table/model';
+import { useTable } from '../table/useTable';
+import { PHOTO_URL_START, SHOW_TEST_NUMBERS, WEB_URL } from '../config';
 import { roomLink } from '../lib/links';
 import { mySavedIds, savePerson, unsavePerson } from '../lib/people';
 import { listBlocked, type Blocked } from '../lib/safety';
@@ -108,7 +112,11 @@ export function RoomScreen({ me, request, onLeft, onMove }: Props) {
   const isPlay = room?.door === 'play';
   const ludo = useLudo(room?.id ?? null, me.id, connected && isPlay, people.map((p) => p.id));
   const impostor = useImpostor(room?.id ?? null, me.id, connected && isPlay);
-  const [gameSheetOpen, setGameSheetOpen] = useState(false);
+  // The Table: one shared thing in the middle of the room (activities.md).
+  const tableItem = useTable(voice.publishData, voice.onData, me, room?.door ?? null, connected, people, PHOTO_URL_START);
+  const [putOpen, setPutOpen] = useState(false);
+  const [compose, setCompose] = useState<'note' | 'video' | null>(null);
+  const [tableOptionsOpen, setTableOptionsOpen] = useState(false);
   const [wordHidden, setWordHidden] = useState(false);
   // A new round starts with the word showing.
   const impostorRoundId = impostor.round?.roundId;
@@ -445,6 +453,57 @@ export function RoomScreen({ me, request, onLeft, onMove }: Props) {
     );
   }
 
+  // --- the table: open it, put something on it, replace your own ---
+  function openTable() {
+    if (phase !== 'live') {
+      setToast(isSupport && !hostPresent ? 'The table opens when a trained host is here.' : 'The table opens when three people are here.');
+      return;
+    }
+    if (tableItem.item && !tableItem.canTakeOff) {
+      setToast(`${tableItem.item.byName} has something on the table. It's theirs to take off.`);
+      return;
+    }
+    setPutOpen(true);
+  }
+
+  function confirmReplace(then: () => void) {
+    if (!tableItem.item) return then();
+    if (Platform.OS === 'web') {
+      if (typeof window !== 'undefined' && window.confirm('Replace what’s on the table?')) then();
+      return;
+    }
+    Alert.alert('Replace what’s on the table?', undefined, [
+      { text: 'Cancel', style: 'cancel' },
+      { text: 'Replace', onPress: then },
+    ]);
+  }
+
+  function onTablePick(choice: TableChoice) {
+    setPutOpen(false);
+    confirmReplace(() => {
+      if (choice === 'ludo' || choice === 'impostor') {
+        if (tableItem.item) tableItem.takeOff();
+        setWordHidden(false);
+        if (choice === 'ludo') ludo.start(everyone);
+        else impostor.startGame(everyone);
+      } else if (choice === 'note' || choice === 'video') {
+        setTimeout(() => setCompose(choice), motion.slow);
+      }
+    });
+  }
+
+  if (!table && connected && phase === 'live' && tableItem.item) {
+    const item = tableItem.item;
+    table = (
+      <View style={{ gap: space[4] }}>
+        <SeatRow people={people} onPerson={(p) => setProfile({ id: p.id, nickname: p.nickname, isHost: p.isHost })} />
+        <TableCard item={item} me={me.id} onOptions={() => setTableOptionsOpen(true)}>
+          {item.kind === 'note' ? <NoteBody item={item} /> : null}
+        </TableCard>
+      </View>
+    );
+  }
+
   // One game on the table at a time. Whoever started it can end it; if they've left, anyone can.
   const inGame = !!game && (game.teams.sun.includes(me.id) || game.teams.sky.includes(me.id));
   const starterHere = !!game && people.some((p) => p.id === game.startedBy);
@@ -465,10 +524,20 @@ export function RoomScreen({ me, request, onLeft, onMove }: Props) {
         );
       }
       if (round.startedBy === me.id || !roundStarterHere) tableAction = <RowButton Icon={X} label="End game" onPress={impostor.endGame} />;
-    } else if (ludo.ready && impostor.ready) {
-      tableAction = <RowButton Icon={Dice5} label="Play a game" onPress={() => setGameSheetOpen(true)} />;
     }
   }
+  if (!tableAction && connected) tableAction = <RowButton Icon={SquarePlus} label="Table" onPress={openTable} />;
+
+  // A game took over the table: your own item comes off. Someone else's item lost the table: tell them.
+  useEffect(() => {
+    if ((ludo.game || impostor.round) && tableItem.mine) tableItem.takeOff();
+  }, [ludo.game, impostor.round, tableItem.mine, tableItem.takeOff]);
+  const { bumped, clearBumped } = tableItem;
+  useEffect(() => {
+    if (!bumped) return;
+    setToast('Someone else put something on the table at the same moment.');
+    clearBumped();
+  }, [bumped, clearBumped]);
 
   // Raise hand, except during a game: game seats don't show hands.
   const inAnyGame = !!ludo.game || !!impostor.round;
@@ -753,6 +822,7 @@ export function RoomScreen({ me, request, onLeft, onMove }: Props) {
         roomId={room?.id ?? null}
         people={others.map((p) => ({ id: p.id, nickname: p.nickname }))}
         startWith={reportPerson}
+        evidence={tableItem.item ? describeItem(tableItem.item) : null}
         onClose={() => setReportOpen(false)}
         onAlsoBlock={(p) => setToBlock(p)}
         onSeeHelp={() => {
@@ -760,14 +830,44 @@ export function RoomScreen({ me, request, onLeft, onMove }: Props) {
           onOpenHelp();
         }}
       />
-      <GameSheet
-        visible={gameSheetOpen}
-        onClose={() => setGameSheetOpen(false)}
-        onPick={(choice) => {
-          setGameSheetOpen(false);
-          setWordHidden(false);
-          if (choice === 'ludo') ludo.start(everyone);
-          else impostor.startGame(everyone);
+      {room ? (
+        <PutOnTableSheet
+          visible={putOpen}
+          door={room.door}
+          gamesReady={ludo.ready && impostor.ready}
+          onClose={() => setPutOpen(false)}
+          onPick={onTablePick}
+        />
+      ) : null}
+      <NoteSheet
+        visible={compose === 'note'}
+        onClose={() => setCompose(null)}
+        onPut={(text) => {
+          setCompose(null);
+          void tableItem.put({ kind: 'note', text, link: findLink(text) });
+        }}
+      />
+      <VideoSheet
+        visible={compose === 'video'}
+        onClose={() => setCompose(null)}
+        onPut={(video, title) => {
+          setCompose(null);
+          void tableItem.put({ kind: 'video', video, title }, { playing: false, position: 0, sentAt: Date.now() });
+        }}
+      />
+      <TableOptionsSheet
+        visible={tableOptionsOpen}
+        canTakeOff={tableItem.canTakeOff}
+        onClose={() => setTableOptionsOpen(false)}
+        onTakeOff={() => {
+          setTableOptionsOpen(false);
+          tableItem.takeOff();
+        }}
+        onReport={() => {
+          setTableOptionsOpen(false);
+          const item = tableItem.item;
+          setReportPerson(item && !tableItem.mine ? { id: item.by, nickname: item.byName } : null);
+          setTimeout(() => setReportOpen(true), motion.slow);
         }}
       />
       <ChatSheet

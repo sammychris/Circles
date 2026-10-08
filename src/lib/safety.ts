@@ -27,6 +27,11 @@ export const REPORT_DETAILS_MAX = 500;
 
 export type ReportTarget = { id: string; nickname: string } | 'room';
 
+// Adds what was on the table to the report just sent from this room.
+export async function addReportEvidence(roomId: string | null, evidence: string): Promise<void> {
+  await supabase.rpc('add_report_evidence', { p_room: roomId, p_evidence: evidence });
+}
+
 export async function submitReport(
   target: ReportTarget,
   roomId: string | null,

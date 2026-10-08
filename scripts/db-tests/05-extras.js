@@ -41,4 +41,15 @@ module.exports = async ({ users, as, fails, check, assert, db }) => {
     );
     await fails(as(users.ada, "insert into public.rooms (id, kind, door, capacity, status, livekit_room_name) values ('a9', 'peer', 'talk', 6, 'open', 'circles-a9')"), '');
   });
+
+  await check('a report carries what was on the table', async () => {
+    await as(users.chi, "select public.submit_report($1, 'Bayo', 'room-t', 'sexual', null)", [users.bayo]);
+    await as(users.chi, "select public.add_report_evidence('room-t', 'On the table, 2 photos by Bayo: a.jpg, b.jpg')");
+    const row = (await db.query("select evidence from public.reports where room_id = 'room-t'")).rows[0];
+    assert(row.evidence.includes('a.jpg'));
+    // Nobody can add evidence to someone else's report.
+    await as(users.ada, "select public.add_report_evidence('room-t', 'fake')");
+    const again = (await db.query("select evidence from public.reports where room_id = 'room-t'")).rows[0];
+    assert(!again.evidence.includes('fake'));
+  });
 };

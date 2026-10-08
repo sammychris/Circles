@@ -138,6 +138,8 @@ export const effects = {
   emberGlow: 'rgba(244, 161, 78, 0.22)',
   roomGlow: 'rgba(244, 161, 78, 0.20)',
   roomGlowEdge: 'rgba(244, 161, 78, 0.06)',
+  // Design direction › The table slot: 0 0 48px 8px rgba(244,161,78,0.10), for the web.
+  tableGlowWeb: '0 0 48px 8px rgba(244, 161, 78, 0.10)',
 } as const;
 
 // The ring around whoever is speaking: a gap in the background colour, then a ring, then a soft glow.

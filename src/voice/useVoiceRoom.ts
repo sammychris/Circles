@@ -55,6 +55,10 @@ export type SeenPerson = { id: string; nickname: string; isHost: boolean; spoke:
 
 export type RoomSummary = { room: RoomInfo; minutes: number; seen: SeenPerson[] };
 
+// Who sent a data message: from LiveKit, so it can't be faked.
+export type DataSender = { id: string; nickname: string };
+export type DataListener = (payload: Uint8Array, from: DataSender) => void;
+
 function hostFlag(p: Participant): boolean {
   try {
     return !!(p.metadata && JSON.parse(p.metadata).host);
@@ -109,6 +113,8 @@ export function useVoiceRoom() {
   const chatSentAt = useRef<number[]>([]);
   const chatHeardAt = useRef(new Map<string, number[]>());
   const chatCount = useRef(0);
+  // Other room features (the Table) listen to their own LiveKit data topic.
+  const dataListeners = useRef(new Map<string, Set<DataListener>>());
 
   const addMessage = useCallback((m: Omit<ChatMessage, 'id'>) => {
     chatCount.current += 1;
@@ -228,7 +234,14 @@ export function useVoiceRoom() {
           .on(RoomEvent.DataReceived, (payload, participant, _kind, topic) => {
             // The sender's name comes from LiveKit, set by our server only (the ticket can't change it),
             // so nobody can pretend to be someone else.
-            if (topic !== CHAT_TOPIC || !participant) return;
+            if (!participant || silenced.current.has(participant.identity)) return;
+            if (topic && topic !== CHAT_TOPIC) {
+              dataListeners.current
+                .get(topic)
+                ?.forEach((listener) => listener(payload, { id: participant.identity, nickname: participant.name || 'Someone' }));
+              return;
+            }
+            if (topic !== CHAT_TOPIC) return;
             if (silenced.current.has(participant.identity)) return;
             const now = Date.now();
             const heard = (chatHeardAt.current.get(participant.identity) ?? []).filter((t) => now - t < 60_000);
@@ -304,6 +317,28 @@ export function useVoiceRoom() {
     [addMessage],
   );
 
+  // Sends a small message on a topic to everyone in the room, or only to some people.
+  const publishData = useCallback(async (topic: string, payload: Uint8Array<ArrayBuffer>, to?: string[]) => {
+    const current = roomRef.current;
+    if (!current) return false;
+    try {
+      await current.localParticipant.publishData(payload, { reliable: true, topic, destinationIdentities: to });
+      return true;
+    } catch {
+      return false;
+    }
+  }, []);
+
+  // Listens to a topic. Returns a function that stops listening.
+  const onData = useCallback((topic: string, listener: DataListener) => {
+    const set = dataListeners.current.get(topic) ?? new Set<DataListener>();
+    set.add(listener);
+    dataListeners.current.set(topic, set);
+    return () => {
+      set.delete(listener);
+    };
+  }, []);
+
   // Returns false when the phone does not allow the microphone.
   const setMic = useCallback(
     async (on: boolean): Promise<boolean> => {
@@ -377,6 +412,8 @@ export function useVoiceRoom() {
     audioBlocked,
     messages,
     sendChat,
+    publishData,
+    onData,
     unblockAudio,
     join,
     leave,

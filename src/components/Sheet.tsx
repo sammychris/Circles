@@ -1,5 +1,5 @@
 import type { ReactNode } from 'react';
-import { Modal, Pressable, StyleSheet, View } from 'react-native';
+import { KeyboardAvoidingView, Modal, Pressable, StyleSheet, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { radius, sheetHandle, space, useColors } from '../theme';
 
@@ -22,7 +22,8 @@ export function Sheet({ visible, onClose, children, dismissable = true }: Props)
       onRequestClose={dismissable ? onClose : () => {}}
       statusBarTranslucent
     >
-      <View style={{ flex: 1, justifyContent: 'flex-end' }}>
+      {/* Sheets with a text box move up with the keyboard. */}
+      <KeyboardAvoidingView behavior="padding" style={{ flex: 1, justifyContent: 'flex-end' }}>
         {/* The scrim sits behind the sheet, so screen readers reach what's inside on its own. */}
         <Pressable
           accessibilityRole="button"
@@ -53,7 +54,7 @@ export function Sheet({ visible, onClose, children, dismissable = true }: Props)
           />
           {children}
         </View>
-      </View>
+      </KeyboardAvoidingView>
     </Modal>
   );
 }
