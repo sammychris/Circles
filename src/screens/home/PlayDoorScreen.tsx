@@ -1,61 +1,91 @@
-import { View } from 'react-native';
-import { Dice5 } from 'lucide-react-native';
+import { Pressable, View } from 'react-native';
+import { ChevronRight, Search } from 'lucide-react-native';
 import { Button } from '../../components/Button';
 import { DoorLayout } from '../../components/DoorLayout';
 import { Text } from '../../components/Text';
 import type { RoomRequest } from '../../rooms/api';
-import { doorColors, radius, size, space, useColors } from '../../theme';
+import { border, moodColors, opacity, radius, size, space, useColors } from '../../theme';
 
-// "Let's play" (docs/design/pages/doors.md › I'm bored). Games not yet available are not shown.
+// "Let's play" (docs/screens/10-lets-play.png, doors.md › I'm bored). Games not yet available are not shown.
 export function PlayDoorScreen({ onBack, onEnter }: { onBack: () => void; onEnter: (r: RoomRequest) => void }) {
   const colors = useColors();
+  const playNow = () => onEnter({ kind: 'match', door: 'play', mood: null });
   return (
-    <DoorLayout
-      title="Let's play"
-      line="The game is the excuse. The talking is the fun."
-      onBack={onBack}
-      footer={
-        <>
-          <Button label="Play now" variant="primary" onPress={() => onEnter({ kind: 'match', door: 'play', mood: null })} />
-          <Text variant="meta" color="textMeta" center>
-            We'll put you in a game room with free seats
-          </Text>
-        </>
-      }
-    >
+    <DoorLayout title="Let's play" line="Games are the excuse. Talking is the fun." onBack={onBack}>
       <View style={{ gap: space[3] }}>
-        <Text variant="heading">Board games</Text>
-        <View
-          style={{
-            backgroundColor: colors.surface,
-            borderRadius: radius.card,
-            padding: space[4],
+        <Button label="Play now" variant="primary" onPress={playNow} />
+        <Text variant="meta" color="textMeta" center>
+          We'll find you a game room with free seats
+        </Text>
+      </View>
+
+      <View style={{ gap: space[3] }}>
+        <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'baseline' }}>
+          <Text variant="heading">Talk games</Text>
+          <Text variant="meta" color="textSoft">
+            The talking is the game
+          </Text>
+        </View>
+        <Pressable
+          accessibilityRole="button"
+          accessibilityLabel="Find the Impostor. 3 to 6 people. Opens a game room."
+          onPress={playNow}
+          style={({ pressed }) => ({
+            minHeight: size.avatarRoom,
             flexDirection: 'row',
             alignItems: 'center',
             gap: space[4],
-          }}
+            opacity: pressed ? opacity.pressed : 1,
+          })}
         >
           <View
             style={{
-              width: size.tileIconBox,
-              height: size.tileIconBox,
+              width: size.iconButton,
+              height: size.iconButton,
               borderRadius: radius.small,
-              backgroundColor: doorColors.play.bg,
+              backgroundColor: moodColors.laugh.bg,
               alignItems: 'center',
               justifyContent: 'center',
             }}
           >
-            <Dice5 size={size.iconButton20} color={doorColors.play.fg} strokeWidth={size.iconStroke} />
+            <Search size={size.iconButton20} color={moodColors.laugh.fg} strokeWidth={size.iconStroke} />
           </View>
           <View style={{ flex: 1, gap: space[1] }}>
-            <Text variant="bodyStrong">Ludo</Text>
+            <Text variant="bodyStrong">Find the Impostor</Text>
             <Text variant="meta" color="textSoft">
-              In two teams, while you all talk
+              3 to 6 people
             </Text>
           </View>
+          <ChevronRight size={size.icon} color={colors.textSoft} strokeWidth={size.iconStroke} />
+        </Pressable>
+      </View>
+
+      <View style={{ gap: space[3] }}>
+        <Text variant="heading">Board and card games</Text>
+        <View style={{ flexDirection: 'row', gap: space[3] }}>
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel="Ludo. In teams. Opens a game room."
+            onPress={playNow}
+            style={({ pressed }) => ({
+              flex: 1,
+              backgroundColor: colors.surface,
+              borderRadius: radius.card,
+              padding: space[4],
+              gap: space[1],
+              opacity: pressed ? opacity.pressed : 1,
+            })}
+          >
+            <Text variant="heading">Ludo</Text>
+            <Text variant="meta" color="textSoft">
+              In teams
+            </Text>
+          </Pressable>
+          {/* Keeps Ludo half width, as in the design's 2 × 2 grid; more games fill this space later. */}
+          <View style={{ flex: 1, borderRadius: radius.card, borderWidth: border.hairline, borderColor: 'transparent' }} />
         </View>
         <Text variant="meta" color="textMeta">
-          In a game room, tap Play Ludo once three or more people are there.
+          In a game room, tap Play a game and pick one once three people are there.
         </Text>
       </View>
     </DoorLayout>

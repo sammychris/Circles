@@ -2,6 +2,7 @@ import { Pressable, View } from 'react-native';
 import Svg, { Path, Rect } from 'react-native-svg';
 import { Cloud, MicOff, Sun } from 'lucide-react-native';
 import { Avatar } from '../../components/Avatar';
+import { TableAction } from '../../components/TableAction';
 import { Text } from '../../components/Text';
 import { border, fonts, ludo, opacity, radius, size, space, teamColors, type as typeScale, useColors } from '../../theme';
 import {
@@ -291,24 +292,7 @@ export function LudoTable({ state, me, people, onPerson, onRoll, onMove, onBring
           </Text>
         </View>
       </View>
-      {action ? (
-        // Table action button: strong but not ember, so the mic stays the room's one ember action.
-        <Pressable
-          accessibilityRole="button"
-          accessibilityLabel={action.label}
-          onPress={action.onPress}
-          style={({ pressed }) => ({
-            opacity: pressed ? opacity.pressed : 1,
-            height: size.tableAction,
-            borderRadius: radius.pill,
-            backgroundColor: colors.text,
-            alignItems: 'center',
-            justifyContent: 'center',
-          })}
-        >
-          <Text style={{ color: colors.bg, fontFamily: fonts.extraBold, fontSize: typeScale.body.fontSize }}>{action.label}</Text>
-        </Pressable>
-      ) : null}
+      {action ? <TableAction label={action.label} onPress={action.onPress} /> : null}
       {state.winner ? (
         <Pressable accessibilityRole="button" onPress={onBackToTalking} style={{ minHeight: size.minTarget, alignItems: 'center', justifyContent: 'center' }}>
           <Text variant="bodyStrong" color="textSoft">

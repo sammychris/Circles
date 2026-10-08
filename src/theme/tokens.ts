@@ -78,6 +78,8 @@ export const type = {
   metaStrong: { fontSize: 14, lineHeight: 20, fontFamily: fonts.bold },
   tiny: { fontSize: 12, lineHeight: 16, fontFamily: fonts.bold },
   button: { fontSize: 18, lineHeight: 24, fontFamily: fonts.extraBold },
+  // The one 48 px size: the big word at the centre of a game card (design direction › Typography).
+  giant: { fontSize: 48, lineHeight: 52, fontFamily: fonts.extraBold },
 } as const;
 
 export const space = { 1: 4, 2: 8, 3: 12, 4: 16, 5: 24, 6: 32, 7: 48, gutter: 24 } as const;

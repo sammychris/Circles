@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { AppState, Linking, Platform, Pressable, ScrollView, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { Dice5, Flag, Heart, LogOut, Shield, X } from 'lucide-react-native';
+import { Dice5, Eye, EyeOff, Flag, Heart, LogOut, Shield, X } from 'lucide-react-native';
 import { BlockSheet } from '../components/BlockSheet';
 import { Button } from '../components/Button';
 import { Chip } from '../components/Chip';
@@ -18,6 +18,10 @@ import { Toast } from '../components/Toast';
 import { BASE } from '../games/ludo/engine';
 import { LudoTable } from '../games/ludo/LudoTable';
 import { useLudo } from '../games/ludo/useLudo';
+import { ImpostorTable } from '../games/impostor/ImpostorTable';
+import { phaseAt as impostorPhase } from '../games/impostor/logic';
+import { useImpostor } from '../games/impostor/useImpostor';
+import { GameSheet } from '../components/GameSheet';
 import { SHOW_TEST_NUMBERS } from '../config';
 import { mySavedIds, savePerson, unsavePerson } from '../lib/people';
 import { listBlocked, type Blocked } from '../lib/safety';
@@ -84,6 +88,9 @@ export function RoomScreen({ me, request, onLeft, onMove }: Props) {
   // Games only ever in play rooms, never in support rooms (CLAUDE.md, Never list).
   const isPlay = room?.door === 'play';
   const ludo = useLudo(room?.id ?? null, me.id, connected && isPlay, people.map((p) => p.id));
+  const impostor = useImpostor(room?.id ?? null, me.id, connected && isPlay);
+  const [gameSheetOpen, setGameSheetOpen] = useState(false);
+  const [wordHidden, setWordHidden] = useState(false);
 
   // --- joining: explain the microphone first, then join ---
   const startJoin = useCallback(() => {
@@ -298,13 +305,17 @@ export function RoomScreen({ me, request, onLeft, onMove }: Props) {
   }
 
   const game = ludo.game;
-  const table =
-    connected && isPlay && game && phase === 'live' ? (
+  const round = impostor.round;
+  const everyone = people.map((p) => p.id);
+  const openProfile = (p: { id: string; nickname: string }) => setProfile({ id: p.id, nickname: p.nickname });
+  let table = null;
+  if (connected && isPlay && phase === 'live' && game) {
+    table = (
       <LudoTable
         state={game}
         me={me.id}
         people={people}
-        onPerson={(p) => setProfile({ id: p.id, nickname: p.nickname })}
+        onPerson={openProfile}
         onRoll={ludo.roll}
         onMove={ludo.move}
         onBringOut={() => {
@@ -312,21 +323,55 @@ export function RoomScreen({ me, request, onLeft, onMove }: Props) {
           const first = game.tokens[team].findIndex((pos) => pos === BASE);
           if (first >= 0) ludo.move(first);
         }}
-        onPlayAgain={() => ludo.start(people.map((p) => p.id))}
+        onPlayAgain={() => ludo.start(everyone)}
         onBackToTalking={ludo.endGame}
       />
-    ) : null;
+    );
+  } else if (connected && isPlay && phase === 'live' && round) {
+    table = (
+      <ImpostorTable
+        round={round}
+        now={impostor.now}
+        me={me.id}
+        people={people}
+        playing={impostor.playing}
+        card={impostor.card}
+        hidden={wordHidden}
+        onShowWord={() => setWordHidden(false)}
+        myVote={impostor.myVote}
+        outcome={impostor.outcome}
+        onVote={(id) => void impostor.castVote(id)}
+        onPerson={openProfile}
+        onNextRound={() => impostor.nextRound(everyone)}
+        onPlayAgain={() => impostor.startGame(everyone)}
+        onBackToTalking={impostor.endGame}
+        busy={impostor.busy}
+      />
+    );
+  }
+
+  // One game on the table at a time. Whoever started it can end it; if they've left, anyone can.
   const inGame = !!game && (game.teams.sun.includes(me.id) || game.teams.sky.includes(me.id));
-  // The person who started the game can end it. If they've left the room, anyone can.
   const starterHere = !!game && people.some((p) => p.id === game.startedBy);
+  const roundStarterHere = !!round && people.some((p) => p.id === round.startedBy);
+  const speakingNow = !!round && !impostor.outcome && impostorPhase(round, impostor.now).kind === 'speaking';
   let tableAction = null;
+  let secondAction = null;
   if (isPlay && phase === 'live') {
-    if (!game) {
-      if (ludo.ready) tableAction = <RowButton Icon={Dice5} label="Play Ludo" onPress={() => ludo.start(people.map((p) => p.id))} />;
-    } else if (game.startedBy === me.id || !starterHere) {
-      tableAction = <RowButton Icon={X} label="End game" onPress={ludo.endGame} />;
-    } else if (inGame) {
-      tableAction = <RowButton Icon={X} label="Leave game" onPress={ludo.leaveGame} />;
+    if (game) {
+      if (game.startedBy === me.id || !starterHere) tableAction = <RowButton Icon={X} label="End game" onPress={ludo.endGame} />;
+      else if (inGame) tableAction = <RowButton Icon={X} label="Leave game" onPress={ludo.leaveGame} />;
+    } else if (round) {
+      if (impostor.playing && speakingNow) {
+        secondAction = wordHidden ? (
+          <RowButton Icon={Eye} label="Show word" onPress={() => setWordHidden(false)} />
+        ) : (
+          <RowButton Icon={EyeOff} label="Hide word" onPress={() => setWordHidden(true)} />
+        );
+      }
+      if (round.startedBy === me.id || !roundStarterHere) tableAction = <RowButton Icon={X} label="End game" onPress={impostor.endGame} />;
+    } else if (ludo.ready && impostor.ready) {
+      tableAction = <RowButton Icon={Dice5} label="Play a game" onPress={() => setGameSheetOpen(true)} />;
     }
   }
 
@@ -454,6 +499,7 @@ export function RoomScreen({ me, request, onLeft, onMove }: Props) {
               <Button label="Move me to another room" variant="primary" onPress={() => void moveToAnotherRoom()} />
             ) : null}
             <View style={{ flexDirection: 'row', gap: space[3] }}>
+              {secondAction}
               {tableAction}
               {phase === 'countdown' ? (
                 <Button label="Leave" variant="quiet" onPress={() => void leaveRoom()} style={{ flex: 1 }} />
@@ -519,6 +565,16 @@ export function RoomScreen({ me, request, onLeft, onMove }: Props) {
         onSeeHelp={() => {
           setReportOpen(false);
           onOpenHelp();
+        }}
+      />
+      <GameSheet
+        visible={gameSheetOpen}
+        onClose={() => setGameSheetOpen(false)}
+        onPick={(choice) => {
+          setGameSheetOpen(false);
+          setWordHidden(false);
+          if (choice === 'ludo') ludo.start(everyone);
+          else impostor.startGame(everyone);
         }}
       />
       <HelpModal visible={helpOpen} onClose={() => setHelpOpen(false)} inRoom={connected} />
