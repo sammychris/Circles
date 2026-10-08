@@ -12,7 +12,7 @@ function when(until: string): string {
 }
 
 // Account suspended or closed (docs/design/pages/removed-warned-suspended.md › 3). Firm, calm, never shaming.
-export function PausedScreen({ ban, onLogOut }: { ban: BanInfo; onLogOut: () => void }) {
+export function PausedScreen({ ban, onLogOut, onDelete }: { ban: BanInfo; onLogOut: () => void; onDelete: () => void }) {
   const colors = useColors();
   return (
     <SafeAreaView style={{ flex: 1, backgroundColor: colors.bg }}>
@@ -43,6 +43,7 @@ export function PausedScreen({ ban, onLogOut }: { ban: BanInfo; onLogOut: () => 
       </View>
       <View style={{ paddingHorizontal: space.gutter, paddingBottom: space[4] }}>
         <Button label="Log out" variant="quiet" onPress={onLogOut} />
+        <Button label="Delete my account" variant="quiet" onPress={onDelete} />
       </View>
     </SafeAreaView>
   );

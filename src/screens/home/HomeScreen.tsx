@@ -198,7 +198,7 @@ export function HomeScreen({ me, onOpen, onOpenMe }: Props) {
               tint={doorColors.learn}
               onPress={() => onOpen('learn')}
             />
-            <DoorTile Icon={Users} title="My people" line="Friends you've made" tint={doorColors.people} onPress={() => onOpen('people')} />
+            <DoorTile Icon={Users} title="My people" line="Friends and groups" tint={doorColors.people} onPress={() => onOpen('people')} />
           </View>
         </View>
       </ScrollView>

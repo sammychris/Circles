@@ -58,7 +58,7 @@ export function HelpModal({ visible, onClose, inRoom }: { visible: boolean; onCl
               width: size.avatarRoom,
               height: size.avatarRoom,
               borderRadius: radius.pill,
-              backgroundColor: colors.raised,
+              backgroundColor: colors.emberTint,
               alignItems: 'center',
               justifyContent: 'center',
             }}

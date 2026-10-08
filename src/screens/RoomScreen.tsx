@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { AppState, Linking, Pressable, ScrollView, View } from 'react-native';
+import { AppState, Linking, Platform, Pressable, ScrollView, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Dice5, Flag, Heart, LogOut, Shield, X } from 'lucide-react-native';
 import { BlockSheet } from '../components/BlockSheet';
@@ -62,18 +62,24 @@ export function RoomScreen({ me, request, onLeft, onMove }: Props) {
   const [reportOpen, setReportOpen] = useState(false);
   const [helpOpen, setHelpOpen] = useState(false);
   const onOpenHelp = useCallback(() => setHelpOpen(true), []);
+  const clearToast = useCallback(() => setToast(null), []);
   const [reportPerson, setReportPerson] = useState<SheetPerson | null>(null);
   const [saved, setSaved] = useState<Set<string>>(new Set());
   const [everLive, setEverLive] = useState(false);
   const [countdownFrom, setCountdownFrom] = useState<number | null>(null);
   const [now, setNow] = useState(Date.now());
   const started = useRef(false);
+  const left = useRef(false);
+  const lastPhase = useRef<ReturnType<typeof roomPhase> | null>(null);
 
   const connected = status === 'connected' || status === 'reconnecting';
   const isSupport = room?.door === 'support';
   const others = people.filter((p) => !p.isMe);
   const hostPresent = people.some((p) => p.isHost);
-  const phase = connected ? roomPhase({ count: people.length, everLive, isSupport, hostPresent }) : null;
+  // While reconnecting, keep the room as it was: a short blip shouldn't start a countdown or mute anyone.
+  const freshPhase = status === 'connected' ? roomPhase({ count: people.length, everLive, isSupport, hostPresent }) : null;
+  if (freshPhase) lastPhase.current = freshPhase;
+  const phase = status === 'reconnecting' ? lastPhase.current : freshPhase;
   const micLive = connected && people.some((p) => p.isMe && !p.isMuted);
   // Games only ever in play rooms, never in support rooms (CLAUDE.md, Never list).
   const isPlay = room?.door === 'play';
@@ -125,8 +131,13 @@ export function RoomScreen({ me, request, onLeft, onMove }: Props) {
   // --- room rules: 3 people to talk; a countdown when a live room drops to 2 ---
   useEffect(() => {
     if (phase === 'live') setEverLive(true);
-    if (phase === 'countdown') setCountdownFrom((from) => from ?? Date.now());
-    else setCountdownFrom(null);
+    if (phase === 'countdown') {
+      setCountdownFrom((from) => {
+        if (from !== null) return from;
+        setNow(Date.now());
+        return Date.now();
+      });
+    } else setCountdownFrom(null);
     // Mics are paused whenever the room isn't live.
     if (phase && phase !== 'live' && micLive) void voice.setMic(false);
   }, [phase, micLive, voice]);
@@ -137,8 +148,12 @@ export function RoomScreen({ me, request, onLeft, onMove }: Props) {
     return () => clearInterval(timer);
   }, [countdownFrom]);
 
+  // Only ever leaves once, however many things ask at the same moment (Leave, the countdown ending).
   const leaveRoom = useCallback(async () => {
-    const summary = await voice.leave();
+    if (left.current) return;
+    left.current = true;
+    setCountdownFrom(null);
+    const summary = (await voice.leave()) ?? voice.lastSummary;
     onLeft(summary);
   }, [voice, onLeft]);
 
@@ -148,7 +163,9 @@ export function RoomScreen({ me, request, onLeft, onMove }: Props) {
   }, [countdown, leaveRoom]);
 
   const moveToAnotherRoom = useCallback(async () => {
-    if (!room) return;
+    if (!room || left.current) return;
+    left.current = true;
+    setCountdownFrom(null);
     await voice.leave();
     onMove({ kind: 'match', door: room.door, mood: room.mood, excludeRoomId: room.id });
   }, [room, voice, onMove]);
@@ -266,7 +283,10 @@ export function RoomScreen({ me, request, onLeft, onMove }: Props) {
         ? { title: 'A quiet room is opening', body: 'It starts when three people are here. Mics stay off until then.' }
         : { title: 'Waiting for a host', body: 'Support rooms always have a trained host. Mics stay off until one is here.' }
       : people.length <= 1
-        ? { title: "Nobody's here yet", body: "You're the first one here. A room starts when three people join." }
+        ? {
+            title: room?.mood === 'laugh' ? "Nobody's laughing yet" : room?.mood === 'advice' ? 'Nobody else here yet' : "Nobody's here yet",
+            body: "You're the first one here. A room starts when three people join.",
+          }
         : { title: 'One more to go', body: 'A room starts when three people join. Mics stay off until then.' };
   } else if (phase === 'countdown') {
     message =
@@ -414,7 +434,7 @@ export function RoomScreen({ me, request, onLeft, onMove }: Props) {
       </ScrollView>
 
       <View style={{ paddingHorizontal: space.gutter, paddingBottom: space[4], gap: space[3] }}>
-        <Toast message={toast} onDone={() => setToast(null)} />
+        <Toast message={toast} onDone={clearToast} />
         {connected ? (
           <>
             {phase === 'countdown' ? (
@@ -422,7 +442,11 @@ export function RoomScreen({ me, request, onLeft, onMove }: Props) {
             ) : null}
             <View style={{ flexDirection: 'row', gap: space[3] }}>
               {tableAction}
-              <RowButton Icon={LogOut} label="Leave" onPress={() => void leaveRoom()} />
+              {phase === 'countdown' ? (
+                <Button label="Leave" variant="quiet" onPress={() => void leaveRoom()} style={{ flex: 1 }} />
+              ) : (
+                <RowButton Icon={LogOut} label="Leave" onPress={() => void leaveRoom()} />
+              )}
             </View>
             {phase !== 'countdown' ? (
               <MicControl state={micState} pausedReason={pausedReason} onPress={() => void onMicPress()} />
@@ -442,7 +466,7 @@ export function RoomScreen({ me, request, onLeft, onMove }: Props) {
             ) : status !== 'paused' && status !== 'idle' ? (
               <Button label="Try again" variant="primary" onPress={() => onMove(request)} />
             ) : null}
-            <Button label="Back" variant="quiet" onPress={() => onLeft(null)} />
+            <Button label="Back" variant="quiet" onPress={() => onLeft(voice.lastSummary)} />
           </>
         )}
       </View>
@@ -452,7 +476,7 @@ export function RoomScreen({ me, request, onLeft, onMove }: Props) {
         visible={blockedOpen}
         onOpenSettings={() => {
           setBlockedOpen(false);
-          void Linking.openSettings();
+          if (Platform.OS !== 'web') void Linking.openSettings();
         }}
         onClose={() => setBlockedOpen(false)}
       />

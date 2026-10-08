@@ -49,6 +49,8 @@ export function MiniProfileSheet({ person, saved, onClose, onToggleSave, onBlock
             )
           }
           onPress={() => onToggleSave(person)}
+          // Selected look: 2 px warm-white border, a check, never colour alone.
+          style={saved ? { borderWidth: border.selected, borderColor: colors.selectedBorder } : undefined}
         />
         <Text variant="meta" color="textMeta" center>
           {`It's secret. You only connect if ${person.nickname} saves you too.`}

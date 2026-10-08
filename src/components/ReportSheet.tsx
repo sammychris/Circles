@@ -171,6 +171,7 @@ export function ReportSheet({ visible, roomId, people, startWith, onClose, onAls
             </View>
           </ScrollView>
           {error ? <ErrorLine message={error} /> : null}
+          {!startWith ? <Button label="Back" variant="quiet" disabled={busy} onPress={() => setStage('who')} /> : null}
           <Button
             label="Send report"
             variant="primary"

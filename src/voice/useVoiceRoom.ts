@@ -1,5 +1,4 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { AndroidAudioTypePresets, AudioSession } from '@livekit/react-native';
 import {
   ConnectionQuality,
   Room,
@@ -8,6 +7,7 @@ import {
   type Participant,
   type RemoteParticipant,
 } from 'livekit-client';
+import { playRemoteAudio, startAudio, stopAudio } from './audio';
 import { NoHostError, PausedError, RoomFullError, getTicket, type RoomInfo, type RoomRequest } from '../rooms/api';
 import {
   micPermissionGranted,
@@ -83,6 +83,8 @@ export function useVoiceRoom() {
   const [room, setRoom] = useState<RoomInfo | null>(null);
   const [people, setPeople] = useState<Person[]>([]);
   const [numbers, setNumbers] = useState<JoinNumbers>(NO_NUMBERS);
+  // Kept after a dropped connection, so the after-room screen (save, thank, report) still works.
+  const [lastSummary, setLastSummary] = useState<RoomSummary | null>(null);
 
   const applySilence = useCallback((p: RemoteParticipant) => {
     p.setVolume(silenced.current.has(p.identity) ? 0 : 1);
@@ -119,13 +121,14 @@ export function useVoiceRoom() {
             seen: Array.from(seen.current.values()),
           }
         : null;
+    if (summary) setLastSummary(summary);
     setStatus(finalStatus);
     setPeople([]);
     setNumbers(NO_NUMBERS);
     try {
       await current?.disconnect();
     } finally {
-      await AudioSession.stopAudioSession();
+      await stopAudio();
       await stopRoomService();
     }
     return summary;
@@ -157,10 +160,7 @@ export function useVoiceRoom() {
           return;
         }
 
-        await AudioSession.configureAudio({
-          android: { audioTypeOptions: AndroidAudioTypePresets.communication },
-        });
-        await AudioSession.startAudioSession();
+        await startAudio();
         if (cancelled()) {
           await stopRoomService();
           return;
@@ -192,6 +192,7 @@ export function useVoiceRoom() {
           .on(RoomEvent.TrackSubscribed, (track, _pub, participant) => {
             applySilence(participant);
             if (track.kind !== Track.Kind.Audio) return;
+            playRemoteAudio(track);
             setNumbers((n) =>
               n.firstVoiceMs === null ? { ...n, firstVoiceMs: Date.now() - startedAt.current } : n,
             );
@@ -265,5 +266,5 @@ export function useVoiceRoom() {
     [],
   );
 
-  return { status, room, people, numbers, join, leave, setMic, silence, setSilencedList, startBackground };
+  return { status, room, people, numbers, lastSummary, join, leave, setMic, silence, setSilencedList, startBackground };
 }

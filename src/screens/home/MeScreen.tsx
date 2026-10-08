@@ -6,7 +6,6 @@ import { DoorLayout } from '../../components/DoorLayout';
 import { Text } from '../../components/Text';
 import { Toast } from '../../components/Toast';
 import { EMAIL_ENABLED } from '../../config';
-import { myThanksCount } from '../../lib/people';
 import { listBlocked, unblockPerson, type Blocked } from '../../lib/safety';
 import { border, size, space, useColors } from '../../theme';
 
@@ -16,24 +15,21 @@ type Props = {
   onBack: () => void;
   onAddEmail: () => void;
   onLogOut: () => void;
+  onDelete: () => void;
 };
 
-export function MeScreen({ me, hasEmail, onBack, onAddEmail, onLogOut }: Props) {
+export function MeScreen({ me, hasEmail, onBack, onAddEmail, onLogOut, onDelete }: Props) {
   const colors = useColors();
   const [blocked, setBlocked] = useState<Blocked[] | null>(null);
-  const [thanks, setThanks] = useState<number | null>(null);
+  const [failed, setFailed] = useState(false);
   const [toast, setToast] = useState<string | null>(null);
 
   const load = useCallback(async () => {
     try {
       setBlocked(await listBlocked());
+      setFailed(false);
     } catch {
-      setBlocked([]);
-    }
-    try {
-      setThanks(await myThanksCount());
-    } catch {
-      setThanks(null);
+      setFailed(true);
     }
   }, []);
 
@@ -61,6 +57,7 @@ export function MeScreen({ me, hasEmail, onBack, onAddEmail, onLogOut }: Props) 
           <Toast message={toast} onDone={() => setToast(null)} />
           {EMAIL_ENABLED && !hasEmail ? <Button label="Add your email" variant="quiet" onPress={onAddEmail} /> : null}
           <Button label="Log out" variant="quiet" onPress={onLogOut} />
+          <Button label="Delete my account" variant="quiet" onPress={onDelete} />
         </>
       }
     >
@@ -68,15 +65,13 @@ export function MeScreen({ me, hasEmail, onBack, onAddEmail, onLogOut }: Props) 
         Your nickname is the only thing people in Circles see about you.
       </Text>
 
-      {thanks !== null && thanks > 0 ? (
-        <Text variant="bodyStrong" color="emberText">
-          {thanks === 1 ? 'Someone thanked you after a room.' : `People thanked you ${thanks} times after rooms.`}
-        </Text>
-      ) : null}
-
       <View style={{ gap: space[2] }}>
         <Text variant="heading">Blocked people</Text>
-        {blocked === null ? null : blocked.length === 0 ? (
+        {failed ? (
+          <Text variant="body" color="textSoft">
+            We couldn't load this. Check that you're online.
+          </Text>
+        ) : blocked === null ? null : blocked.length === 0 ? (
           <Text variant="body" color="textSoft">
             You haven't blocked anyone.
           </Text>

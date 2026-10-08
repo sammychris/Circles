@@ -4,6 +4,7 @@
 //   { action: 'list', door: 'talk' }                  lists open talk rooms with how many people are in them
 //   { action: 'stats' }                               how many people are in rooms right now (support rooms not counted)
 //   { action: 'support' }                             whether a trained host is in a support room (yes/no only)
+//   { action: 'delete_account' }                      deletes the person's own account and everything tied to it
 // Secrets (set in Supabase, never in the app): LIVEKIT_API_KEY, LIVEKIT_API_SECRET, LIVEKIT_URL.
 import { createClient } from 'npm:@supabase/supabase-js@2';
 import { AccessToken, RoomServiceClient } from 'npm:livekit-server-sdk@2';
@@ -33,7 +34,9 @@ type Candidate = {
   people: string[]; // LiveKit identities (user ids) in the room right now
 };
 
-const CAPACITY: Record<Door, number> = { talk: 6, play: 6, support: 10 };
+// Support rooms can hold up to 10 in the design, but the room circle draws 6 seats; until a 10-seat
+// ring is built, every room holds 6 so nobody is ever in a room without being seen.
+const CAPACITY: Record<Door, number> = { talk: 6, play: 6, support: 6 };
 
 const TITLES: Record<string, string> = {
   'talk:chat': 'Just chat',
@@ -128,6 +131,14 @@ Deno.serve(async (req) => {
       .select('blocker_id, blocked_id')
       .or(`blocker_id.eq.${user.id},blocked_id.eq.${user.id}`);
     return new Set((data ?? []).map((b) => (b.blocker_id === user.id ? b.blocked_id : b.blocker_id) as string));
+  }
+
+  // Deleting your account removes everything tied to it (nickname, date of birth, saves, blocks).
+  // Always allowed, even for a paused account (the app stores and the law require it).
+  if (action === 'delete_account') {
+    const { error } = await admin.auth.admin.deleteUser(user.id);
+    if (error) return json({ error: 'Could not delete the account' }, 500);
+    return json({ status: 'deleted' });
   }
 
   // --- list and stats: no voice, so no 18+ or nickname check needed beyond being signed in ---

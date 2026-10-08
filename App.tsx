@@ -2,7 +2,11 @@ import { useEffect, useState } from 'react';
 import { ActivityIndicator, Alert, BackHandler, View } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
-import { Nunito_400Regular, Nunito_700Bold, Nunito_800ExtraBold, useFonts } from '@expo-google-fonts/nunito';
+import { useFonts } from 'expo-font';
+// One file per weight, so only the three weights Circles uses are bundled (not all eighteen).
+import { Nunito_400Regular } from '@expo-google-fonts/nunito/400Regular';
+import { Nunito_700Bold } from '@expo-google-fonts/nunito/700Bold';
+import { Nunito_800ExtraBold } from '@expo-google-fonts/nunito/800ExtraBold';
 import type { Session } from '@supabase/supabase-js';
 import { Button } from './src/components/Button';
 import { Text } from './src/components/Text';
@@ -26,7 +30,7 @@ import { SupportDoorScreen } from './src/screens/home/SupportDoorScreen';
 import { TalkDoorScreen } from './src/screens/home/TalkDoorScreen';
 import { Toast } from './src/components/Toast';
 import { myBan, type Ban } from './src/lib/safety';
-import type { RoomRequest } from './src/rooms/api';
+import { deleteMyAccount, type RoomRequest } from './src/rooms/api';
 import type { RoomSummary } from './src/voice/useVoiceRoom';
 import { SignInFlow } from './src/screens/SignInFlow';
 import { UnderAgeScreen } from './src/screens/UnderAgeScreen';
@@ -43,6 +47,25 @@ function Centered({ children }: { children?: React.ReactNode }) {
 
 function signOut() {
   void supabase.auth.signOut();
+}
+
+function confirmDeleteAccount() {
+  Alert.alert(
+    'Delete your account?',
+    'Your nickname and everything tied to your account will be deleted. This can’t be undone.',
+    [
+      { text: 'Keep my account', style: 'cancel' },
+      {
+        text: 'Delete',
+        style: 'destructive',
+        onPress: () => {
+          void deleteMyAccount()
+            .then(signOut)
+            .catch(() => Alert.alert("We couldn't delete it", "Check that you're online, then try again."));
+        },
+      },
+    ],
+  );
 }
 
 // Without an email, logging out loses the account for good, so ask first.
@@ -112,7 +135,7 @@ function SignedIn({ session }: { session: Session }) {
   // Stay signed in, so the same phone can't just try another date. Close leaves the app.
   if (!isAdult(new Date(dateOfBirth))) return <UnderAgeScreen onClose={() => BackHandler.exitApp()} />;
   if (!nickname) return <NicknameScreen onSaved={() => void reload()} onBack={signOut} />;
-  if (ban) return <PausedScreen ban={ban} onLogOut={() => confirmSignOut(hasEmail)} />;
+  if (ban) return <PausedScreen ban={ban} onLogOut={() => confirmSignOut(hasEmail)} onDelete={confirmDeleteAccount} />;
 
   const me = { id: session.user.id, nickname };
   const home = () => setScreen({ name: 'home' });
@@ -145,6 +168,7 @@ function SignedIn({ session }: { session: Session }) {
           onBack={home}
           onAddEmail={() => setScreen({ name: 'addEmail' })}
           onLogOut={() => confirmSignOut(hasEmail)}
+          onDelete={confirmDeleteAccount}
         />
       );
     case 'addEmail':

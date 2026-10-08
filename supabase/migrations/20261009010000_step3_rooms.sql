@@ -54,6 +54,25 @@ as $$
   where mine.saver_id = auth.uid();
 $$;
 
+-- Blocking someone removes any save between you, both ways. Nobody is told.
+create or replace function public.remove_saves_on_block()
+returns trigger
+language plpgsql
+security definer
+set search_path = ''
+as $$
+begin
+  delete from public.saves
+  where (saver_id = new.blocker_id and saved_id = new.blocked_id)
+     or (saver_id = new.blocked_id and saved_id = new.blocker_id);
+  return new;
+end;
+$$;
+
+drop trigger if exists blocks_remove_saves on public.blocks;
+create trigger blocks_remove_saves after insert on public.blocks
+  for each row execute function public.remove_saves_on_block();
+
 -- Thank-yous: a private, kind signal. Nobody sees who thanked whom. ----------------------------------
 create table if not exists public.thanks (
   from_id uuid not null references auth.users (id) on delete cascade,

@@ -26,6 +26,14 @@ module.exports = async ({ users, as, check, assert, db, fails }) => {
     assert.strictEqual((await as(users.chi, 'select * from public.my_connections()')).rows.length, 0);
   });
 
+  await check('blocking removes saves both ways', async () => {
+    await as(users.dami, 'insert into public.saves (saver_id, saved_id) values ($1, $2)', [users.dami, users.ada]);
+    await as(users.ada, 'insert into public.saves (saver_id, saved_id) values ($1, $2)', [users.ada, users.dami]);
+    await as(users.ada, 'insert into public.blocks (blocker_id, blocked_id) values ($1, $2)', [users.ada, users.dami]);
+    const left = await db.query('select * from public.saves where (saver_id = $1 and saved_id = $2) or (saver_id = $2 and saved_id = $1)', [users.ada, users.dami]);
+    assert.strictEqual(left.rows.length, 0);
+  });
+
   await check('thank-yous: a count for the receiver, never who', async () => {
     await as(users.ada, 'insert into public.thanks (from_id, to_id, room_id) values ($1, $2, $3)', [users.ada, users.chi, 't1']);
     const count = (await as(users.chi, 'select public.my_thanks_count() as n')).rows[0].n;

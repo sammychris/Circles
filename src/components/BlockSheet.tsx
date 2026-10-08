@@ -10,8 +10,8 @@ import { Text } from './Text';
 
 const WHAT_IT_DOES = [
   "You won't be matched into the same room.",
-  "You won't hear each other in a room you're both in.",
-  "They aren't told.",
+  "You won't hear them if you're ever in the same room.",
+  'Any save between you is removed. They aren\'t told.',
 ];
 
 type Props = {

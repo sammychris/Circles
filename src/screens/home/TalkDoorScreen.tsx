@@ -54,7 +54,7 @@ function MoodTile({ mood, selected, onPress }: { mood: Mood; selected: boolean; 
             justifyContent: 'center',
           }}
         >
-          <Check size={size.iconMeta - space[1]} color={colors.bg} strokeWidth={size.iconStroke + 1} />
+          <Check size={size.iconMeta - space[1]} color={colors.bg} strokeWidth={size.iconStroke} />
         </View>
       ) : null}
     </Pressable>

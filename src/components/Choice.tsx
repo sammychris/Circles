@@ -58,7 +58,7 @@ export function RadioRow({
           justifyContent: 'center',
         }}
       >
-        {selected ? <Check size={size.iconMeta} color={colors.bg} strokeWidth={size.iconStroke + 1} /> : null}
+        {selected ? <Check size={size.iconMeta} color={colors.bg} strokeWidth={size.iconStroke} /> : null}
       </View>
     </Pressable>
   );

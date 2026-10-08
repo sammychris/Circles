@@ -4,6 +4,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { Check, Heart, X } from 'lucide-react-native';
 import { Avatar } from '../components/Avatar';
 import { BlockSheet } from '../components/BlockSheet';
+import { HelpModal } from '../components/HelpModal';
 import { Button } from '../components/Button';
 import { ReportSheet } from '../components/ReportSheet';
 import { Text } from '../components/Text';
@@ -28,6 +29,7 @@ export function AfterRoomScreen({ me, summary, onDone }: Props) {
   const [thanked, setThanked] = useState<Set<string>>(new Set());
   const [kind, setKind] = useState(false);
   const [reportOpen, setReportOpen] = useState(false);
+  const [helpOpen, setHelpOpen] = useState(false);
   const [toBlock, setToBlock] = useState<Blocked | null>(null);
   const [toast, setToast] = useState<string | null>(null);
 
@@ -175,7 +177,12 @@ export function AfterRoomScreen({ me, summary, onDone }: Props) {
         startWith={null}
         onClose={() => setReportOpen(false)}
         onAlsoBlock={(p) => setToBlock(p)}
+        onSeeHelp={() => {
+          setReportOpen(false);
+          setHelpOpen(true);
+        }}
       />
+      <HelpModal visible={helpOpen} onClose={() => setHelpOpen(false)} inRoom={false} />
       <BlockSheet
         me={me.id}
         person={toBlock}

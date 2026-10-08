@@ -76,3 +76,8 @@ export async function roomStats(): Promise<{ people: number; rooms: number }> {
 export async function supportStatus(): Promise<{ hostInRoom: boolean; iAmHost: boolean }> {
   return call<{ hostInRoom: boolean; iAmHost: boolean }>({ action: 'support' });
 }
+
+// Deletes this person's account and everything tied to it. Can't be undone.
+export async function deleteMyAccount(): Promise<void> {
+  await call<{ status: string }>({ action: 'delete_account' });
+}

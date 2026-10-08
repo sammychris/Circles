@@ -24,7 +24,7 @@ export function roomPhase({ count, everLive, isSupport, hostPresent, minPeople =
 
 // Seconds left in a countdown that started at `startedAt` (ms). Never below zero.
 export function secondsLeft(startedAt: number, now: number, total = rules.roomDropWaitSeconds): number {
-  return Math.max(0, total - Math.floor((now - startedAt) / 1000));
+  return Math.min(total, Math.max(0, total - Math.floor((now - startedAt) / 1000)));
 }
 
 // "1:42"
