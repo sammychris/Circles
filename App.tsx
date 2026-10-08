@@ -15,6 +15,19 @@ import { AgeScreen } from './src/screens/AgeScreen';
 import { ConfigMissingScreen } from './src/screens/ConfigMissingScreen';
 import { NicknameScreen } from './src/screens/NicknameScreen';
 import { RoomScreen } from './src/screens/RoomScreen';
+import { AfterRoomScreen } from './src/screens/AfterRoomScreen';
+import { PausedScreen } from './src/screens/PausedScreen';
+import { HomeScreen, type DoorName } from './src/screens/home/HomeScreen';
+import { LearnScreen } from './src/screens/home/LearnScreen';
+import { MeScreen } from './src/screens/home/MeScreen';
+import { PeopleScreen } from './src/screens/home/PeopleScreen';
+import { PlayDoorScreen } from './src/screens/home/PlayDoorScreen';
+import { SupportDoorScreen } from './src/screens/home/SupportDoorScreen';
+import { TalkDoorScreen } from './src/screens/home/TalkDoorScreen';
+import { Toast } from './src/components/Toast';
+import { myBan, type Ban } from './src/lib/safety';
+import type { RoomRequest } from './src/rooms/api';
+import type { RoomSummary } from './src/voice/useVoiceRoom';
 import { SignInFlow } from './src/screens/SignInFlow';
 import { UnderAgeScreen } from './src/screens/UnderAgeScreen';
 import { space, useColors } from './src/theme';
@@ -48,12 +61,38 @@ function confirmSignOut(hasEmail: boolean) {
   );
 }
 
-// Signed in: date of birth first, then a nickname, then the room. Nobody reaches the room without both.
+type Screen =
+  | { name: 'home' }
+  | { name: 'door'; door: DoorName }
+  | { name: 'me' }
+  | { name: 'addEmail' }
+  | { name: 'room'; request: RoomRequest; visit: number }
+  | { name: 'after'; summary: RoomSummary };
+
+// Signed in: date of birth first, then a nickname, then the house. Nobody reaches a room without both.
 function SignedIn({ session }: { session: Session }) {
   const { state, reload } = useProfile(session.user.id);
-  const [addingEmail, setAddingEmail] = useState(false);
-  const [emailJustAdded, setEmailJustAdded] = useState(false);
+  const [screen, setScreen] = useState<Screen>({ name: 'home' });
+  const [ban, setBan] = useState<Ban | null>(null);
+  const [toast, setToast] = useState<string | null>(null);
   const hasEmail = !!session.user.email;
+
+  useEffect(() => {
+    void myBan()
+      .then(setBan)
+      .catch(() => {});
+  }, []);
+
+  // Android back button: back to Home from any page. In a room it does nothing, so voice isn't lost by accident.
+  useEffect(() => {
+    const sub = BackHandler.addEventListener('hardwareBackPress', () => {
+      if (screen.name === 'home') return false;
+      if (screen.name === 'room') return true;
+      setScreen({ name: 'home' });
+      return true;
+    });
+    return () => sub.remove();
+  }, [screen.name]);
 
   if (state.status === 'loading') return <Centered />;
   if (state.status === 'error') {
@@ -73,26 +112,71 @@ function SignedIn({ session }: { session: Session }) {
   // Stay signed in, so the same phone can't just try another date. Close leaves the app.
   if (!isAdult(new Date(dateOfBirth))) return <UnderAgeScreen onClose={() => BackHandler.exitApp()} />;
   if (!nickname) return <NicknameScreen onSaved={() => void reload()} onBack={signOut} />;
-  if (addingEmail) {
-    return (
-      <AddEmailFlow
-        onClose={() => setAddingEmail(false)}
-        onAdded={() => {
-          setAddingEmail(false);
-          setEmailJustAdded(true);
-        }}
-      />
-    );
+  if (ban) return <PausedScreen ban={ban} onLogOut={() => confirmSignOut(hasEmail)} />;
+
+  const me = { id: session.user.id, nickname };
+  const home = () => setScreen({ name: 'home' });
+  const enter = (request: RoomRequest) => setScreen({ name: 'room', request, visit: Date.now() });
+
+  switch (screen.name) {
+    case 'room':
+      return (
+        <RoomScreen
+          key={screen.visit}
+          me={me}
+          request={screen.request}
+          onLeft={(summary) => {
+            if (summary) setScreen({ name: 'after', summary });
+            else home();
+            void myBan()
+              .then(setBan)
+              .catch(() => {});
+          }}
+          onMove={enter}
+          {...playExtras(me)}
+        />
+      );
+    case 'after':
+      return <AfterRoomScreen me={me} summary={screen.summary} onDone={home} />;
+    case 'me':
+      return (
+        <MeScreen
+          me={me}
+          hasEmail={hasEmail}
+          onBack={home}
+          onAddEmail={() => setScreen({ name: 'addEmail' })}
+          onLogOut={() => confirmSignOut(hasEmail)}
+        />
+      );
+    case 'addEmail':
+      return (
+        <AddEmailFlow
+          onClose={() => setScreen({ name: 'me' })}
+          onAdded={() => {
+            setToast('Email added. Your account is safe.');
+            setScreen({ name: 'me' });
+          }}
+        />
+      );
+    case 'door':
+      if (screen.door === 'talk') return <TalkDoorScreen nickname={nickname} onBack={home} onEnter={enter} />;
+      if (screen.door === 'support') return <SupportDoorScreen onBack={home} onEnter={enter} />;
+      if (screen.door === 'play') return <PlayDoorScreen onBack={home} onEnter={enter} />;
+      if (screen.door === 'people') return <PeopleScreen onBack={home} />;
+      return <LearnScreen onBack={home} onEnter={enter} />;
+    default:
+      return (
+        <>
+          <HomeScreen me={me} onOpen={(door) => setScreen({ name: 'door', door })} onOpenMe={() => setScreen({ name: 'me' })} />
+          <Toast message={toast} onDone={() => setToast(null)} />
+        </>
+      );
   }
-  return (
-    <RoomScreen
-      nickname={nickname}
-      hasEmail={hasEmail}
-      emailJustAdded={emailJustAdded}
-      onAddEmail={() => setAddingEmail(true)}
-      onLogOut={() => confirmSignOut(hasEmail)}
-    />
-  );
+}
+
+// Play rooms get Ludo on the table (Step 6). Other rooms get nothing extra.
+function playExtras(_me: { id: string; nickname: string }) {
+  return {};
 }
 
 export default function App() {

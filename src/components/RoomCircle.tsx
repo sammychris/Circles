@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
-import { AccessibilityInfo, Animated, View } from 'react-native';
+import { AccessibilityInfo, Animated, Pressable, View } from 'react-native';
+import type { ReactNode } from 'react';
 import { AudioLines, MicOff, Plus } from 'lucide-react-native';
 import { ROOM_CAPACITY } from '../config';
 import { assignSeats, seatPoints, seatsOpenText } from '../lib/seats';
@@ -17,9 +18,11 @@ const CENTRE = { x: STAGE_WIDTH / 2, y: size.avatarRoom / 2 + RADIUS };
 
 function seatLabel(p: Person): string {
   const name = p.isMe ? 'You' : p.nickname;
-  if (p.isSpeaking) return `${name}, speaking`;
-  if (p.isMuted) return `${name}, muted`;
-  return name;
+  const parts = [name];
+  if (p.isHost) parts.push('host');
+  if (p.isSpeaking) parts.push('speaking');
+  else if (p.isMuted) parts.push('muted');
+  return parts.join(', ');
 }
 
 function SpeakingGlow({ on, reduceMotion }: { on: boolean; reduceMotion: boolean }) {
@@ -59,7 +62,17 @@ function SpeakingGlow({ on, reduceMotion }: { on: boolean; reduceMotion: boolean
   );
 }
 
-function Seat({ person, point, reduceMotion }: { person: Person | null; point: { x: number; y: number }; reduceMotion: boolean }) {
+function Seat({
+  person,
+  point,
+  reduceMotion,
+  onPress,
+}: {
+  person: Person | null;
+  point: { x: number; y: number };
+  reduceMotion: boolean;
+  onPress?: (person: Person) => void;
+}) {
   const colors = useColors();
   const left = CENTRE.x + point.x - size.avatarRoom / 2;
   const top = CENTRE.y + point.y - size.avatarRoom / 2;
@@ -89,10 +102,16 @@ function Seat({ person, point, reduceMotion }: { person: Person | null; point: {
   }
 
   const name = person.isMe ? 'You' : person.nickname;
+  const tappable = !person.isMe && !!onPress;
   return (
-    <View
+    <Pressable
       accessible
+      accessibilityRole={tappable ? 'button' : undefined}
       accessibilityLabel={seatLabel(person)}
+      accessibilityHint={tappable ? 'Opens save, block and report' : undefined}
+      disabled={!tappable}
+      onPress={() => onPress?.(person)}
+      hitSlop={space[2]}
       style={{ position: 'absolute', left, top, width: size.avatarRoom, height: size.avatarRoom }}
     >
       <SpeakingGlow on={person.isSpeaking} reduceMotion={reduceMotion} />
@@ -159,17 +178,21 @@ function Seat({ person, point, reduceMotion }: { person: Person | null; point: {
           </View>
         ) : null}
       </View>
-    </View>
+    </Pressable>
   );
 }
 
 type Props = {
   people: Person[];
+  capacity?: number;
   // Shown in the middle before anyone has joined.
   emptyHint?: string;
+  // Replaces the "6 here" centre, e.g. the countdown ring.
+  centre?: ReactNode;
+  onSeatPress?: (person: Person) => void;
 };
 
-export function RoomCircle({ people, emptyHint }: Props) {
+export function RoomCircle({ people, capacity = ROOM_CAPACITY, emptyHint, centre, onSeatPress }: Props) {
   const colors = useColors();
   const [reduceMotion, setReduceMotion] = useState(false);
   useEffect(() => {
@@ -180,8 +203,10 @@ export function RoomCircle({ people, emptyHint }: Props) {
 
   const me = people.find((p) => p.isMe) ?? null;
   const others = people.filter((p) => !p.isMe);
-  const seats = assignSeats(me, others, ROOM_CAPACITY);
-  const points = seatPoints(ROOM_CAPACITY, RADIUS);
+  // The drawing has up to 6 seats (design direction › The room circle); bigger rooms show the first 6.
+  const seatCount = Math.min(ROOM_CAPACITY, capacity);
+  const seats = assignSeats(me, others, seatCount);
+  const points = seatPoints(seatCount, RADIUS);
   const here = people.length;
 
   return (
@@ -223,23 +248,31 @@ export function RoomCircle({ people, emptyHint }: Props) {
           alignItems: 'center',
         }}
       >
-        {here > 0 ? (
+        {centre ? (
+          centre
+        ) : here > 0 ? (
           <>
             <Text variant="heading" center>
               {here} here
             </Text>
             <Text variant="meta" color="textMeta" center>
-              {seatsOpenText(here, ROOM_CAPACITY)}
+              {seatsOpenText(here, capacity)}
             </Text>
           </>
         ) : (
           <Text variant="meta" color="textMeta" center>
-            {emptyHint ?? seatsOpenText(0, ROOM_CAPACITY)}
+            {emptyHint ?? seatsOpenText(0, capacity)}
           </Text>
         )}
       </View>
       {seats.map((person, i) => (
-        <Seat key={person?.id ?? `empty-${i}`} person={person} point={points[i]} reduceMotion={reduceMotion} />
+        <Seat
+          key={person?.id ?? `empty-${i}`}
+          person={person}
+          point={points[i]}
+          reduceMotion={reduceMotion}
+          onPress={onSeatPress}
+        />
       ))}
     </View>
   );

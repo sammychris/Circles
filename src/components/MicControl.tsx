@@ -4,18 +4,30 @@ import { Mic, MicOff } from 'lucide-react-native';
 import { border, lift, opacity, radius, size, space, useColors } from '../theme';
 import { Text } from './Text';
 
-export type MicState = 'muted' | 'live' | 'notAllowed' | 'blocked';
+export type MicState = 'muted' | 'live' | 'notAllowed' | 'blocked' | 'paused';
 
 const COPY: Record<MicState, { title: string; hint: string }> = {
   muted: { title: "You're muted", hint: 'Tap to talk' },
   live: { title: "You're live", hint: 'Tap to mute' },
   notAllowed: { title: 'Mic not allowed', hint: 'Tap to turn on' },
   blocked: { title: 'Mic is off in your phone settings', hint: 'Tap to fix' },
+  paused: { title: 'Mic paused', hint: 'Rooms need three people' },
 };
 
-export function MicControl({ state, onPress }: { state: MicState; onPress: () => void }) {
+export function MicControl({
+  state,
+  onPress,
+  pausedReason,
+}: {
+  state: MicState;
+  onPress: () => void;
+  // Why the room paused mics, e.g. "Waiting for a host".
+  pausedReason?: string;
+}) {
   const colors = useColors();
-  const { title, hint } = COPY[state];
+  const { title } = COPY[state];
+  const hint = state === 'paused' && pausedReason ? pausedReason : COPY[state].hint;
+  const paused = state === 'paused';
   const muted = state === 'muted';
   const live = state === 'live';
 
@@ -29,6 +41,8 @@ export function MicControl({ state, onPress }: { state: MicState; onPress: () =>
       accessibilityRole="button"
       accessibilityLabel={`${title}. ${hint}`}
       accessibilityLiveRegion="polite"
+      accessibilityState={{ disabled: paused }}
+      disabled={paused}
       onPress={() => {
         void Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
         onPress();

@@ -26,6 +26,7 @@
     "react-native-url-polyfill": "^4.0.0"
   },
   "devDependencies": {
+    "@electric-sql/pglite": "^0.5.8",
     "@types/jest": "^30.0.0",
     "@types/node": "^26.6.4",
     "@types/react": "~19.2.2",
@@ -40,7 +41,8 @@
     "web": "expo start --web",
     "test": "jest",
     "typecheck": "tsc --noEmit",
-    "eas-build-pre-install": "node scripts/check-placeholders.js"
+    "eas-build-pre-install": "node scripts/check-placeholders.js",
+    "test:db": "node scripts/test-db.js"
   },
   "private": true,
   "jest": {

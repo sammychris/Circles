@@ -94,6 +94,18 @@ export const size = {
   avatarBadge: 24,
   roomRing: 248,
   input: 56,
+  moodTile: 104,
+  rowAction: 96,
+  doorTile: 120,
+  tileIconBox: 40,
+  supportLine: 80,
+  chip: 32,
+  countdownRing: 128,
+  countdownStroke: 6,
+  avatarList: 44,
+  sheetList: 320,
+  switchWidth: 52,
+  switchHeight: 32,
   welcomeRing: 168,
   avatarWelcome: 48,
   icon: 24,
@@ -103,7 +115,7 @@ export const size = {
   iconStroke: 2,
 } as const;
 
-export const border = { input: 2, selected: 2, seatRing: 2 } as const;
+export const border = { hairline: 1, input: 2, selected: 2, seatRing: 2 } as const;
 
 export const motion = { fast: 150, base: 250, slow: 350, breathe: 900 } as const;
 
@@ -115,7 +127,8 @@ export const roomGlowScale = { edge: 1.4, core: 1.2 } as const;
 // The lift under the one primary action (Join the room, You're muted).
 export const lift = { radius: 24, offset: 8, elevation: 8 } as const;
 
-export const rules = { maxTextScale: 1.3 } as const;
+// From docs/design/tokens.json › rules.
+export const rules = { maxTextScale: 1.3, roomMinPeople: 3, roomDropWaitSeconds: 120 } as const;
 
 export const effects = {
   liveGlow: 'rgba(84, 201, 154, 0.25)',
@@ -128,3 +141,19 @@ export const effects = {
 export const speaking = { gap: 4, ring: 3, glow: 14 } as const;
 
 export const sheetHandle = { width: 40, height: 4 } as const;
+
+// docs/design/tokens.json › color.mood (night). Only for small mood icons and mood chips.
+export const moodColors = {
+  down: { fg: '#94B7E6', bg: '#212B3B' },
+  bored: { fg: '#D7BC8E', bg: '#392F23' },
+  laugh: { fg: '#F3D05E', bg: '#39311D' },
+  advice: { fg: '#92C99F', bg: '#233427' },
+} as const;
+
+// The tinted icon squares on Home's door tiles (docs/screens/01-home.png): laugh yellow, sky blue, sage, rose.
+export const doorColors = {
+  play: moodColors.laugh,
+  talk: moodColors.down,
+  learn: moodColors.advice,
+  people: { fg: '#E6AFD2', bg: '#352230' },
+} as const;
