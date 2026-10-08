@@ -4,9 +4,9 @@ Claude Code updates this file at the end of every build step. Newest entries at 
 
 ## Current step
 
-**Five more features built on 2026-10-08 (Sammy asked for all five in a row): Privacy Policy and Terms, join from a link, chat in rooms, raise hand, Start something. Every choice and Sammy's to-do list are in `docs/BUILD_NOTES.md`. Waiting for Sammy's Supabase updates, a new build and the phone test.**
+**Everything on the list is built (the Table, host tools, Learn together, four more games) and reviewed. It is waiting for Sammy's Supabase updates, one new app build, and the phone test. The to-do list for the next session, including a room-size decision waiting for Sammy's yes, is in `docs/NEXT.md`. Read it next.**
 
-Before that: Steps 2 to 7 built overnight (see `docs/MORNING.md`).
+Every choice made so far, and Sammy's click-by-click steps, are in `docs/BUILD_NOTES.md`.
 
 Still open from Step 1: a test with a friend in another place on their own mobile data (the Lagos mobile-data check, and a proper echo check).
 
