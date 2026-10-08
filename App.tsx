@@ -109,13 +109,16 @@ function SignedIn({
   const { state, reload } = useProfile(session.user.id);
   const [screen, setScreen] = useState<Screen>({ name: 'home' });
   const [ban, setBan] = useState<Ban | null>(null);
+  // A room link waits until we know whether the account is paused.
+  const [banChecked, setBanChecked] = useState(false);
   const [toast, setToast] = useState<string | null>(null);
   const hasEmail = !!session.user.email;
 
   useEffect(() => {
     void myBan()
       .then(setBan)
-      .catch(() => {});
+      .catch(() => {})
+      .finally(() => setBanChecked(true));
   }, []);
 
   // Opened from a room link: go straight into that room once they have a nickname and passed 18+.
@@ -124,12 +127,16 @@ function SignedIn({
     !!state.profile.nickname &&
     !!state.profile.dateOfBirth &&
     isAdult(new Date(state.profile.dateOfBirth)) &&
+    banChecked &&
     !ban;
+  // A link opened while in a room, or on the after-room screen, waits until they're back home:
+  // nobody is pulled out of a room without choosing to leave.
+  const busy = screen.name === 'room' || screen.name === 'after';
   useEffect(() => {
-    if (!ready || !pendingRequest) return;
+    if (!ready || busy || !pendingRequest) return;
     setScreen({ name: 'room', request: pendingRequest, visit: Date.now() });
     onPendingUsed();
-  }, [ready, pendingRequest, onPendingUsed]);
+  }, [ready, busy, pendingRequest, onPendingUsed]);
 
   // Android back button: back to Home from any page. In a room it does nothing, so voice isn't lost by accident.
   useEffect(() => {

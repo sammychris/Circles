@@ -1,9 +1,10 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { AppState, Linking, Platform, Pressable, ScrollView, Share, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { Dice5, Eye, EyeOff, Flag, Heart, LogOut, Share2, Shield, X } from 'lucide-react-native';
+import { Dice5, Eye, EyeOff, Flag, Hand, Heart, LogOut, MessageCircle, Share2, Shield, X } from 'lucide-react-native';
 import { BlockSheet } from '../components/BlockSheet';
 import { Button } from '../components/Button';
+import { ChatSheet } from '../components/ChatSheet';
 import { Chip } from '../components/Chip';
 import { CountdownRing } from '../components/CountdownRing';
 import { HelpModal } from '../components/HelpModal';
@@ -32,7 +33,7 @@ import { MOOD_STYLE } from '../rooms/moods';
 import { roomPhase, secondsLeft } from '../rooms/phase';
 import { micPermissionGranted, requestMicPermission } from '../voice/foregroundService';
 import { useVoiceRoom, type RoomSummary } from '../voice/useVoiceRoom';
-import { radius, size, space, useColors } from '../theme';
+import { border, motion, radius, size, space, useColors } from '../theme';
 
 const QUALITY_WORDS = {
   excellent: 'excellent',
@@ -43,6 +44,9 @@ const QUALITY_WORDS = {
 } as const;
 
 export type Me = { id: string; nickname: string };
+
+// The web "keep this tab open" note has been shown in this visit.
+let tabNoteShown = false;
 
 type Props = {
   me: Me;
@@ -68,10 +72,13 @@ export function RoomScreen({ me, request, onLeft, onMove }: Props) {
   const [helpOpen, setHelpOpen] = useState(false);
   const onOpenHelp = useCallback(() => setHelpOpen(true), []);
   const clearToast = useCallback(() => setToast(null), []);
-  // Web only, once per room: browsers may cut the sound when the screen locks (link-first.md › The room).
-  const [tabNoteOpen, setTabNoteOpen] = useState(Platform.OS === 'web');
+  // Web only, shown once: browsers may cut the sound when the screen locks (link-first.md › The room).
+  const [tabNoteOpen, setTabNoteOpen] = useState(Platform.OS === 'web' && !tabNoteShown);
   const [reportPerson, setReportPerson] = useState<SheetPerson | null>(null);
   const [saved, setSaved] = useState<Set<string>>(new Set());
+  const [blockedIds, setBlockedIds] = useState<Set<string>>(new Set());
+  const [chatOpen, setChatOpen] = useState(false);
+  const [chatReadAt, setChatReadAt] = useState(0);
   const [everLive, setEverLive] = useState(false);
   const [countdownFrom, setCountdownFrom] = useState<number | null>(null);
   const [now, setNow] = useState(Date.now());
@@ -88,6 +95,7 @@ export function RoomScreen({ me, request, onLeft, onMove }: Props) {
   if (freshPhase) lastPhase.current = freshPhase;
   const phase = status === 'reconnecting' ? lastPhase.current : freshPhase;
   const micLive = connected && people.some((p) => p.isMe && !p.isMuted);
+  const handUp = connected && people.some((p) => p.isMe && p.handUp);
   // Games only ever in play rooms, never in support rooms (CLAUDE.md, Never list).
   const isPlay = room?.door === 'play';
   const ludo = useLudo(room?.id ?? null, me.id, connected && isPlay, people.map((p) => p.id));
@@ -116,7 +124,10 @@ export function RoomScreen({ me, request, onLeft, onMove }: Props) {
   // Blocked people are silenced; saved people show as saved.
   useEffect(() => {
     void listBlocked()
-      .then((list) => voice.setSilencedList(list.map((b) => b.id)))
+      .then((list) => {
+        voice.setSilencedList(list.map((b) => b.id));
+        setBlockedIds(new Set(list.map((b) => b.id)));
+      })
       .catch(() => {});
     void mySavedIds()
       .then(setSaved)
@@ -259,6 +270,7 @@ export function RoomScreen({ me, request, onLeft, onMove }: Props) {
   const onBlocked = useCallback(
     (person: Blocked) => {
       voice.silence(person.id);
+      setBlockedIds((s) => new Set(s).add(person.id));
       setToBlock(null);
       setProfile(null);
       setSaved((s) => {
@@ -272,6 +284,39 @@ export function RoomScreen({ me, request, onLeft, onMove }: Props) {
     },
     [voice, me.id, people],
   );
+
+  useEffect(() => {
+    if (connected && tabNoteOpen) tabNoteShown = true;
+  }, [connected, tabNoteOpen]);
+
+  // --- raise hand: it comes down by itself once you start talking ---
+  useEffect(() => {
+    if (micLive && handUp) void voice.setHand(false);
+  }, [micLive, handUp, voice]);
+
+  const toggleHand = useCallback(async () => {
+    const ok = await voice.setHand(!handUp);
+    if (!ok) setToast("That didn't work. Check your connection.");
+    else if (!handUp) setToast('Hand up. Everyone can see it on your seat.');
+  }, [voice, handUp]);
+
+  // --- chat: messages from blocked people are never shown ---
+  const chat = voice.messages.filter((m) => !blockedIds.has(m.from));
+  const lastChatAt = chat.length > 0 ? chat[chat.length - 1].at : 0;
+  useEffect(() => {
+    if (chatOpen) setChatReadAt(lastChatAt);
+  }, [chatOpen, lastChatAt]);
+  const unread = chatOpen ? 0 : chat.filter((m) => !m.mine && m.at > chatReadAt).length;
+  // Chat follows the same rule as the mics: nothing new until the room is live (three people, and a
+  // trained host in support rooms).
+  const chatPaused =
+    phase === 'live'
+      ? null
+      : isSupport && !hostPresent
+        ? 'Chat is paused until a trained host is here.'
+        : 'Chat opens when three people are here.';
+  // Tapping a name in chat opens their profile; closing it goes back to the chat.
+  const [profileFromChat, setProfileFromChat] = useState(false);
 
   // --- what to show ---
   const { joinMs, firstVoiceMs, quality } = voice.numbers;
@@ -290,6 +335,8 @@ export function RoomScreen({ me, request, onLeft, onMove }: Props) {
     };
   } else if (status === 'full') {
     message = { title: 'That room just filled up', body: "We'll find you another one." };
+  } else if (status === 'ended') {
+    message = { title: 'This room has ended', body: 'Everyone has gone home. There are other rooms open now.' };
   } else if (status === 'paused') {
     message = { title: 'Your account is paused', body: 'You can’t join rooms right now.' };
   } else if (status === 'error') {
@@ -565,7 +612,20 @@ export function RoomScreen({ me, request, onLeft, onMove }: Props) {
               <Button label="Move me to another room" variant="primary" onPress={() => void moveToAnotherRoom()} />
             ) : null}
             <View style={{ flexDirection: 'row', gap: space[3] }}>
-              {secondAction}
+              {secondAction ?? (
+                <RowButton
+                  Icon={Hand}
+                  label={handUp ? 'Lower hand' : 'Raise hand'}
+                  active={handUp}
+                  onPress={() => void toggleHand()}
+                />
+              )}
+              <RowButton
+                Icon={MessageCircle}
+                label="Chat"
+                badge={unread}
+                onPress={() => setChatOpen(true)}
+              />
               {tableAction}
               {phase === 'countdown' ? (
                 <Button label="Leave" variant="quiet" onPress={() => void leaveRoom()} style={{ flex: 1 }} />
@@ -586,7 +646,7 @@ export function RoomScreen({ me, request, onLeft, onMove }: Props) {
           <>
             {status === 'noHost' ? (
               <Button label="Get help now" variant="primary" onPress={onOpenHelp} />
-            ) : status === 'full' && request.kind === 'join' ? (
+            ) : (status === 'full' || status === 'ended') && request.kind === 'join' ? (
               <Button label="Find me another room" variant="primary" onPress={() => onMove({ kind: 'match', door: 'talk', mood: null })} />
             ) : status !== 'paused' && status !== 'idle' ? (
               <Button label="Try again" variant="primary" onPress={() => onMove(request)} />
@@ -608,14 +668,22 @@ export function RoomScreen({ me, request, onLeft, onMove }: Props) {
       <MiniProfileSheet
         person={profile}
         saved={!!profile && saved.has(profile.id)}
-        onClose={() => setProfile(null)}
+        onClose={() => {
+          setProfile(null);
+          if (profileFromChat) {
+            setProfileFromChat(false);
+            setTimeout(() => setChatOpen(true), motion.slow);
+          }
+        }}
         onToggleSave={(p) => void toggleSave(p)}
         onBlock={(p) => {
           setProfile(null);
+          setProfileFromChat(false);
           setToBlock({ id: p.id, nickname: p.nickname });
         }}
         onReport={(p) => {
           setProfile(null);
+          setProfileFromChat(false);
           setReportPerson(p);
           setReportOpen(true);
         }}
@@ -643,6 +711,19 @@ export function RoomScreen({ me, request, onLeft, onMove }: Props) {
           else impostor.startGame(everyone);
         }}
       />
+      <ChatSheet
+        visible={chatOpen && connected}
+        messages={chat}
+        onClose={() => setChatOpen(false)}
+        pausedReason={chatPaused}
+        onSend={voice.sendChat}
+        onPerson={(p) => {
+          setChatOpen(false);
+          setProfileFromChat(true);
+          // Let the chat slide away first: two sheets can't swap in the same moment on every phone.
+          setTimeout(() => openProfile(p), motion.slow);
+        }}
+      />
       <HelpModal visible={helpOpen} onClose={() => setHelpOpen(false)} inRoom={connected} />
       <Sheet visible={!!afterBlock} onClose={() => setAfterBlock(null)}>
         <Text variant="title">{`You're both still in this room`}</Text>
@@ -666,27 +747,64 @@ export function RoomScreen({ me, request, onLeft, onMove }: Props) {
 }
 
 // Room bottom row button: 56 tall, radius 20, icon over a tiny label (design direction › Room bottom row).
-function RowButton({ Icon, label, onPress }: { Icon: typeof LogOut; label: string; onPress: () => void }) {
+function RowButton({
+  Icon,
+  label,
+  onPress,
+  badge = 0,
+  active = false,
+}: {
+  Icon: typeof LogOut;
+  label: string;
+  onPress: () => void;
+  // On, like a raised hand: ember badge colours (design direction › emberSoft / emberText).
+  active?: boolean;
+  // A small count in the corner, e.g. unread chat messages.
+  badge?: number;
+}) {
   const colors = useColors();
   return (
     <Pressable
       accessibilityRole="button"
-      accessibilityLabel={label}
+      accessibilityLabel={badge > 0 ? `${label}, ${badge} new` : label}
+      accessibilityState={active ? { selected: true } : undefined}
       onPress={onPress}
       style={{
         flex: 1,
         height: size.buttonPrimary,
         borderRadius: radius.card,
-        backgroundColor: colors.surface,
+        backgroundColor: active ? colors.emberSoft : colors.surface,
         alignItems: 'center',
         justifyContent: 'center',
         gap: space[1],
       }}
     >
-      <Icon size={size.icon} color={colors.textSoft} strokeWidth={size.iconStroke} />
-      <Text variant="tiny" color="textSoft">
+      <Icon size={size.icon} color={active ? colors.emberText : colors.textSoft} strokeWidth={size.iconStroke} />
+      <Text variant="tiny" color={active ? 'emberText' : 'textSoft'}>
         {label}
       </Text>
+      {badge > 0 ? (
+        <View
+          style={{
+            position: 'absolute',
+            top: space[1],
+            right: space[2],
+            minWidth: size.avatarBadge,
+            height: size.avatarBadge,
+            paddingHorizontal: space[1],
+            borderRadius: radius.pill,
+            backgroundColor: colors.emberSoft,
+            borderWidth: border.seatRing,
+            borderColor: colors.surface,
+            alignItems: 'center',
+            justifyContent: 'center',
+          }}
+        >
+          <Text variant="tiny" color="emberText">
+            {badge > 9 ? '9+' : String(badge)}
+          </Text>
+        </View>
+      ) : null}
     </Pressable>
   );
 }

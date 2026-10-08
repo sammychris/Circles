@@ -34,24 +34,30 @@ export function LinkPreviewScreen({ roomId, by, starting, error, onJoin, onFindA
   const colors = useColors();
   const [preview, setPreview] = useState<RoomPreview | null>(initialPreview ?? null);
   const [failed, setFailed] = useState(false);
+  const [tries, setTries] = useState(0);
   const web = Platform.OS === 'web';
+  // "Open in the Circles app" only where it can work: Android browsers, which open the app if it's
+  // installed (the Circles app isn't in the Play Store yet, and there is no iPhone app).
+  const androidWeb = web && typeof navigator !== 'undefined' && /Android/i.test(navigator.userAgent);
 
   useEffect(() => {
     if (initialPreview) return;
+    setFailed(false);
     void previewRoom(roomId)
       .then(setPreview)
       .catch(() => setFailed(true));
-  }, [roomId, initialPreview]);
+  }, [roomId, initialPreview, tries]);
 
   const open = preview?.status === 'open' ? preview : null;
   const ended = preview?.status === 'ended';
   const here = open?.here ?? 0;
   const capacity = open?.room.capacity ?? 6;
+  const full = !!open && here >= capacity;
 
   return (
     <SafeAreaView style={{ flex: 1, backgroundColor: colors.bg }}>
       <ScrollView contentContainerStyle={{ paddingHorizontal: space.gutter, paddingTop: space[5], paddingBottom: space[5], gap: space[5], alignItems: 'center' }}>
-        <Text variant="heading" color="ember">
+        <Text variant="heading" color="emberText">
           Circles
         </Text>
         {web ? (
@@ -71,7 +77,7 @@ export function LinkPreviewScreen({ roomId, by, starting, error, onJoin, onFindA
               {open.room.title}
             </Text>
             <Text variant="body" color="textSoft" center>
-              {LINE[open.room.door] ?? LINE.talk}
+              {full ? "It's full right now. There are other rooms open." : LINE[open.room.door] ?? LINE.talk}
             </Text>
           </View>
         ) : ended ? (
@@ -85,7 +91,7 @@ export function LinkPreviewScreen({ roomId, by, starting, error, onJoin, onFindA
           </View>
         ) : failed ? (
           <Text variant="body" color="textSoft" center>
-            We couldn't open this link. Check that you're online, then reload the page.
+            We couldn't open this link. Check that you're online, then try again.
           </Text>
         ) : (
           <Text variant="body" color="textSoft" center>
@@ -113,7 +119,12 @@ export function LinkPreviewScreen({ roomId, by, starting, error, onJoin, onFindA
 
       <View style={{ paddingHorizontal: space.gutter, paddingBottom: space[4], gap: space[3] }}>
         {error ? <ErrorLine message={error} /> : null}
-        {ended || failed ? (
+        {failed ? (
+          <>
+            <Button label="Try again" variant="primary" onPress={() => setTries((n) => n + 1)} />
+            <Button label="Find a room" variant="quiet" loading={starting} onPress={onFindAnother} />
+          </>
+        ) : ended || full ? (
           <Button label="Find a room" variant="primary" loading={starting} onPress={onFindAnother} />
         ) : (
           <>
@@ -131,11 +142,13 @@ export function LinkPreviewScreen({ roomId, by, starting, error, onJoin, onFindA
             </Text>
           </>
         )}
-        {web && open ? (
+        {androidWeb && open && !full ? (
           <Button
             label="Open in the Circles app"
             variant="quiet"
-            onPress={() => void Linking.openURL(`circles://r/${roomId}`).catch(() => {})}
+            onPress={() =>
+              void Linking.openURL(`intent://r/${roomId}#Intent;scheme=circles;package=com.sammychris.circles;end`).catch(() => {})
+            }
           />
         ) : null}
       </View>

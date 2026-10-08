@@ -13,19 +13,20 @@ Each part ends with **What you need to do**, if anything.
 - The text lives in one file: `src/content/legal.ts`. Change the words there.
 
 **Choices I made (open to change)**
-- **They describe what Circles really does today:** nickname and date of birth kept, voice and chat never recorded, games deleted, data handled by Supabase, LiveKit and Expo, nothing sold, no adverts in rooms.
+- **They describe what Circles really does today:** nickname and date of birth kept, thank-yous and who opened a room kept, voice and chat never recorded, game words and votes deleted within a few hours, the technical records our providers keep, data handled by Supabase, LiveKit and Expo, nothing sold, no adverts in rooms.
+- **They say what deleting your account really does:** your nickname, date of birth, saves, blocks and thank-yous go straight away. Reports you sent **stay**, without your account linked, so someone who was harassed and then leaves doesn't wipe their own report. A report about someone keeps the nickname they had.
 - **They say support rooms are not a crisis, medical or emergency service**, and tell people in danger to contact emergency services.
 - **They say Nigerian law applies**, and mention the rights Nigerian data protection law gives people (see their data, correct it, delete it).
-- **They say data may be stored outside Nigeria**, for example in the UK or Europe. That depends on the region you chose when you created the Supabase project.
+- **They say data may be stored outside Nigeria**, without naming a country, because I don't know your Supabase region and LiveKit uses servers around the world.
 - **There's no company name.** They say "Circles" and "we".
-- **There's no contact email yet,** because I won't publish your personal email without asking. Until you give one, the text says an email is coming and points people to Delete my account.
+- **There's no contact email yet,** because I won't publish your personal email without asking. Until you give one, the text tells people what works today: tap Report in a room, choose "The whole room" and write their question. It reaches your reports list.
 
 **What you need to do**
 1. Read both pages in the app and tell me anything to change.
-2. Send me a contact email for privacy questions, for example a new Gmail just for Circles. I'll put it in.
-3. Tell me which region your Supabase project is in (Supabase › Project Settings › General › Region), so the "stored outside Nigeria" line is exact.
+2. **Before you share Circles widely, send me a contact email** for privacy questions, for example a new Gmail just for Circles. Nigerian data law expects one. I'll put it in, and it replaces the "tap Report" line.
+3. Optional: tell me which region your Supabase project is in (Supabase › Project Settings › General › Region) if you'd like the page to name it.
 4. Before a wide launch, ask a Nigerian lawyer to check both pages. These are good, honest drafts, but I'm not a lawyer.
-5. The Google Play Store needs the Privacy Policy at a public web address. Once the web version is online (part 2), it'll be at `/privacy` on that address.
+5. The Google Play Store needs the Privacy Policy at a public web address. Once the web version is online (part 2), use `/?page=privacy` on that address (for example `https://circles.expo.app/?page=privacy`). That form works on any web host.
 
 ---
 
@@ -36,16 +37,20 @@ Each part ends with **What you need to do**, if anything.
 - **The link page** (`docs/screens/16-join-from-a-link.png`): "Ada_K invited you to", the room's name, how many people are there, then **Join in your browser**.
 - **Joining:** they answer the 18+ question, pick a nickname, and go straight into that room. The room works in the browser too, with Report, Block, Leave and help.
 - **If the room has ended:** the page says "This room has ended" and offers **Find a room**.
-- **Phones with the app:** they open `circles://r/<room>` links straight in the app, and the link page has **Open in the Circles app**.
+- **If the room is full:** it says so and offers **Find a room**.
+- **Phones with the app:** they open `circles://r/<room>` links straight in the app. On Android browsers the link page also has **Open in the Circles app**. It's hidden elsewhere, because there's no iPhone app and the app isn't in the Play Store yet. The design's "Get the app instead" comes once there's a store page to send people to.
+- **Already signed in on the app:** a link takes you straight into the room. If the room has ended you see "This room has ended" and **Find me another room**. If you're already in a room, the link waits until you leave; nobody is pulled out of a room.
 - **Your legal pages** have web addresses too: `/?page=privacy` and `/?page=terms`. You can give those to the Play Store.
 
 **Choices I made (open to change)**
-- **No Invite for support rooms, ever.** Nobody can be shown to be in one, and a link to one shows "This room has ended".
+- **No Invite for support rooms, ever.** Nobody can be shown to be in one, and a link to one shows "This room has ended". The room server also refuses to let anyone but a host into a support room by its id, so support rooms are only reachable through the "Need someone to talk to" door.
+- **The inviter's name on the link page is checked.** Names that look like a phone number, or that could pass for the team ("Circles_Team", "Admin", "Support"…), aren't shown. Those names can't be chosen as nicknames any more either.
 - **The link page shows how many people are in the room, never who.** The visitor hasn't met them yet. Taken seats are plain, without names.
 - **The link carries your nickname** (`by=`), so your friend sees who invited them. It's never your real name.
 - **Links look like `/?room=…`** rather than `/r/…`, so they work on any simple web host. The app still understands `/r/…` links.
 - **No text code in the browser**, because the open test has no phone check. It's the same sign-up as the app.
-- **In the browser, a small note** says "Keep this tab open. If your screen locks, the sound may stop." Phone browsers can do that, and the app doesn't.
+- **In the browser, a small note** says "Keep this tab open. If your screen locks, the sound may stop." Phone browsers can do that, and the app doesn't. It shows once per visit.
+- **There's no "I already have an account" on the link page** while email is switched off. It comes back when email does.
 - **The Invite button stays hidden until the web version is online**, so nobody shares a link that doesn't work yet.
 
 **What you need to do: put the web version online (about 10 minutes, free)**
@@ -68,3 +73,30 @@ Expo, which you already use, can host the web version. In PowerShell, in your `C
 4. I'll then give you one command to store that address. After that, you rebuild the app and run steps 2 and 3 again, so the **Invite** button appears in both the app and the browser.
 
 I couldn't run these commands from the cloud, because the network here blocks Expo's servers. If any step prints something unexpected, paste it to me.
+
+**Known limits (open to change)**
+- A paused person can delete their account and make a new one. Without email or phone checks there's no way to tell it's the same person. Email and phone checks, when you turn them on, fix this.
+- The link page asks the room server how many people are in a room each time it opens. It's cheap, but if someone hammered it on purpose it could add a little to the LiveKit bill. If that ever shows up, I'll add a limit.
+
+---
+
+## 3. Chat in rooms
+
+**What I built**
+- A **Chat** button in the room's bottom row (speech-bubble icon). A small ember number shows how many new messages you haven't read.
+- Tapping it opens the chat from the bottom: everyone's messages with their nicknames, and a box to type with a round send button. Emoji work.
+- Tapping someone's name in the chat opens the usual Save, Block and Report for them.
+
+**Choices I made (open to change)**
+- **Chat is never stored.** Messages go straight between the phones in the room, through LiveKit, and disappear when you leave. Nobody, including you, can read them later. The Privacy Policy already says this.
+- **Text only.** No photos, no voice notes, and links don't open. That keeps support rooms free of shared photos, as the rules say.
+- **Chat is in every room, support rooms too.** Some people find it easier to type than to speak when they're low. Tell me if you'd rather turn it off in support rooms.
+- **Chat follows the same rule as the mics.** While a room is waiting for its third person, or a support room has no trained host, you can read the chat but not send ("Chat opens when three people are here"). Otherwise two strangers could chat one-to-one, which the 3-person rule is there to avoid.
+- **Messages from people you've blocked are hidden**, including ones they sent before you blocked them.
+- **Up to 300 characters and 4 lines a message, and 5 messages in 10 seconds.** Faster than that, it says "Slow down a little". A changed app that tries to flood the chat is ignored by everyone else's phone.
+- **Names can't be faked.** The name on a message comes from the room server, not from the message, and phones aren't allowed to change their own name or host badge.
+- **You only see messages sent after you joined.** There's no history, because nothing is stored.
+- **Reports can't include chat messages yet**, because they aren't stored. People can copy a message (press and hold) into the report's "Tell us more" box.
+
+**What you need to do**
+- Update the room server (`livekit-token`) the same way as before, so phones are allowed to send chat. It's in the list at the end.

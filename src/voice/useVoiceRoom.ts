@@ -8,7 +8,8 @@ import {
   type RemoteParticipant,
 } from 'livekit-client';
 import { playRemoteAudio, startAudio, stopAudio, stopRemoteAudio } from './audio';
-import { NoHostError, PausedError, RoomFullError, getTicket, type RoomInfo, type RoomRequest } from '../rooms/api';
+import { CHAT_KEEP, CHAT_TOPIC, cleanChat, decodeChat, encodeChat, tooFast, tooFastFrom, type ChatMessage } from '../rooms/chat';
+import { NoHostError, PausedError, RoomEndedError, RoomFullError, getTicket, setHandUp, type RoomInfo, type RoomRequest } from '../rooms/api';
 import {
   micPermissionGranted,
   requestNotificationPermission,
@@ -23,6 +24,9 @@ export type Person = {
   isHost: boolean;
   isSpeaking: boolean;
   isMuted: boolean;
+  // Raised hand: a quiet "I'd like to say something". handAt orders hands, oldest first.
+  handUp: boolean;
+  handAt: number;
   joinedAt: number;
 };
 
@@ -34,6 +38,7 @@ export type RoomStatus =
   | 'full'
   | 'noHost'
   | 'paused'
+  | 'ended'
   | 'error'
   | 'dropped';
 
@@ -56,7 +61,15 @@ function hostFlag(p: Participant): boolean {
   }
 }
 
+// The hand is a participant attribute ("hand" = the time it went up, empty when down).
+function handTime(p: Participant): number {
+  const raw = p.attributes?.hand;
+  const at = raw ? Number(raw) : 0;
+  return Number.isFinite(at) && at > 0 ? at : 0;
+}
+
 function toPerson(p: Participant, isMe: boolean): Person {
+  const handAt = handTime(p);
   return {
     id: p.identity,
     nickname: p.name || 'Someone',
@@ -64,6 +77,8 @@ function toPerson(p: Participant, isMe: boolean): Person {
     isHost: hostFlag(p),
     isSpeaking: p.isSpeaking,
     isMuted: !p.isMicrophoneEnabled,
+    handUp: handAt > 0,
+    handAt,
     joinedAt: p.joinedAt ? p.joinedAt.getTime() : 0,
   };
 }
@@ -87,6 +102,17 @@ export function useVoiceRoom() {
   const [lastSummary, setLastSummary] = useState<RoomSummary | null>(null);
   // Browsers can block sound until the person taps something. Then we show "Tap to hear the room".
   const [audioBlocked, setAudioBlocked] = useState(false);
+  // Room chat lives only in memory, for as long as you're in the room.
+  const [messages, setMessages] = useState<ChatMessage[]>([]);
+  const chatSentAt = useRef<number[]>([]);
+  const chatHeardAt = useRef(new Map<string, number[]>());
+  const chatCount = useRef(0);
+
+  const addMessage = useCallback((m: Omit<ChatMessage, 'id'>) => {
+    chatCount.current += 1;
+    const id = `${m.at}-${chatCount.current}`;
+    setMessages((list) => [...list, { ...m, id }].slice(-CHAT_KEEP));
+  }, []);
 
   const applySilence = useCallback((p: RemoteParticipant) => {
     p.setVolume(silenced.current.has(p.identity) ? 0 : 1);
@@ -126,6 +152,7 @@ export function useVoiceRoom() {
     if (summary) setLastSummary(summary);
     setStatus(finalStatus);
     setPeople([]);
+    setMessages([]);
     setNumbers(NO_NUMBERS);
     try {
       await current?.disconnect();
@@ -146,6 +173,9 @@ export function useVoiceRoom() {
       const cancelled = () => attempt.current !== mine;
       startedAt.current = Date.now();
       seen.current = new Map();
+      setMessages([]);
+      chatSentAt.current = [];
+      chatHeardAt.current = new Map();
       setStatus('connecting');
       setRoom(null);
       try {
@@ -183,6 +213,7 @@ export function useVoiceRoom() {
           .on(RoomEvent.LocalTrackPublished, refresh)
           .on(RoomEvent.LocalTrackUnpublished, refresh)
           .on(RoomEvent.ConnectionQualityChanged, refresh)
+          .on(RoomEvent.ParticipantAttributesChanged, refresh)
           .on(RoomEvent.Reconnecting, () => setStatus('reconnecting'))
           .on(RoomEvent.Reconnected, () => {
             setStatus('connected');
@@ -192,6 +223,20 @@ export function useVoiceRoom() {
             if (roomRef.current === lkRoom) void leaveRef.current('dropped');
           })
           .on(RoomEvent.AudioPlaybackStatusChanged, () => setAudioBlocked(!lkRoom.canPlaybackAudio))
+          .on(RoomEvent.DataReceived, (payload, participant, _kind, topic) => {
+            // The sender's name comes from LiveKit, set by our server only (the ticket can't change it),
+            // so nobody can pretend to be someone else.
+            if (topic !== CHAT_TOPIC || !participant) return;
+            if (silenced.current.has(participant.identity)) return;
+            const now = Date.now();
+            const heard = (chatHeardAt.current.get(participant.identity) ?? []).filter((t) => now - t < 60_000);
+            // A phone sending faster than the app allows is ignored, so nobody can flood the chat.
+            if (tooFastFrom(heard, now)) return;
+            const text = decodeChat(payload);
+            if (!text) return;
+            chatHeardAt.current.set(participant.identity, [...heard, now]);
+            addMessage({ from: participant.identity, nickname: participant.name || 'Someone', text, at: now, mine: false });
+          })
           .on(RoomEvent.TrackUnsubscribed, (track) => {
             if (track.kind === Track.Kind.Audio) stopRemoteAudio(track);
           })
@@ -221,11 +266,36 @@ export function useVoiceRoom() {
               ? 'noHost'
               : e instanceof PausedError
                 ? 'paused'
-                : 'error',
+                : e instanceof RoomEndedError
+                  ? 'ended'
+                  : 'error',
         );
       }
     },
-    [applySilence, refresh],
+    [applySilence, refresh, addMessage],
+  );
+
+  // Sends a chat message to everyone in the room.
+  const sendChat = useCallback(
+    async (raw: string): Promise<'sent' | 'empty' | 'tooFast' | 'failed'> => {
+      const current = roomRef.current;
+      const text = cleanChat(raw);
+      if (!text) return 'empty';
+      if (!current) return 'failed';
+      const now = Date.now();
+      chatSentAt.current = chatSentAt.current.filter((t) => now - t < 60_000);
+      if (tooFast(chatSentAt.current, now)) return 'tooFast';
+      try {
+        await current.localParticipant.publishData(encodeChat(text), { reliable: true, topic: CHAT_TOPIC });
+      } catch {
+        return 'failed';
+      }
+      chatSentAt.current.push(now);
+      const me = current.localParticipant;
+      addMessage({ from: me.identity, nickname: me.name || 'You', text, at: now, mine: true });
+      return 'sent';
+    },
+    [addMessage],
   );
 
   // Returns false when the phone does not allow the microphone.
@@ -242,6 +312,21 @@ export function useVoiceRoom() {
       }
     },
     [refresh],
+  );
+
+  // Raise or lower your hand. Everyone in the room sees it on your seat.
+  const setHand = useCallback(
+    async (up: boolean): Promise<boolean> => {
+      if (!roomRef.current || !room) return false;
+      try {
+        await setHandUp(room.id, up);
+        refresh();
+        return true;
+      } catch {
+        return false;
+      }
+    },
+    [refresh, room],
   );
 
   // Blocked people: you stop hearing them straight away.
@@ -278,5 +363,22 @@ export function useVoiceRoom() {
     [],
   );
 
-  return { status, room, people, numbers, lastSummary, audioBlocked, unblockAudio, join, leave, setMic, silence, setSilencedList, startBackground };
+  return {
+    status,
+    room,
+    people,
+    numbers,
+    lastSummary,
+    audioBlocked,
+    messages,
+    sendChat,
+    unblockAudio,
+    join,
+    leave,
+    setMic,
+    setHand,
+    silence,
+    setSilencedList,
+    startBackground,
+  };
 }

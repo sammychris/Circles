@@ -20,5 +20,7 @@ describe('room links', () => {
     expect(parseLink('https://x.app/?room=<script>&by=Ada K')).toEqual({});
     expect(parseLink('not a link')).toEqual({});
     expect(parseLink(null)).toEqual({});
+    expect(parseLink('https://x.app/?room=abc&by=08031234567')).toEqual({ roomId: 'abc' });
+    expect(parseLink('https://x.app/?room=abc&by=Circles_Team')).toEqual({ roomId: 'abc' });
   });
 });

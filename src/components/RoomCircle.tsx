@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { AccessibilityInfo, Animated, Pressable, View } from 'react-native';
 import type { ReactNode } from 'react';
-import { AudioLines, MicOff, Plus, User } from 'lucide-react-native';
+import { AudioLines, Hand, MicOff, Plus, User } from 'lucide-react-native';
 import { ROOM_CAPACITY } from '../config';
 import { assignSeats, seatPoints, seatsOpenText } from '../lib/seats';
 import { border, effects, motion, opacity, radius, roomGlowScale, size, space, speaking, useColors } from '../theme';
@@ -23,6 +23,7 @@ function seatLabel(p: Person): string {
   if (p.isHost) parts.push('host');
   if (p.isSpeaking) parts.push('speaking');
   else if (p.isMuted) parts.push('muted');
+  if (p.handUp) parts.push('hand up');
   return parts.join(', ');
 }
 
@@ -139,7 +140,25 @@ function Seat({
         <Avatar userId={person.id} nickname={person.nickname} />
       </View>
 
-      {person.isMuted ? (
+      {person.handUp ? (
+        <View
+          style={{
+            position: 'absolute',
+            right: -space[1],
+            bottom: -space[1],
+            width: size.avatarBadge,
+            height: size.avatarBadge,
+            borderRadius: radius.pill,
+            backgroundColor: colors.emberSoft,
+            borderWidth: border.seatRing,
+            borderColor: colors.bg,
+            alignItems: 'center',
+            justifyContent: 'center',
+          }}
+        >
+          <Hand size={size.iconBadge} color={colors.emberText} strokeWidth={size.iconStroke} />
+        </View>
+      ) : person.isMuted ? (
         <View
           style={{
             position: 'absolute',
@@ -178,6 +197,10 @@ function Seat({
               Speaking
             </Text>
           </View>
+        ) : person.handUp ? (
+          <Text variant="tiny" color="emberText">
+            Hand up
+          </Text>
         ) : null}
       </View>
     </Pressable>

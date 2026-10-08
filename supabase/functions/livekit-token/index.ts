@@ -5,6 +5,7 @@
 //   { action: 'stats' }                               how many people are in rooms right now (support rooms not counted)
 //   { action: 'support' }                             whether a trained host is in a support room (yes/no only)
 //   { action: 'delete_account' }                      deletes the person's own account and everything tied to it
+//   { action: 'hand', roomId, up }                    raises or lowers your hand in a room you're in
 //   { action: 'preview', roomId }                     a room link's title and seat count, before signing up
 // Secrets (set in Supabase, never in the app): LIVEKIT_API_KEY, LIVEKIT_API_SECRET, LIVEKIT_URL.
 import { createClient } from 'npm:@supabase/supabase-js@2';
@@ -211,6 +212,25 @@ Deno.serve(async (req) => {
     return json({ rooms: list });
   }
 
+  // Raise or lower your own hand, in a room you're in right now. The server sets it, so a hand is the
+  // only thing a person can change about themselves in a room.
+  if (action === 'hand') {
+    const { data: handRoom } = await admin
+      .from('rooms')
+      .select('livekit_room_name')
+      .eq('id', String(body.roomId ?? ''))
+      .maybeSingle();
+    if (!handRoom) return json({ error: 'Room not found' }, 404);
+    try {
+      await service.updateParticipant(handRoom.livekit_room_name, user.id, {
+        attributes: { hand: body.up === true ? String(Date.now()) : '' },
+      });
+    } catch {
+      return json({ error: 'You are not in this room' }, 409);
+    }
+    return json({ status: 'ok' });
+  }
+
   if (action !== 'match' && action !== 'join') return json({ error: 'Unknown action' }, 400);
 
   // --- voice: nobody speaks before the 18+ question and a nickname (CLAUDE.md, Never list) ---
@@ -228,6 +248,17 @@ Deno.serve(async (req) => {
     return json({ error: 'Circles is for adults' }, 403);
   }
 
+  // Unfinished Find the Impostor rounds are cleared after two hours, even if nobody plays again
+  // (the Privacy Policy promises this).
+  await admin
+    .from('impostor_rounds')
+    .delete()
+    .lt('created_at', new Date(Date.now() - 2 * 60 * 60 * 1000).toISOString())
+    .then(
+      () => {},
+      () => {},
+    );
+
   const { data: hostRows } = await admin.from('hosts').select('user_id');
   const hosts = new Set((hostRows ?? []).map((h) => h.user_id as string));
   const isHost = hosts.has(user.id);
@@ -242,9 +273,12 @@ Deno.serve(async (req) => {
       .select('id, door, mood, title, capacity, status, livekit_room_name')
       .eq('id', String(body.roomId ?? ''))
       .maybeSingle();
-    if (!data) return json({ error: 'Room not found' }, 404);
+    // Support rooms are only ever reached through the "Need someone to talk to" door, never by a link or
+    // a remembered room id (CLAUDE.md, Never list). To everyone but a host they look like a room that has ended.
+    if (!data || data.status !== 'open' || (data.door === 'support' && !isHost)) {
+      return json({ error: 'This room has ended', status: 'ended' }, 410);
+    }
     room = data as RoomRow;
-    if (room.status !== 'open') return json({ error: 'This room is closed' }, 403);
     const people = (await peopleIn([room.livekit_room_name]).catch(() => new Map())).get(room.livekit_room_name) ?? [];
     const others = people.filter((p: string) => p !== user.id);
     if (others.length >= room.capacity) return json({ error: 'This room is full' }, 409);
@@ -332,7 +366,11 @@ Deno.serve(async (req) => {
     roomJoin: true,
     canPublish: true,
     canSubscribe: true,
-    canPublishData: false,
+    // Room chat travels over LiveKit between the people in the room only, with the sender set by
+    // LiveKit (it can't be faked) and nothing stored.
+    canPublishData: true,
+    // No canUpdateOwnMetadata: names, the host flag and raised hands are only ever set by this server,
+    // so nobody can rename themselves or pretend to be a trained host.
   });
 
   return json({

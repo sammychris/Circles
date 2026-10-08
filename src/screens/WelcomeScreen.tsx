@@ -91,7 +91,7 @@ export function WelcomeScreen({ onStart, onHaveAccount, starting, error }: Props
   return (
     <SafeAreaView style={{ flex: 1, backgroundColor: colors.bg }}>
       <ScrollView contentContainerStyle={{ paddingHorizontal: space.gutter, paddingTop: space[5], paddingBottom: space[5], gap: space[6] }}>
-        <Text variant="heading" color="ember">
+        <Text variant="heading" color="emberText">
           Circles
         </Text>
         <LampDrawing />

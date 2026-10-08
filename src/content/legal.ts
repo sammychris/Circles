@@ -2,7 +2,8 @@
 // them, and a lawyer should look them over before a wide launch (see docs/BUILD_NOTES.md).
 // Everything here must stay true to what the app actually does.
 
-// Sammy's contact address for privacy questions. Until he gives one, the text says so plainly.
+// Sammy's contact address for privacy questions. Until he gives one, the text points to a way that
+// works today: a report reaches the Circles team.
 export const CONTACT_EMAIL: string | null = null;
 
 export const LEGAL_UPDATED = '8 October 2026';
@@ -12,7 +13,7 @@ export type LegalDoc = { title: string; intro: string; sections: LegalSection[] 
 
 const contactLine = CONTACT_EMAIL
   ? `Write to us at ${CONTACT_EMAIL} with any question about your data.`
-  : "We're adding a contact email here soon. Until then, you can delete your account any time in Me, and it deletes everything tied to it.";
+  : 'To ask what we hold about you, or to correct it, tap Report in any room, choose "The whole room" and write your question. It comes straight to the Circles team. You can delete your account yourself any time in Me.';
 
 export const PRIVACY: LegalDoc = {
   title: 'Privacy Policy',
@@ -34,8 +35,10 @@ export const PRIVACY: LegalDoc = {
         'Your nickname, and your date of birth. We use your date of birth only to check you are 18 or over. We never show it to anyone.',
         'Your email, only if you choose to add one.',
         'Things you do to keep rooms safe: reports you send, people you block. Reports are only seen by the Circles team.',
-        "Saves and thank-yous you give. A thank-you is never shown with your name, and we don't keep scores, streaks or rankings.",
-        'Which rooms exist and their titles, so we can put people into rooms.',
+        "Saves, and thank-yous you give with the room they were for. A thank-you is never shown with your name, and we don't keep scores, streaks or rankings.",
+        'Which rooms exist, their titles, and who opened each one, so we can put people into rooms.',
+        'Technical records our providers keep to run the service, such as your internet address, times you connected, and the nickname and room you used for voice.',
+        'If you share a room link, it carries your nickname, so your friend sees who invited them.',
       ],
     },
     {
@@ -43,22 +46,22 @@ export const PRIVACY: LegalDoc = {
       paragraphs: [
         'Your voice. Rooms are live and are not recorded by us.',
         'Room chat. Messages are only passed between the people in the room while it is happening, and are gone when you leave.',
-        'Games. Game moves, secret words and votes are deleted when the game ends.',
+        'Games. Game moves are never stored. Find the Impostor words and votes are deleted when the game ends, or within a few hours if a game is left unfinished.',
       ],
     },
     {
       heading: 'Who helps us run Circles',
       paragraphs: [
-        'Supabase keeps our accounts and database. LiveKit carries the live voice between the people in a room. Expo builds and delivers the app. They handle data only to run Circles for us.',
-        'Your data may be stored or pass through servers outside Nigeria, for example in the United Kingdom or Europe.',
+        'Supabase keeps our accounts and database. LiveKit carries the live voice and room chat between the people in a room. Expo builds and delivers the app. They handle data only to run Circles for us.',
+        'Your data may be stored on, or pass through, servers outside Nigeria.',
         'We do not sell your data, and there are no adverts in rooms.',
       ],
     },
     {
       heading: 'How long we keep it',
       paragraphs: [
-        'Your account stays until you delete it. Deleting your account (Me, then Delete my account) deletes your nickname, date of birth, saves, blocks and everything else tied to it, straight away.',
-        'Reports about someone are kept while they help us keep people safe, then deleted.',
+        'Your account stays until you delete it. Deleting your account (Me, then Delete my account) deletes your nickname, date of birth, email, saves, blocks and thank-yous straight away.',
+        'Reports are kept while they help us keep people safe, then deleted. A report you sent stays after you delete your account, without your account linked, so we can still act on it. A report about you keeps the nickname you had.',
       ],
     },
     {

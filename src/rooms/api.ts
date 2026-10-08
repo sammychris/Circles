@@ -25,6 +25,12 @@ export class NoHostError extends Error {
   }
 }
 
+export class RoomEndedError extends Error {
+  constructor() {
+    super('This room has ended');
+  }
+}
+
 export class PausedError extends Error {
   constructor() {
     super('Your account is paused');
@@ -43,6 +49,7 @@ async function call<T>(body: Record<string, unknown>): Promise<T> {
       // not JSON
     }
     if (payload.status === 'no_host') throw new NoHostError();
+    if (payload.status === 'ended') throw new RoomEndedError();
     if (status === 409) throw new RoomFullError();
     if (status === 403 && payload.error === 'Your account is paused') throw new PausedError();
     throw new Error(payload.error ?? 'Could not reach the room server');
@@ -70,6 +77,11 @@ export async function listOpenRooms(door: Door = 'talk'): Promise<OpenRoom[]> {
 
 export async function roomStats(): Promise<{ people: number; rooms: number }> {
   return call<{ people: number; rooms: number }>({ action: 'stats' });
+}
+
+// Raise or lower your hand. The room server sets it, so nobody can change anything else about themselves.
+export async function setHandUp(roomId: string, up: boolean): Promise<void> {
+  await call<{ status: string }>({ action: 'hand', roomId, up });
 }
 
 // Whether a trained host is in a support room right now. Never who.

@@ -40,7 +40,16 @@ export function toIsoDate(date: Date): string {
   return date.toISOString().slice(0, 10);
 }
 
-export type NicknameProblem = 'tooShort' | 'tooLong' | 'badCharacters' | 'looksLikeNumber' | null;
+export type NicknameProblem = 'tooShort' | 'tooLong' | 'badCharacters' | 'looksLikeNumber' | 'reserved' | null;
+
+// Names that could pass for the Circles team. The database refuses them too (open_test_extras migration).
+const RESERVED_ANYWHERE = /(circles|admin|moderator|official)/i;
+const RESERVED_EXACT = new Set(['host', 'support', 'team', 'staff', 'mod', 'help', 'helpline', 'system']);
+
+export function isReservedNickname(name: string): boolean {
+  const lower = name.trim().toLowerCase();
+  return RESERVED_ANYWHERE.test(lower) || RESERVED_EXACT.has(lower);
+}
 
 export function nicknameProblem(input: string): NicknameProblem {
   const name = input.trim();
@@ -48,6 +57,7 @@ export function nicknameProblem(input: string): NicknameProblem {
   if (name.length > NICKNAME_MAX) return 'tooLong';
   if (!/^[A-Za-z0-9_]+$/.test(name)) return 'badCharacters';
   if (/[0-9]{7,}/.test(name)) return 'looksLikeNumber';
+  if (isReservedNickname(name)) return 'reserved';
   return null;
 }
 
@@ -56,6 +66,7 @@ export const NICKNAME_PROBLEM_TEXT: Record<Exclude<NicknameProblem, null>, strin
   tooLong: `Use ${NICKNAME_MAX} characters or fewer.`,
   badCharacters: 'Use only letters, numbers and _ (no spaces).',
   looksLikeNumber: "That looks like a phone number. Pick something that isn't.",
+  reserved: 'That name is kept for the Circles team. Pick another.',
 };
 
 // supabase-js reports a dropped connection as a failed fetch rather than a status code.

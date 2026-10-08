@@ -1,5 +1,5 @@
 import type { ReactNode } from 'react';
-import { Modal, Pressable, View } from 'react-native';
+import { Modal, Pressable, StyleSheet, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { radius, sheetHandle, space, useColors } from '../theme';
 
@@ -22,15 +22,16 @@ export function Sheet({ visible, onClose, children, dismissable = true }: Props)
       onRequestClose={dismissable ? onClose : () => {}}
       statusBarTranslucent
     >
-      <Pressable
-        accessibilityRole="button"
-        accessibilityLabel="Close"
-        disabled={!dismissable}
-        onPress={onClose}
-        style={{ flex: 1, backgroundColor: colors.scrim, justifyContent: 'flex-end' }}
-      >
+      <View style={{ flex: 1, justifyContent: 'flex-end' }}>
+        {/* The scrim sits behind the sheet, so screen readers reach what's inside on its own. */}
         <Pressable
-          accessible={false}
+          accessibilityRole="button"
+          accessibilityLabel="Close"
+          disabled={!dismissable}
+          onPress={onClose}
+          style={[StyleSheet.absoluteFill, { backgroundColor: colors.scrim }]}
+        />
+        <View
           style={{
             backgroundColor: colors.surface,
             borderTopLeftRadius: radius.sheet,
@@ -51,8 +52,8 @@ export function Sheet({ visible, onClose, children, dismissable = true }: Props)
             }}
           />
           {children}
-        </Pressable>
-      </Pressable>
+        </View>
+      </View>
     </Modal>
   );
 }
