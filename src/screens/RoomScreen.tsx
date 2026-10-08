@@ -26,6 +26,7 @@ import { NoteSheet, VideoSheet } from '../components/table/ComposeSheets';
 import { PutOnTableSheet, type TableChoice } from '../components/table/PutOnTableSheet';
 import { NoteBody, SeatRow, TableCard, TableOptionsSheet } from '../components/table/TableCard';
 import { PhotosBody } from '../components/table/PhotosBody';
+import { ScreenBody } from '../components/table/ScreenBody';
 import { WatchBody } from '../components/table/WatchBody';
 import { pickAndUploadPhotos } from '../table/photos';
 import { describeItem, findLink } from '../table/model';
@@ -494,6 +495,8 @@ export function RoomScreen({ me, request, onLeft, onMove }: Props) {
         setTimeout(() => setCompose(choice), motion.slow);
       } else if (choice === 'photos') {
         setTimeout(() => void putPhotos(), motion.slow);
+      } else if (choice === 'screen') {
+        setTimeout(confirmScreenShare, motion.slow);
       }
     });
   }
@@ -508,6 +511,16 @@ export function RoomScreen({ me, request, onLeft, onMove }: Props) {
           {item.kind === 'photos' ? (
             <PhotosBody key={item.id} item={item} state={tableItem.state} mine={tableItem.mine} onPresent={tableItem.present} />
           ) : null}
+          {item.kind === 'screen' ? (
+            <ScreenBody
+              key={item.id}
+              item={item}
+              mine={tableItem.mine}
+              track={voice.screens[item.by]}
+              onWatch={(on) => voice.watchScreen(item.by, on)}
+              onStop={() => tableItem.takeOff()}
+            />
+          ) : null}
           {item.kind === 'video' ? (
             <WatchBody
               key={item.id}
@@ -521,6 +534,28 @@ export function RoomScreen({ me, request, onLeft, onMove }: Props) {
         </TableCard>
       </View>
     );
+  }
+
+  // Share my screen: a clear warning first, then the phone's own permission prompt.
+  function confirmScreenShare() {
+    const warning = 'Everyone in this room will see your whole screen, including messages and notifications that pop up.';
+    const go = () => void startScreenShare();
+    if (Platform.OS === 'web') {
+      if (typeof window !== 'undefined' && window.confirm(`${warning} Share your screen?`)) go();
+      return;
+    }
+    Alert.alert('Share your screen?', `${warning} Turning on Do Not Disturb first helps.`, [
+      { text: 'Cancel', style: 'cancel' },
+      { text: 'Share', onPress: go },
+    ]);
+  }
+
+  async function startScreenShare() {
+    startingShare.current = true;
+    const ok = await voice.setScreenShare(true);
+    if (ok) await tableItem.put({ kind: 'screen' });
+    else setToast("Screen sharing didn't start.");
+    startingShare.current = false;
   }
 
   async function putPhotos() {
@@ -555,6 +590,22 @@ export function RoomScreen({ me, request, onLeft, onMove }: Props) {
     }
   }
   if (!tableAction && connected) tableAction = <RowButton Icon={SquarePlus} label="Table" onPress={openTable} />;
+
+  // Your screen is shared only while it's your item on the table. If sharing stops from the phone's own
+  // notification, the item comes off too.
+  const meSharing = people.some((p) => p.isMe && p.sharingScreen);
+  const screenOnTable = tableItem.mine && tableItem.item?.kind === 'screen';
+  const sawSharing = useRef(false);
+  // Between sharing starting and the card going on the table.
+  const startingShare = useRef(false);
+  useEffect(() => {
+    if (meSharing && screenOnTable) sawSharing.current = true;
+    if (meSharing && !screenOnTable && !startingShare.current) void voice.setScreenShare(false);
+    if (!meSharing && screenOnTable && sawSharing.current) {
+      sawSharing.current = false;
+      tableItem.takeOff();
+    }
+  }, [meSharing, screenOnTable, voice.setScreenShare, tableItem.takeOff]);
 
   // A game took over the table: your own item comes off. Someone else's item lost the table: tell them.
   useEffect(() => {

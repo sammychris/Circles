@@ -3,9 +3,12 @@ import {
   ConnectionQuality,
   Room,
   RoomEvent,
+  ScreenSharePresets,
   Track,
   type Participant,
   type RemoteParticipant,
+  type RemoteTrackPublication,
+  type VideoTrack,
 } from 'livekit-client';
 import { playRemoteAudio, startAudio, stopAudio, stopRemoteAudio } from './audio';
 import { CHAT_KEEP, CHAT_TOPIC, cleanChat, decodeChat, encodeChat, tooFast, tooFastFrom, type ChatMessage } from '../rooms/chat';
@@ -24,6 +27,8 @@ export type Person = {
   isHost: boolean;
   isSpeaking: boolean;
   isMuted: boolean;
+  // Sharing their screen right now (it only shows to others once they tap).
+  sharingScreen: boolean;
   // Raised hand: a quiet "I'd like to say something". handAt orders hands, oldest first.
   handUp: boolean;
   handAt: number;
@@ -83,6 +88,7 @@ function toPerson(p: Participant, isMe: boolean): Person {
     isHost: hostFlag(p),
     isSpeaking: p.isSpeaking,
     isMuted: !p.isMicrophoneEnabled,
+    sharingScreen: p.isScreenShareEnabled,
     handUp: handAt > 0,
     handAt,
     joinedAt: p.joinedAt ? p.joinedAt.getTime() : 0,
@@ -120,6 +126,16 @@ export function useVoiceRoom() {
     chatCount.current += 1;
     const id = `${m.at}-${chatCount.current}`;
     setMessages((list) => [...list, { ...m, id }].slice(-CHAT_KEEP));
+  }, []);
+
+  // Shared screens people chose to watch, by person. Nothing else is ever downloaded as video.
+  const [screens, setScreens] = useState<Record<string, VideoTrack>>({});
+
+  // Voice is fetched for everyone straight away; a shared screen only when someone taps to see it.
+  const subscribeVoice = useCallback((p: RemoteParticipant) => {
+    p.trackPublications.forEach((pub) => {
+      if (pub.kind === Track.Kind.Audio && !pub.isSubscribed) pub.setSubscribed(true);
+    });
   }, []);
 
   const applySilence = useCallback((p: RemoteParticipant) => {
@@ -161,6 +177,7 @@ export function useVoiceRoom() {
     setStatus(finalStatus);
     setPeople([]);
     setMessages([]);
+    setScreens({});
     setNumbers(NO_NUMBERS);
     try {
       await current?.disconnect();
@@ -212,6 +229,20 @@ export function useVoiceRoom() {
         lkRoom
           .on(RoomEvent.ParticipantConnected, (p) => {
             applySilence(p);
+            subscribeVoice(p);
+            refresh();
+          })
+          .on(RoomEvent.TrackPublished, (pub: RemoteTrackPublication, p: RemoteParticipant) => {
+            if (pub.kind === Track.Kind.Audio) pub.setSubscribed(true);
+            refresh();
+          })
+          .on(RoomEvent.TrackUnpublished, (_pub, p: RemoteParticipant) => {
+            setScreens((s) => {
+              if (!s[p.identity]) return s;
+              const next = { ...s };
+              delete next[p.identity];
+              return next;
+            });
             refresh();
           })
           .on(RoomEvent.ParticipantDisconnected, refresh)
@@ -252,11 +283,22 @@ export function useVoiceRoom() {
             chatHeardAt.current.set(participant.identity, [...heard, now]);
             addMessage({ from: participant.identity, nickname: participant.name || 'Someone', text, at: now, mine: false });
           })
-          .on(RoomEvent.TrackUnsubscribed, (track) => {
+          .on(RoomEvent.TrackUnsubscribed, (track, _pub, participant) => {
             if (track.kind === Track.Kind.Audio) stopRemoteAudio(track);
+            if (track.source === Track.Source.ScreenShare) {
+              setScreens((s) => {
+                const next = { ...s };
+                delete next[participant.identity];
+                return next;
+              });
+            }
           })
           .on(RoomEvent.TrackSubscribed, (track, _pub, participant) => {
             applySilence(participant);
+            if (track.source === Track.Source.ScreenShare && track.kind === Track.Kind.Video) {
+              setScreens((s) => ({ ...s, [participant.identity]: track as VideoTrack }));
+              return;
+            }
             if (track.kind !== Track.Kind.Audio) return;
             playRemoteAudio(track);
             setNumbers((n) =>
@@ -264,11 +306,13 @@ export function useVoiceRoom() {
             );
           });
 
-        await lkRoom.connect(ticket.url, ticket.token);
+        // autoSubscribe off: voice is fetched by subscribeVoice, video only when someone taps to see it.
+        await lkRoom.connect(ticket.url, ticket.token, { autoSubscribe: false });
         if (cancelled()) return;
         connectedAt.current = Date.now();
         setAudioBlocked(!lkRoom.canPlaybackAudio);
         lkRoom.remoteParticipants.forEach(applySilence);
+        lkRoom.remoteParticipants.forEach(subscribeVoice);
         setNumbers((n) => ({ ...n, joinMs: Date.now() - startedAt.current }));
         setStatus('connected');
         refresh();
@@ -291,7 +335,7 @@ export function useVoiceRoom() {
         );
       }
     },
-    [applySilence, refresh, addMessage],
+    [applySilence, subscribeVoice, refresh, addMessage],
   );
 
   // Sends a chat message to everyone in the room.
@@ -354,6 +398,35 @@ export function useVoiceRoom() {
     },
     [refresh],
   );
+
+  // Share your screen with the room (the phone asks for permission first). Light on data: 720p at
+  // 5 frames a second is plenty for showing and explaining. No sound from the screen.
+  const setScreenShare = useCallback(
+    async (on: boolean): Promise<boolean> => {
+      const current = roomRef.current;
+      if (!current) return false;
+      try {
+        await current.localParticipant.setScreenShareEnabled(
+          on,
+          on ? { audio: false, resolution: { width: 1280, height: 720, frameRate: 5 } } : undefined,
+          on ? { screenShareEncoding: ScreenSharePresets.h720fps5.encoding } : undefined,
+        );
+        refresh();
+        return on ? current.localParticipant.isScreenShareEnabled : true;
+      } catch {
+        refresh();
+        return false;
+      }
+    },
+    [refresh],
+  );
+
+  // Start or stop watching someone's shared screen.
+  const watchScreen = useCallback((personId: string, on: boolean) => {
+    const p = roomRef.current?.remoteParticipants.get(personId);
+    const pub = p?.getTrackPublication(Track.Source.ScreenShare);
+    if (pub) pub.setSubscribed(on);
+  }, []);
 
   // Raise or lower your hand. Everyone in the room sees it on your seat.
   const setHand = useCallback(
@@ -419,6 +492,9 @@ export function useVoiceRoom() {
     leave,
     setMic,
     setHand,
+    screens,
+    setScreenShare,
+    watchScreen,
     silence,
     setSilencedList,
     startBackground,

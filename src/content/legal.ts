@@ -34,7 +34,8 @@ export const PRIVACY: LegalDoc = {
         'A random account number that ties your account together. It is not your phone number.',
         'Your nickname, and your date of birth. We use your date of birth only to check you are 18 or over. We never show it to anyone.',
         'Your email, only if you choose to add one.',
-        'Things you do to keep rooms safe: reports you send, people you block. Reports are only seen by the Circles team.',
+        'Things you do to keep rooms safe: reports you send, people you block. Reports are only seen by the Circles team. A report also carries a short description of what was on the table at the time.',
+        'Photos you put on the table. Only people in that room can open them, and they are deleted about 3 hours later. If someone reports them, they are kept so the Circles team can check them.',
         "Saves, and thank-yous you give with the room they were for. A thank-you is never shown with your name, and we don't keep scores, streaks or rankings.",
         'Which rooms exist, their titles, and who opened each one, so we can put people into rooms.',
         'Technical records our providers keep to run the service, such as your internet address, times you connected, and the nickname and room you used for voice.',
@@ -45,6 +46,8 @@ export const PRIVACY: LegalDoc = {
       heading: 'What we never keep',
       paragraphs: [
         'Your voice. Rooms are live and are not recorded by us.',
+        'Your shared screen. It goes live to the people in the room who choose to see it, and is never recorded.',
+        'Notes on the table, and what is playing in Watch together. They live on the phones in the room and are gone when the room ends.',
         'Room chat. Messages are only passed between the people in the room while it is happening, and are gone when you leave.',
         'Games. Game moves are never stored. Find the Impostor words and votes are deleted when the game ends, or within a few hours if a game is left unfinished.',
       ],
@@ -52,7 +55,8 @@ export const PRIVACY: LegalDoc = {
     {
       heading: 'Who helps us run Circles',
       paragraphs: [
-        'Supabase keeps our accounts and database. LiveKit carries the live voice and room chat between the people in a room. Expo builds and delivers the app. They handle data only to run Circles for us.',
+        'Supabase keeps our accounts, database and table photos. LiveKit carries the live voice, room chat and shared screens between the people in a room. Expo builds and delivers the app. They handle data only to run Circles for us.',
+        'Watch together uses the official YouTube and Vimeo players. When you tap to watch, YouTube or Vimeo can see that you are watching, under their own privacy policies.',
         'Your data may be stored on, or pass through, servers outside Nigeria.',
         'We do not sell your data, and there are no adverts in rooms.',
       ],

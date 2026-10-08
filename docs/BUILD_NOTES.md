@@ -198,3 +198,46 @@ npm install
 npx eas-cli update --channel preview --environment development --message "What changed"
 ```
 Then on each phone: open Circles, close it fully (swipe it away), and open it again. The first opening downloads the update; the second uses it. Check **Me** for the new "updated" time.
+
+---
+
+## 6. The Table: notes, Watch together, photo slides, Share my screen
+
+**What I built**
+- A **Table** button in every room's bottom row (Raise hand, Chat, Table, Leave, as in the design). It opens **Put on the table** (`docs/screens/18`):
+  - **A note or link:** up to 500 characters. The first line reads as a headline (`docs/screens/19`). Links show only the site name ("bbc.com") and ask before leaving Circles.
+  - **Photos:** pick up to 20 from your phone. They're made smaller before sending.
+  - **Share my screen:** like a WhatsApp call.
+  - **Watch together:** paste a YouTube or Vimeo link.
+  - **Games:** in game rooms, Ludo and Find the Impostor now live here too. The old "Play a game" button is gone.
+- **While something is on the table**, the seats move up into a row of small faces, and the card sits in the middle, as in the design.
+- **Your idea, for photos and videos: the presenter leads.** When the presenter moves to the next photo, or plays, pauses or skips the video, everyone follows. Anyone can go back on their own phone. They then see **Back to live**, which jumps them to wherever the presenter is.
+- **The card's options (•••):** **Take it off the table** for the person who put it there, or a trained host, and **Report it**. Every report made while something is on the table carries a short description of it, so the team can see what it was.
+
+**Choices I made (open to change)**
+- **Support rooms: notes and links only.** No photos, videos or screens, which is your existing rule. The room server also stops phones in support rooms from sending a screen at all.
+- **One thing on the table at a time.** Only the person who put it there (or a host) can take it off or replace it. If two people put something on at the same moment, the first one stays.
+- **When the presenter leaves the room, their item goes with them.**
+- **The table opens once three people are here**, like the mics and the chat.
+- **Photos and shared screens are hidden until each person taps "Tap to see".** I went further than "blurred": nothing is drawn at all until you tap, because a blur can still show too much.
+- **Videos and shared screens only load when each person taps**, to save data. The presenter's own loads straight away.
+- **Watch together only accepts YouTube and Vimeo links**, shown in their official players, so the rights and ads stay with them. Private and age-restricted videos won't play. The video goes quieter while someone else is talking, and there's a tip that headphones stop the sound echoing into the room.
+- **The design's "Watch along"** was a countdown where everyone pressed play on their own device. Your idea, the video playing inside the room, replaces it.
+- **Photos** go into a private storage folder belonging to the person who shared them. They're shared as links that stop working after 3 hours, and the room server deletes them after 3 hours. Photos attached to a report are kept so you can check them in Supabase, under Storage, in the **table** bucket.
+- **Shared screens** are live only: never recorded, with no sound from the screen. They're sent at a quality that's light on data (720p, 5 pictures a second), which is fine for showing and explaining. Before sharing, the app warns: "Everyone in this room will see your whole screen, including messages and notifications that pop up."
+- **In a browser,** screen sharing works on computers only. Phone browsers can't share their screen.
+- **The Privacy Policy now covers photos, shared screens and the YouTube and Vimeo players.**
+- **Not built yet from the Table design:** Take turns, Quiz, Words (for Learn), and a photo ban for repeat reports.
+
+**What you need to do**
+1. Run the database update again: `supabase/migrations/20261010000000_open_test_extras.sql` (it now also creates the photo storage). It's safe to run twice.
+2. Update the room server (`livekit-token`) again.
+3. These need the new build you're doing now (the web viewer, photo picker and screen sharing are in it). After that, the Table comes by over-the-air update.
+
+**Phone checklist (3 phones)**
+- [ ] Tap **Table**, then **A note or link**. Write "What's the best suya spot?" and put it on. All phones show it in the middle.
+- [ ] Tap ••• on the note, then **Take it off the table**. It's gone for everyone.
+- [ ] **Watch together:** paste a YouTube link. The others tap **Tap to watch**. Press play and pause on yours, and theirs follow. On another phone, rewind: **Back to live** appears and brings them back.
+- [ ] **Photos:** pick 3 photos. The others see **Tap to see**. Slide to the next one, and theirs follow. On another phone, go back: **Back to live** appears.
+- [ ] **Share my screen:** read the warning, allow it, then open another app. The others tap **Tap to see** and watch your screen. Tap **Stop sharing**.
+- [ ] In a support room, **Table** only offers **A note or link**.

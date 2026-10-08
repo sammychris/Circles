@@ -10,7 +10,7 @@
 //   { action: 'preview', roomId }                     a room link's title and seat count, before signing up
 // Secrets (set in Supabase, never in the app): LIVEKIT_API_KEY, LIVEKIT_API_SECRET, LIVEKIT_URL.
 import { createClient } from 'npm:@supabase/supabase-js@2';
-import { AccessToken, RoomServiceClient } from 'npm:livekit-server-sdk@2';
+import { AccessToken, RoomServiceClient, TrackSource } from 'npm:livekit-server-sdk@2';
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -565,6 +565,8 @@ Deno.serve(async (req) => {
     room: room.livekit_room_name,
     roomJoin: true,
     canPublish: true,
+    // Voice everywhere; a shared screen too, except in support rooms. Never a camera.
+    canPublishSources: room.door === 'support' ? [TrackSource.MICROPHONE] : [TrackSource.MICROPHONE, TrackSource.SCREEN_SHARE],
     canSubscribe: true,
     // Room chat travels over LiveKit between the people in the room only, with the sender set by
     // LiveKit (it can't be faked) and nothing stored.
