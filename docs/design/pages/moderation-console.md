@@ -27,6 +27,7 @@ Right column (actions):
 - List: applicant nickname, account age, rooms joined, reports against them, moods requested, short answers.
 - Actions: Approve for moods (checkboxes) · Ask for more info · Decline (with reason sent).
 - Support moods need training complete before approval.
+- Applications now include the host quiz score and three written answers (`hosts-and-listeners.md` › Becoming a host). A second list, **Listener requests**, shows hosts who reached the listener bar (sessions hosted, thank-yous, reports, reviews) with Approve or Not yet. Teachers are approved the same way. Any status can be removed at any time.
 
 ## 4. Live rooms overview
 - Grid of open rooms: title, mood/topic, host, people count, open reports in the last 30 minutes.

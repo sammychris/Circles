@@ -72,6 +72,21 @@ Use existing, proven game code plugged into rooms where possible, instead of bui
 
 ---
 
+## Helping, teaching and earning (Sammy, 9 October 2026)
+
+Besides games, two things matter most: **people who are down** and **people who want to learn**. Both need good people on the other side, and Circles gives them a path. Full plan: `docs/design/pages/hosts-and-listeners.md`.
+
+- **The ladder:** member → **host** (hosts free support groups) → **listener** (one-on-one sessions) or **teacher** (paid classes and sessions).
+  - Anyone willing to help can apply to host. They read a short guide, pass a "what would you do?" quiz, and Sammy approves.
+  - Hosts who help well over time (many sessions, many "this helped me" thank-yous, no reports) can become listeners, again approved by Sammy. Teachers earn their status the same way.
+- **Support door, two ways in:**
+  - **Free support groups:** always free, always with a host, at least 3 people. Hosts can schedule them.
+  - **One-on-one with a listener:** a short free start, then paid through Circles (once payments exist). The person asks privately; listeners never sell in groups.
+- **Free groups are where trust is built.** Listeners meet people by helping for free, and people who want more can ask for one-on-one. This brings helpers to Circles too: "Help people, grow your name, and earn when you're ready."
+- **Learning:** teachers use the Table as their board (slides, pointer, pen) and can run paid classes or single sessions.
+- **Reviews** exist only for hosts, listeners and teachers, shown as kind summaries, never as leaderboards.
+- **Help is never locked behind money.** Group support rooms and the crisis help line are always free.
+
 ## Already decided (details in the Circles plan doc)
 
 - Free peer rooms: 6–7 people, everyone talks, nobody broadcasts.

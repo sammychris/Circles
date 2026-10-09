@@ -48,6 +48,20 @@ Turns and moves through Supabase Realtime while everyone keeps talking.
 
 Same code running in a browser; list what works and what doesn't.
 
+## Phase 2 — Hosts, listeners and teachers (Sammy, 9 October 2026)
+
+Full plan: `docs/design/pages/hosts-and-listeners.md`. One step at a time, each with Sammy's yes first. Steps H1 to H6 need no payments.
+
+- **Before H1:** the phone test of everything built so far, plus the small group-page fixes (Report group first).
+- **H1. Becoming a host:** Me › Help others › Become a host, the host guide, the "what would you do?" quiz, three written answers, and an approval list for Sammy. Approved hosts get the Host chip and can host support rooms.
+- **H2. Hosts schedule support groups:** once or weekly. They're listed only in the support door, never in Explore, and their reminders never name the room.
+- **H3. The host's own record:** sessions hosted and thank-yous, private to the host and Sammy, with progress towards becoming a listener.
+- **H4. Listeners and free one-on-one:** Sammy approves listeners. "Talk one-on-one" on a listener's card (who taps it stays private), the listener's times, and a two-person support room with a free time limit. Contact details are blocked in chat, and "Asked me to pay outside Circles" is a report reason.
+- **H5. Reviews:** after one-on-one sessions (later also classes), shown only as kind summaries.
+- **H6. Teaching on the Table:** slides, a pointer, and a pen.
+- **H7. Payments (when Sammy decides):** Paystack or similar, paid one-on-one beyond the free part, paid classes and sessions, earnings and payouts. Needs a business account and a legal check on paid support first.
+- **H8. "Become a host" in the app and in marketing:** help people, grow your name, earn when you're ready.
+
 ## Later
 
-More games (draughts, chess, Whot, Find the Impostor, Mafia), hosted paid rooms, payments, Circles Plus, the Table.
+More games (Draw and Guess, Ayo, Finish the Line, Story Chain, On the Same Wave), Circles Plus, iPhone build, installable web version.

@@ -4,7 +4,7 @@ Claude Code updates this file at the end of every build step. Newest entries at 
 
 ## Current step
 
-**Room sizes, game mode, scores, optional email, the bottom bar, scheduled rooms with weekly groups and phone reminders, and in-app invitations (NEXT.md items 1 to 5) are built and reviewed, not yet tested on phones. Game mode and reminders need one new app build. Invitation alerts on the lock screen are built too and need that same new build (Firebase is set up). Everything still waits for Sammy's Supabase updates (migrations `20261011000000_scheduled_rooms.sql`, `20261012000000_invitations.sql` and `20261013000000_push_tokens.sql`), the new build, and the phone test. The to-do list is in `docs/NEXT.md`. Read it next.**
+**Everything from NEXT.md items 1 to 5 is built, reviewed and merged into `main` (pull requests #2 and #3, 9 October 2026): room sizes, game mode, scores, optional email, the bottom bar, scheduled rooms and weekly groups with phone reminders, invitations and their lock-screen alerts. Sammy has made the new build, run the database files and set up Firebase and Brevo; the phone test is next. The next phase is planned, not started: hosts, listeners and teachers (`docs/design/pages/hosts-and-listeners.md`, build plan Phase 2). Nothing in it gets built until Sammy picks the first piece. The to-do list is in `docs/NEXT.md`. Read it next.**
 
 Every choice made so far, and Sammy's click-by-click steps, are in `docs/BUILD_NOTES.md`.
 
@@ -12,14 +12,24 @@ Still open from Step 1: a test with a friend in another place on their own mobil
 
 ## Decisions made
 
+- **Hosts, listeners and teachers (Sammy, 9 October 2026), the next phase:**
+  - **The ladder:** member → host → listener or teacher. Anyone willing to help can apply to host: a guide, a "what would you do?" quiz (not an IQ test: it checks listening and safety judgment) and written answers, approved by Sammy. Hosts who help well (default: 10 sessions over 4 weeks, 20 "this helped me" thank-yous, no upheld reports) can become listeners, approved by Sammy.
+  - **Support door:** free host-led groups (always free, at least 3, hosts can schedule them, only in the support door) and one-on-one with a listener (a short free start, default 15 minutes, then paid once payments exist; the person asks privately; no selling in groups; contact details blocked; "Asked me to pay outside Circles" is a report reason). Never an unhosted support room; never one-on-one without an approved listener.
+  - **Learning:** teachers earn their status the same way, run paid classes or single sessions, and use the Table as a board (slides, pointer, pen).
+  - **Reviews** only for hosts, listeners and teachers, shown as kind summaries, never leaderboards (an exception added to CLAUDE.md's Never list).
+  - **Money:** listeners and teachers set prices, and Circles keeps a share (percentage to decide). Payments and a legal check on paid support come when Sammy decides. Help is never locked behind money.
+  - Full plan: `docs/design/pages/hosts-and-listeners.md`; order: `CIRCLES_BUILD_PLAN.md` › Phase 2.
+- **Saving work (Sammy, 9 October 2026):** commits are signed as Samuel Christopher so they count on his GitHub graph, with Claude credited in each message. Work goes to `main` through pull requests (`CLAUDE.md` › Saving work with git). The 72 older commits stay signed as Claude.
+- **A Circles domain name** (about $10–20 a year) is Sammy's decision for later, for trusted email and the web version. Until then, email codes come from his Gmail through Brevo.
+
 - Stack: Expo React Native, Supabase, LiveKit Cloud (Agora as backup), Termii for SMS codes. See `CIRCLES_ARCHITECTURE.md`.
 - Design: Lamplight (warm dark theme, Nunito, one ember action colour). See `CIRCLES_DESIGN_DIRECTION.md`.
-- No tab bar: Home has the doors (see `docs/screens/01-home.png`).
+- Home has the doors (see `docs/screens/01-home.png`). Since 8 October 2026 there is also a bottom bar (Home, Explore, Groups, Me); see below.
 - Sign-up for the open test (5–6 days of public testing): nickname + 18+ question only, email optional, every room open to everyone, no bot check. Sammy will make email and then phone required later. Decided 2026-10-08, after hearing the risks (abusers coming back, vulnerable people in support rooms).
 - Block and Report (Step 2b) get built before the open test starts.
 - Room sizes (Sammy, 2026-10-08): support rooms need 3 people and a trained host before anyone can talk (`rules.supportMinPeople`); every other room lets one person wait and goes live at 2 (`rules.roomMinPeople`). A live room that drops below its minimum gets a 2-minute countdown with mics paused, then closes. Games keep their own minimums (Find the Impostor 3, Mafia 5); the game list says "Needs at least N people" when the room is too small. Earlier, every room needed 3.
 - Every room holds 6 for now, support rooms included (the design allows 10, but the seat circle draws 6, and nobody should be in a room unseen).
-- Support rooms only ever run with a trained host. Hosts are rows in the `hosts` table that Sammy adds.
+- Support rooms only ever run with a trained host. Hosts are rows in the `hosts` table that Sammy adds (until Phase 2 step H1 adds applying in the app).
 - Ludo is our own code (no outside licence), for two teams (Sun and Sky). Nothing about a game is saved.
 - Thank-yous are stored privately; no total is shown to anyone (Never list: no scores). Sammy to decide if anything should show.
 - Game mode (Sammy, 2026-10-08; built the same day): a game on the table turns the room into one full, non-scrolling game screen (`docs/design/pages/game-mode.md`): faces at the top (fold to one line), the board at full width, only the mic and Chat at the bottom, everything else in the ⋯ menu, Leave room asks first. Your own moves show straight away and slide back if the starter's phone doesn't confirm within 3 seconds. Pieces slide, tokens hop, cards fly; Reduce motion turns these into fades. Quiet game sounds (made for Circles by `scripts/make-sounds.py`, mixed in with the voices) with an on/off switch in the ⋯ menu and in Me; buzzes from `expo-haptics`. `expo-audio` and `expo-notifications` were added together, so one new build covers sounds and later reminders. Details and choices: `docs/BUILD_NOTES.md` part 14.

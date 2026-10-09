@@ -51,6 +51,7 @@ Sammy is not technical with terminals. So:
 - **Use the theme, not raw values.** Turn `docs/design/tokens.json` into one theme file once and use it everywhere.
 - **Keep secrets out of the code.** API keys and passwords go in environment files that are never committed. Tell Sammy where each key comes from.
 - **Row Level Security on every Supabase table**, as the architecture says.
+- **Setting up the project:** create the Expo app inside this folder without deleting or moving `docs/`, `CLAUDE.md` or `.claude/`. If the setup tool refuses because the folder isn't empty, create it in a temporary folder and move the files in.
 
 ## Saving work with git
 
@@ -58,14 +59,15 @@ Sammy is not technical with terminals. So:
 - **Credit Claude in every commit message** with a `Co-Authored-By: Claude <noreply@anthropic.com>` line at the end (plus any other attribution lines the session asks for).
 - **Work goes to a side branch, then into `main` through a pull request.** Open the pull request and merge it when Sammy asks. After a merge, start the next work from the latest `main`.
 - Never rewrite `main`'s history (no force-push to `main`).
-- **Setting up the project:** create the Expo app inside this folder without deleting or moving `docs/`, `CLAUDE.md` or `.claude/`. If the setup tool refuses because the folder isn't empty, create it in a temporary folder and move the files in.
 
 ## Never
 
 - Never show anyone that a person is in a support ("I need someone to talk to") room. Not friends, not "in a room".
 - Never put games, adverts or shared photos in support rooms.
 - Never let a game vote, role or result remove or mute a real person.
-- Never keep scores, streaks or rankings after a room ends.
+- Never keep scores, streaks or rankings after a room ends. (Only exception, Sammy's decision of 9 October 2026: reviews of hosts, listeners and teachers, shown only as kind summaries like "Helped 40 people", never as leaderboards.)
+- Never open a support room without a host, and never allow a one-on-one support conversation unless one side is a listener Sammy approved.
+- Never let anyone sell in a support room. People ask for one-on-one privately; listeners never pitch. Never ask anyone for money in the middle of a conversation, and never lock help behind money: group support rooms and the crisis help line are always free.
 - Never let someone speak before they've passed the 18+ question and chosen a nickname. During the open test (Sammy's decision, October 2026) email is optional; email and phone checks become required later, when Sammy decides.
 - Never show a real name or phone number. Only the chosen nickname.
 - Never show who saved or followed whom. Saves only connect when both people save each other, and only those two people see the connection.

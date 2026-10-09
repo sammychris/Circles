@@ -1,10 +1,18 @@
 # Circles: what's next
 
 The to-do list for the next Claude Code session. Read it after `docs/PROGRESS.md`.
-Last updated 2026-10-08.
+Last updated 2026-10-09.
 
-Everything up to here is built, reviewed by `circles-reviewer`, and pushed to
-`claude/gallant-faraday-7s2l1w`, and carried on in `claude/dreamy-meitner-mjoykp`. None of it has been tested on phones yet.
+Everything up to here is built, reviewed by `circles-reviewer` and merged into `main` (pull requests #2 and #3). None of it has been tested on phones yet.
+
+---
+
+## 0. Now: the phone test, then the next phase
+
+1. **Phone test** with 2 to 3 people, using the checklists in `docs/BUILD_NOTES.md` parts 14 to 21. Fix what it finds first.
+2. **Small fix:** Report group on the group page (group names are written by people), then Share, a description, the host's picture and "Remind me if a spot opens" (`circle-detail.md`).
+3. **Next phase: hosts, listeners and teachers** (Sammy, 9 October 2026). Full plan: `docs/design/pages/hosts-and-listeners.md`; order: `CIRCLES_BUILD_PLAN.md` › Phase 2 (H1 to H8). Ask Sammy which piece first; H1 (becoming a host) is the natural start.
+   - **Open questions for Sammy:** the numbers (account age, sessions and thank-yous to become a listener, the 15-minute free start, session lengths), Circles' share, when payments start, the legal check before paid support, and whether hosts also need a short call with him.
 
 ---
 

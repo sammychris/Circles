@@ -1,6 +1,6 @@
 # Paid groups, payments and Circles Plus (Phase 3)
 
-Talking stays free. Money exists only for hosted classes and Circles Plus. No gifts, no tipping, no leaderboards, nothing that turns money into status.
+Talking stays free. Money exists only for hosted classes, single paid sessions, one-on-one sessions with listeners (after a free start) and Circles Plus. Group support rooms and the crisis help line are always free. No gifts, no tipping, no leaderboards, nothing that turns money into status. Who can charge, and how they earn it: `hosts-and-listeners.md` (decided 9 October 2026).
 
 ## Paid group detail
 Same shape as group detail, with:

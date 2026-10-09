@@ -62,6 +62,7 @@ The app reads this table (store it as data, not as code branches). A new kind of
 | Kind | People | Host | Allowed on the table | Money | Adverts |
 |---|---|---|---|---|---|
 | `support` (Need someone to talk to) | 3–10 | Trained host only | note, link (host can turn off) | Free | Never |
+| `support.one_on_one` (Talk one-on-one) | 2 | An approved listener only, never started by a member | none | Free start, then paid through Circles (once payments exist) | Never |
 | `talk.mood` (Want to laugh, Need advice, Just chat) | 3–6 free, up to 10 hosted | Optional | note, link, quiz, turns | Free | Never |
 | `talk.topic` (incl. debate, faith, politics) | 3–6 free, up to 10 hosted | Optional | note, link, photo, turns | Free | Never |
 | `learn.practice` | 3–7 | Optional | note, link, words | Free | Undecided; never inside a room |
