@@ -51,6 +51,13 @@ Sammy is not technical with terminals. So:
 - **Use the theme, not raw values.** Turn `docs/design/tokens.json` into one theme file once and use it everywhere.
 - **Keep secrets out of the code.** API keys and passwords go in environment files that are never committed. Tell Sammy where each key comes from.
 - **Row Level Security on every Supabase table**, as the architecture says.
+
+## Saving work with git
+
+- **Commits are signed as Sammy**, so they count on his GitHub activity graph: before the first commit in a session, run `git config user.name "Samuel Christopher"` and `git config user.email "ebusameric@gmail.com"`. (Sammy's decision, October 2026.)
+- **Credit Claude in every commit message** with a `Co-Authored-By: Claude <noreply@anthropic.com>` line at the end (plus any other attribution lines the session asks for).
+- **Work goes to a side branch, then into `main` through a pull request.** Open the pull request and merge it when Sammy asks. After a merge, start the next work from the latest `main`.
+- Never rewrite `main`'s history (no force-push to `main`).
 - **Setting up the project:** create the Expo app inside this folder without deleting or moving `docs/`, `CLAUDE.md` or `.claude/`. If the setup tool refuses because the folder isn't empty, create it in a temporary folder and move the files in.
 
 ## Never
