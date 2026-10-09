@@ -1,4 +1,4 @@
-import { useEffect } from 'react';
+import { useEffect, useRef } from 'react';
 import { View } from 'react-native';
 import { radius, space, useColors } from '../theme';
 import { Text } from './Text';
@@ -7,11 +7,13 @@ const SHOW_MS = 3000;
 
 export function Toast({ message, onDone }: { message: string | null; onDone: () => void }) {
   const colors = useColors();
+  const done = useRef(onDone);
+  done.current = onDone;
   useEffect(() => {
     if (!message) return;
-    const timer = setTimeout(onDone, SHOW_MS);
+    const timer = setTimeout(() => done.current(), SHOW_MS);
     return () => clearTimeout(timer);
-  }, [message, onDone]);
+  }, [message]);
 
   if (!message) return null;
   return (

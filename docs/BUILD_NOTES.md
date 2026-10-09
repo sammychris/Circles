@@ -1,0 +1,724 @@
+# Build notes: the five features (open to change)
+
+Sammy asked me to build five features in a row without stopping, make the choices myself, and write them all down here so he can change anything later. Every decision below is **open to change**: tell me which one, and I'll change it.
+
+Each part ends with **What you need to do**, if anything.
+
+---
+
+## 1. Privacy Policy and Terms
+
+**What I built**
+- Both pages are inside the app, in plain words. You can read them from the Welcome screen (the words "Terms" and "Privacy Policy" are now links) and from **Me** at any time.
+- The text lives in one file: `src/content/legal.ts`. Change the words there.
+
+**Choices I made (open to change)**
+- **They describe what Circles really does today:** nickname and date of birth kept, thank-yous and who opened a room kept, voice and chat never recorded, game words and votes deleted within a few hours, the technical records our providers keep, data handled by Supabase, LiveKit and Expo, nothing sold, no adverts in rooms.
+- **They say what deleting your account really does:** your nickname, date of birth, saves, blocks and thank-yous go straight away. Reports you sent **stay**, without your account linked, so someone who was harassed and then leaves doesn't wipe their own report. A report about someone keeps the nickname they had.
+- **They say support rooms are not a crisis, medical or emergency service**, and tell people in danger to contact emergency services.
+- **They say Nigerian law applies**, and mention the rights Nigerian data protection law gives people (see their data, correct it, delete it).
+- **They say data may be stored outside Nigeria**, without naming a country, because I don't know your Supabase region and LiveKit uses servers around the world.
+- **There's no company name.** They say "Circles" and "we".
+- **There's no contact email yet,** because I won't publish your personal email without asking. Until you give one, the text tells people what works today: tap Report in a room, choose "The whole room" and write their question. It reaches your reports list.
+
+**What you need to do**
+1. Read both pages in the app and tell me anything to change.
+2. **Before you share Circles widely, send me a contact email** for privacy questions, for example a new Gmail just for Circles. Nigerian data law expects one. I'll put it in, and it replaces the "tap Report" line.
+3. Optional: tell me which region your Supabase project is in (Supabase › Project Settings › General › Region) if you'd like the page to name it.
+4. Before a wide launch, ask a Nigerian lawyer to check both pages. These are good, honest drafts, but I'm not a lawyer.
+5. The Google Play Store needs the Privacy Policy at a public web address. Once the web version is online (part 2), use `/?page=privacy` on that address (for example `https://circles.expo.app/?page=privacy`). That form works on any web host.
+
+---
+
+## 2. Join from a link
+
+**What I built**
+- **Invite** at the top left of a room. It opens your phone's share menu (WhatsApp and so on) with a message like "Come and talk with me on Circles: https://…/?room=…&by=YourNickname".
+- **The link page** (`docs/screens/16-join-from-a-link.png`): "Ada_K invited you to", the room's name, how many people are there, then **Join in your browser**.
+- **Joining:** they answer the 18+ question, pick a nickname, and go straight into that room. The room works in the browser too, with Report, Block, Leave and help.
+- **If the room has ended:** the page says "This room has ended" and offers **Find a room**.
+- **If the room is full:** it says so and offers **Find a room**.
+- **Phones with the app:** they open `circles://r/<room>` links straight in the app. On Android browsers the link page also has **Open in the Circles app**. It's hidden elsewhere, because there's no iPhone app and the app isn't in the Play Store yet. The design's "Get the app instead" comes once there's a store page to send people to.
+- **Already signed in on the app:** a link takes you straight into the room. If the room has ended you see "This room has ended" and **Find me another room**. If you're already in a room, the link waits until you leave; nobody is pulled out of a room.
+- **Your legal pages** have web addresses too: `/?page=privacy` and `/?page=terms`. You can give those to the Play Store.
+
+**Choices I made (open to change)**
+- **No Invite for support rooms, ever.** Nobody can be shown to be in one, and a link to one shows "This room has ended". The room server also refuses to let anyone but a host into a support room by its id, so support rooms are only reachable through the "Need someone to talk to" door.
+- **The inviter's name on the link page is checked.** Names that look like a phone number, or that could pass for the team ("Circles_Team", "Admin", "Support"…), aren't shown. Those names can't be chosen as nicknames any more either.
+- **The link page shows how many people are in the room, never who.** The visitor hasn't met them yet. Taken seats are plain, without names.
+- **The link carries your nickname** (`by=`), so your friend sees who invited them. It's never your real name.
+- **Links look like `/?room=…`** rather than `/r/…`, so they work on any simple web host. The app still understands `/r/…` links.
+- **No text code in the browser**, because the open test has no phone check. It's the same sign-up as the app.
+- **In the browser, a small note** says "Keep this tab open. If your screen locks, the sound may stop." Phone browsers can do that, and the app doesn't. It shows once per visit.
+- **There's no "I already have an account" on the link page** while email is switched off. It comes back when email does.
+- **The Invite button stays hidden until the web version is online**, so nobody shares a link that doesn't work yet.
+
+**What you need to do: put the web version online (about 10 minutes, free)**
+
+Expo, which you already use, can host the web version. In PowerShell, in your `Circles_app` folder, after `git pull`:
+
+1. Copy the three public values Expo already has into a local file:
+   ```
+   npx eas-cli env:pull --environment development
+   ```
+2. Build the web version:
+   ```
+   npx expo export --platform web
+   ```
+3. Put it online. The first time, it asks you to choose a name; type `circles` or similar:
+   ```
+   npx eas-cli deploy --prod
+   ```
+   At the end it prints your web address, something like `https://circles.expo.app`. **Send it to me.**
+4. I'll then give you one command to store that address. After that, you rebuild the app and run steps 2 and 3 again, so the **Invite** button appears in both the app and the browser.
+
+I couldn't run these commands from the cloud, because the network here blocks Expo's servers. If any step prints something unexpected, paste it to me.
+
+**Known limits (open to change)**
+- A paused person can delete their account and make a new one. Without email or phone checks there's no way to tell it's the same person. Email and phone checks, when you turn them on, fix this.
+- The link page asks the room server how many people are in a room each time it opens. It's cheap, but if someone hammered it on purpose it could add a little to the LiveKit bill. If that ever shows up, I'll add a limit.
+
+---
+
+## 3. Chat in rooms
+
+**What I built**
+- A **Chat** button in the room's bottom row (speech-bubble icon). A small ember number shows how many new messages you haven't read.
+- Tapping it opens the chat from the bottom: everyone's messages with their nicknames, and a box to type with a round send button. Emoji work.
+- Tapping someone's name in the chat opens the usual Save, Block and Report for them.
+
+**Choices I made (open to change)**
+- **Chat is never stored.** Messages go straight between the phones in the room, through LiveKit, and disappear when you leave. Nobody, including you, can read them later. The Privacy Policy already says this.
+- **Text only.** No photos, no voice notes, and links don't open. That keeps support rooms free of shared photos, as the rules say.
+- **Chat is in every room, support rooms too.** Some people find it easier to type than to speak when they're low. Tell me if you'd rather turn it off in support rooms.
+- **Chat follows the same rule as the mics.** While a room is waiting for its second person (third in support rooms), or a support room has no trained host, you can read the chat but not send ("Chat opens when someone joins"). Support rooms keep the 3-person rule so someone who is down is never alone with one stranger.
+- **Messages from people you've blocked are hidden**, including ones they sent before you blocked them.
+- **Up to 300 characters and 4 lines a message, and 5 messages in 10 seconds.** Faster than that, it says "Slow down a little". A changed app that tries to flood the chat is ignored by everyone else's phone.
+- **Names can't be faked.** The name on a message comes from the room server, not from the message, and phones aren't allowed to change their own name or host badge.
+- **You only see messages sent after you joined.** There's no history, because nothing is stored.
+- **Reports can't include chat messages yet**, because they aren't stored. People can copy a message (press and hold) into the report's "Tell us more" box.
+
+**What you need to do**
+- Update the room server (`livekit-token`) the same way as before, so phones are allowed to send chat. It's in the list at the end.
+
+---
+
+## 4. Raise hand
+
+**What I built**
+- A **Raise hand** button in the room's bottom row (hand icon). Tap it and your seat shows a small ember hand and "Hand up" under your name, for everyone in the room. The button turns ember and says **Lower hand**.
+- **Your hand comes down by itself when you start talking** (when you unmute).
+- Screen readers say "Ada_K, muted, hand up".
+
+**Choices I made (open to change)**
+- **A hand is a gentle "I'd like to say something".** In free rooms nobody has to let you in: everyone can unmute any time. The hand just helps quieter people get a turn.
+- **Only the room server can raise or lower a hand**, through the `livekit-token` function. This stops a changed app from faking its name or a "Trained host" badge.
+- **Not during games.** Ludo and Find the Impostor draw their own seats, which don't show hands, so the button steps aside during a game and any raised hand comes down when a game starts.
+- **While you're talking, Raise hand is greyed out.** You already have the floor.
+- **A hand can change at most once every 3 seconds**, so nobody can make it flash at others.
+- **The hand badge takes the place of the muted badge** on a seat while a hand is up (the design shows both badges in the same corner). Screen readers still say "muted, hand up".
+- **Not built yet: the host's "Hands" list** (the design's "2 hands up · See hands", Let in, Not now). That belongs with hosted rooms, where the host decides who speaks. Free rooms and support rooms don't have speaker turns yet.
+
+**What you need to do**
+- Update the room server (`livekit-token`). It's in the list at the end.
+
+---
+
+## 5. Start something
+
+**What I built**
+- **"Start a talk room"** at the end of the room list under **I want to talk**, and **"Start a game room"** at the bottom of **Let's play**.
+- One page (`docs/screens/17`): name your room (up to 40 characters), pick a topic (Football, Music, Faith…, optional, Talk only), choose how many people (up to 4, 5 or 6), and who can join: **Anyone** or **Invite only**. Then **Start the room**, and you're in it.
+- **Anyone** rooms appear in the door's **Open now** list with their topic ("Football · 4 of 6 seats"). **Let's play** now has an Open now list too.
+- **Invite only** rooms are never listed. When you start one, your share menu opens so you can send the link straight away.
+
+**Choices I made (open to change)**
+- **Talk and Play only, starting now.** The design's step 1 (Talk, Learn, Play) and step 2 (once or every week) wait until Learn and weekly groups exist. Coming from a door, you skip straight to the details, as the design says.
+- **Rooms people start are never filled by "Find my room" or "Play now".** Someone who picked "Want to laugh" shouldn't land in "Arsenal fans". People find them in the list, or by link.
+- **Nobody can start a support room.** Those only open for trained hosts. The database refuses it too.
+- **Room names are checked**, because strangers see them: 3 to 40 characters, no phone numbers, no web links, no @names, and nothing that passes for the Circles team or for trained help ("Circles official", "Admin", "Someone to talk to", "crisis", "helpline", "therapist", "counsellor", "support group", "suicide"…). Tricks like "C1rcles", "Circ les" or look-alike letters are caught too. **This word list is a safety choice: tell me any words to add or remove.** Support rooms always have a trained host, so a room pretending to be one could fool someone who's low. Anyone can still report a room with a bad name (Report, then The whole room).
+- **At most 3 rooms an hour per person**, so nobody floods the lists. Someone determined could get round it with several anonymous accounts. Email or phone checks fix that later.
+- **A room someone started ends once nobody has been in it for 15 minutes.** Old links then say "This room has ended". If the room server can't reach LiveKit, it never closes a room for looking empty.
+- **You choose who can join every time.** Neither "Anyone" nor "Invite only" is picked for you, because "Anyone" lists your room publicly. The size starts at "Up to 6", the normal room size.
+- **If a room doesn't start** (a name the server refuses, or too many rooms this hour), **Back** returns you to the form with what you typed.
+- **In a browser, the share menu can't open by itself**, so an invite-only room shows "Tap Invite to send the link" instead.
+- **Nobody can read who started a room**, not even through the database.
+- **Invite only needs the web version online** (part 2), because it works by link. Until then that choice is greyed out and says so.
+- **No host role for the person who starts a room.** Everyone has the same controls, as in other free rooms. The design's "creator becomes host" comes with hosted rooms.
+- **Sizes are 4, 5 or 6.** The room goes live when a second person joins.
+- **Not built yet:** a description (280 characters), "Start a room with friends" on My people, weekly groups with reminders, and hosted rooms of up to 10.
+
+**What you need to do**
+- Run the new database update and update the room server. Both are in the list below.
+
+---
+
+## What you need to do for all five (in order)
+
+1. **Database update:** in Supabase, SQL Editor, New query: paste `supabase/migrations/20261010000000_open_test_extras.sql` from GitHub (Copy raw file), click **Run**, and expect **Success**. It's safe to run twice.
+2. **Room server:** in Supabase, Edge Functions, **livekit-token**, Code: replace everything with `supabase/functions/livekit-token/index.ts` from GitHub and click **Deploy**.
+3. **New app build:** in PowerShell, in your `Circles_app` folder:
+   ```
+   git pull origin claude/gallant-faraday-7s2l1w
+   npm install
+   npx eas-cli build --profile preview --platform android
+   ```
+   Install it on each phone from the link when it's done.
+4. **Web version (for Invite and Invite only):** the steps in part 2.
+5. **When you can:** send me a contact email for the Privacy Policy (part 1).
+
+## Phone checklist (3 phones)
+
+- [ ] **Welcome:** tap Terms, then Privacy Policy. Both open and read clearly.
+- [ ] **Me:** Privacy Policy and Terms are there too.
+- [ ] **Chat:** in a room with 3 people, tap **Chat** and send "hello". The other phones show a small number on Chat; open it and they see your message with your nickname.
+- [ ] **Chat on your own:** alone in a room, it says "Chat opens when someone joins".
+- [ ] **Block:** block someone, and their chat messages disappear for you.
+- [ ] **Raise hand:** tap **Raise hand**. The others see a hand and "Hand up" on your seat. Tap the mic to talk, and the hand comes down by itself.
+- [ ] **Start a talk room:** I want to talk, then **Start a talk room**. Name it "Test room", pick Football, then **Start the room**. On another phone, I want to talk shows "Test room · Football" in Open now. Join it.
+- [ ] **Bad name:** try naming a room "Call 08031234567". It says to leave phone numbers out.
+- [ ] **Start a game room:** Let's play, then **Start a game room**. It opens a game room where Play a game works once 2 are in (Find the Impostor needs 3, Mafia 5).
+- [ ] **Once the web version is online:** Invite in a room shares a link. Opening it in a phone browser shows "YourName invited you to…". Invite only rooms open the share menu by themselves, and never show in Open now.
+
+---
+
+## Over-the-air updates (no more reinstalling)
+
+**What I set up**
+- The app can now receive changes without a new install. The add-on is `expo-updates`, linked to your Expo project (`dc307e92-…`).
+- The build also carries three new phone features, ready for the Table: a web viewer (YouTube and Vimeo), a photo picker (your photo library only, no camera), and Android's screen-sharing permission.
+- **Me** shows "Version 1.0.0 · updated 8 Oct, 14:05" once an update has arrived, or "as installed" before that.
+
+**When you need a full build again:** only when I add a new phone feature. I'll always say so, and I'll raise the app version so old installs never get an update they can't run.
+
+**How to send an update** (when I tell you one is ready), in PowerShell in your `Circles_app` folder:
+```
+git pull origin claude/gallant-faraday-7s2l1w
+npm install
+npx eas-cli update --channel preview --environment development --message "What changed"
+```
+Then on each phone: open Circles, close it fully (swipe it away), and open it again. The first opening downloads the update; the second uses it. Check **Me** for the new "updated" time.
+
+---
+
+## 6. The Table: notes, Watch together, photo slides, Share my screen
+
+**What I built**
+- A **Table** button in every room's bottom row (Raise hand, Chat, Table, Leave, as in the design). It opens **Put on the table** (`docs/screens/18`):
+  - **A note or link:** up to 500 characters. The first line reads as a headline (`docs/screens/19`). Links show only the site name ("bbc.com") and ask before leaving Circles.
+  - **Photos:** pick up to 20 from your phone. They're made smaller before sending.
+  - **Share my screen:** like a WhatsApp call.
+  - **Watch together:** paste a YouTube or Vimeo link.
+  - **Games:** in game rooms, Ludo and Find the Impostor now live here too. The old "Play a game" button is gone.
+- **While something is on the table**, the seats move up into a row of small faces, and the card sits in the middle, as in the design.
+- **Your idea, for photos and videos: the presenter leads.** When the presenter moves to the next photo, or plays, pauses or skips the video, everyone follows. Anyone can go back on their own phone. They then see **Back to live**, which jumps them to wherever the presenter is.
+- **The card's options (•••):** **Take it off the table** for the person who put it there, or a trained host, and **Report it**. Every report made while something is on the table carries a short description of it, so the team can see what it was.
+
+**Choices I made (open to change)**
+- **Support rooms: notes and links only.** No photos, videos or screens, which is your existing rule. The room server also stops phones in support rooms from sending a screen at all.
+- **One thing on the table at a time.** Only the person who put it there (or a host) can take it off or replace it. If two people put something on at the same moment, the first one stays.
+- **When the presenter leaves the room, their item goes with them.**
+- **The table opens once the room is live** (2 people, 3 in support rooms), like the mics and the chat.
+- **Photos and shared screens are hidden until each person taps "Tap to see".** I went further than "blurred": nothing is drawn at all until you tap, because a blur can still show too much.
+- **Videos and shared screens only load when each person taps**, to save data. The presenter's own loads straight away.
+- **Watch together only accepts YouTube and Vimeo links**, shown in their official players, so the rights and ads stay with them. Private and age-restricted videos won't play. The video goes quieter while someone else is talking, and there's a tip that headphones stop the sound echoing into the room.
+- **The design's "Watch along"** was a countdown where everyone pressed play on their own device. Your idea, the video playing inside the room, replaces it.
+- **Photos** go into a private storage folder belonging to the person who shared them. They're shared as links that stop working after 3 hours, and the room server deletes them after 3 hours. Photos attached to a report are kept so you can check them in Supabase, under Storage, in the **table** bucket.
+- **Shared screens** are live only: never recorded, with no sound from the screen. They're sent at a quality that's light on data (720p, 5 pictures a second), which is fine for showing and explaining. Before sharing, the app warns: "Everyone in this room will see your whole screen, including messages and notifications that pop up."
+- **In a browser,** screen sharing works on computers only. Phone browsers can't share their screen.
+- **The Privacy Policy now covers photos, shared screens and the YouTube and Vimeo players.**
+- **Only a trained host can replace or take off someone else's item**, and then it goes for everyone. If you block the presenter, their item disappears for you.
+- **If the room drops below its minimum while you're sharing your screen, sharing stops.** The table hides then, so you'd have no Stop button.
+- **Photos are deleted from storage itself 3 hours after upload, oldest first.** A photo can't be missed, and reported ones are kept.
+- **A shared screen is only sent while someone is watching it**, to save the presenter's data.
+- **Not built yet from the Table design:** Words (for Learn), a photo ban for repeat reports, and a host switch to turn off notes in support rooms.
+
+**What you need to do**
+1. Run the database update again: `supabase/migrations/20261010000000_open_test_extras.sql` (it now also creates the photo storage). It's safe to run twice.
+2. Update the room server (`livekit-token`) again.
+3. These need the new build you're doing now (the web viewer, photo picker and screen sharing are in it). After that, the Table comes by over-the-air update.
+
+**Phone checklist (3 phones)**
+- [ ] Tap **Table**, then **A note or link**. Write "What's the best suya spot?" and put it on. All phones show it in the middle.
+- [ ] Tap ••• on the note, then **Take it off the table**. It's gone for everyone.
+- [ ] **Watch together:** paste a YouTube link. The others tap **Tap to watch**. Press play and pause on yours, and theirs follow. On another phone, rewind: **Back to live** appears and brings them back.
+- [ ] **Photos:** pick 3 photos. The others see **Tap to see**. Slide to the next one, and theirs follow. On another phone, go back: **Back to live** appears.
+- [ ] **Share my screen:** read the warning, allow it, then open another app. The others tap **Tap to see** and watch your screen. Tap **Stop sharing**.
+- [ ] In a support room, **Table** only offers **A note or link**.
+
+---
+
+## 7. Take turns and Quiz on the Table
+
+**What I built**
+- **Take turns** (Table, then Do together): an optional topic ("Your best Lagos traffic story") and how long each turn lasts: 1, 2 or 3 minutes. Everyone in the room is in the order, starting with whoever started it. People who arrive later join the end. The card shows whose turn it is (in green) and how long is left. When time's up it moves on by itself. The speaker can tap **Pass to the next person**, and the starter can tap **Next person**.
+- **Quiz:** a question with 2 to 4 answers. You can mark the right one; if you don't, it's a poll. Everyone taps an answer on their own phone and can change it until the reveal. The starter sees "3 of 5 answered" and taps **Reveal the answers**. Everyone then sees how many people chose each answer, with the right one ticked.
+
+**Choices I made (open to change)**
+- **Nobody ever sees who chose what**, only how many. Answers go only to the starter's phone, which just counts them. No points, scores or rankings, as your rules say.
+- **Not in support rooms.** Those keep notes and links only, as the design says.
+- **Turns don't mute anyone.** It's only a guide. Nobody is ever muted by a game or activity (your Never list).
+
+**Phone checklist**
+- [ ] Table, then **Take turns**, 1 minute. All phones see the order. After a minute it moves on by itself. The person whose turn it is taps **Pass**, and it moves on.
+- [ ] Table, then **Quiz**: ask "Best jollof?" with Lagos, Accra and Abuja, and mark Lagos. Others answer. Tap **Reveal**: everyone sees the counts, and nobody's name.
+
+---
+
+## 8. Host tools (trained hosts)
+
+**What I built** (from `docs/design/pages/room-host-view.md`)
+- A trained host sees **"You're the host"** under the room's title.
+- **Hands:** for the host, the Raise hand button becomes **Hands**, with a count. When hands are up, a strip above the buttons says "2 hands up", with faces and **See hands**. The list is oldest first, with "Waiting 2 min":
+  - **Let in:** the person sees "You can talk now. Unmute when you're ready." Nobody is ever unmuted for them.
+  - **Not now:** their hand comes down, and they see "The host lowered your hand. You can raise it again later." No reason is shown.
+- **Tapping a person** gives the host **Mute**, **Save, block or report**, and **Remove from room**. A muted person can unmute themselves.
+- **Remove from room:**
+  - The host must pick a reason: Unkind or insulting, Sexual or creepy, Spam or selling, Off-topic after a warning, or Other.
+  - There's a switch for "Also report to the Circles team", which turns on by itself for "Sexual or creepy". The confirm can't be closed by tapping outside it.
+  - The removed person sees **"You were removed from this room"**, the reason, the matching rule, and "You can't rejoin this room, but you can join others". They also get **This wasn't fair**, to send you a short note.
+  - The room server keeps them out of that room while it's open, by link, by list or by matching.
+- Only the room server can do these things, and only for people in your `hosts` table.
+
+**Choices I made (open to change)**
+- **Host tools work wherever a trained host is**, not only in support rooms. Trained hosts are people you trust.
+- **A host can't mute or remove another trained host.**
+- **A removal lasts 3 hours.** Rooms are reused, so a removal that never ended would shut someone out of support for good. 3 hours covers the room it happened in.
+- **Voice tickets now last 10 minutes** (LiveKit renews them while you stay), so a removed person can't sneak back with an old one.
+- **Removals are kept in the `room_removals` table**, with the reason and any appeal, for you to read in Supabase. The Privacy Policy now says so.
+- **Not built yet from the host design:** lock the room, pass host to someone, end the room for everyone, the host-leaving sheet, the 7-speaker limit, and the minimised room bar.
+
+**What you need to do:** run the database update and update the room server again.
+
+**Phone checklist** (your phone as the trained host, plus 2 others, in a support room)
+- [ ] You see "You're the host". Another phone raises a hand: you see "1 hand up" and **See hands**. Tap **Let in**: they see "You can talk now".
+- [ ] Raise again, then **Not now**: their hand comes down with the message.
+- [ ] Tap their seat, then **Mute**: they're muted and told. They can unmute.
+- [ ] Tap their seat, then **Remove from room**, then **Unkind or insulting**, then **Remove**. They see the removed screen and can't get back in with **Come in**.
+
+---
+
+## 9. My people: Start a room with friends
+
+**What I built:** an ember **Start a room with friends** button on My people. It opens an invite-only Talk room called "YourNickname and friends", with you in it, and your share menu opens so you can send the link.
+
+**Choices I made (open to change)**
+- **It needs the web version online, like every invite.** Until then the button is greyed out and says why.
+- **Not built yet:** "On now", which shows which friends are online and in what room. It needs privacy settings first ("Show friends when I'm online" and "Show which room I'm in"). I'd rather build those carefully, never showing support rooms, than rush it.
+
+---
+
+## 10. Rooms of up to 10 (support rooms)
+
+**What I built:** the seat circle now draws up to 10 seats. Rooms of 7 to 10 get a wider ring with smaller faces, as the design says. **Support rooms now hold 10**, with a trained host. Your own seat is always at the very bottom, whatever the size.
+
+**Choices I made (open to change):** free rooms stay at 6, and rooms people start can be 4, 5 or 6. The database update raises existing support rooms to 10.
+
+---
+
+## 11. Learn together
+
+**What I built** (`docs/screens/14` and `15`, `learn.md`)
+- **The Learn together door:** **Practise now**, language tiles (Igbo, Yoruba, Hausa, Pidgin, French, English) each with its greeting and how many groups are open, and skills (Public speaking, Coding basics).
+- **Each language or skill has its own page:** **Practise Igbo now**, "Your level: Beginner. Change", the practice groups open now, and **Start an Igbo practice group**.
+- **Your level** is asked the first time ("What's your Igbo like?": Beginner, Getting there, Fluent) and remembered on your phone.
+- **Matching** puts you with people learning the same language at the same level, up to 7 per room. If there's no room, you start one and others at your level join you.
+- **Words on the Table** (Learn rooms only): up to 10 words with meanings, one per line ("kedu = how are you"). You show them one at a time, so the room can try saying each one first.
+- In a Learn room the Table offers notes, Words, Take turns and Quiz.
+- Languages are sorted with the busiest first. While the list loads it says "Checking"; if you're offline it says so, with **Try again**. Practise now works either way.
+- More than 10 words? It tells you, instead of quietly dropping the extra ones. A screen reader reads each new word as it's shown.
+
+**Choices I made (open to change)**
+- **Pidgin and English are added** to the design's four languages, because they suit Nigeria. Tell me which languages and skills you want.
+- **No scheduled groups ("Tue 7pm") yet,** and no paid hosted classes. Those need reminders and payments. The page says "Hosted classes with verified teachers come later" instead of showing a made-up price.
+- **No link from the Igbo app yet** (`circles://learn/igbo`).
+
+**What you need to do:** run the database update and update the room server again.
+
+**Phone checklist**
+- [ ] Learn together, then **Igbo**, then **Practise Igbo now**. It asks your level; pick Beginner. You're in an "Igbo practice" room showing "Beginner".
+- [ ] A second phone picks Igbo and Beginner and lands in the same room. A third picking Fluent gets a different room.
+- [ ] In the room, Table, then **Words**: type "kedu = how are you" and two more. Tap **Show the first word**.
+
+---
+
+## 12. More games: Draughts, Chess in teams, Whot, Mafia
+
+All four are under Table, then Games, in game rooms, next to Ludo and Find the Impostor.
+
+**How they run:** whoever starts a game holds it on their phone. Everyone else's moves go there, are checked against the game's rules, and the result goes to everyone. Anything hidden (a Whot hand, a Mafia role) is sent only to the person it belongs to. Nothing is kept: no points, streaks or rankings. Whoever started a game can end it ("End game" in the bottom row). Everyone else gets **Leave game**: they stop playing but stay in the room. At the end, the starter gets "Play again" (only when there are still enough people), and everyone gets "Back to talking".
+- **A short drop-out doesn't throw you out.** If your signal drops, your place in the game (your Whot hand, your Mafia role) is kept for 30 seconds while you come back.
+
+**Draughts** (our own code)
+- Two teams, Sun and Sky, on the common 8 × 8 board.
+- Capturing is compulsory and a piece can jump several times in one turn. A piece that reaches the far side becomes a king, which moves one square in any diagonal direction.
+- Your team talks it over, then anyone on it taps a piece (it has a ring) and where it goes. Team Sky sees the board from its own side.
+- Pieces don't rely on colour: Sun's are solid with a sun, Sky's are hollow with a cloud, and kings have a crown.
+- It's a draw after 80 moves without a capture. A team with nobody left loses.
+
+**Chess in teams** (rules from chess.js, a free, open-source chess library, BSD licence)
+- Team Sun plays white, Team Sky black. (Changed in part 16: in a set, the teams take turns having the first move, and keep their own look.)
+- On your team's turn, anyone taps a piece and a square to suggest a move, for example "Ada_K suggests Knight to f3". It's played when most of the team taps **Agree**, or after 60 seconds with the latest suggestion, as the design says. Teammates can tap **Suggest another**.
+- The 60 seconds start with the first suggestion and don't restart, so nobody can hold the game up by suggesting again and again.
+- Sun's pieces are outlined, Sky's are solid, so they don't rely on colour.
+
+**Whot** (our own code, Nigerian rules)
+- 54 cards, 5 each.
+- 1 Hold on, 2 Pick two, 5 Pick three, 8 Suspension, 14 General market (everyone else picks one, and you play again), 20 Whot (call a shape).
+- Stuck? **Go to market**. First to finish wins.
+- **Your hand is only on your phone.** Everyone sees how many cards each person has.
+- Anyone who takes more than 60 seconds goes to market, so the game never stalls.
+- When the market runs out, the played cards are shuffled into a new market. If there are no cards left at all, whoever holds the fewest wins.
+
+**Mafia** (our own code)
+- **The person who starts it is the narrator**, as in the real game. They don't play, and they see the roles so they can narrate. It needs at least 5 people: a narrator and 4 players.
+- Roles: Mafia (two Mafia with 6 or more players), Doctor, Detective, and Townspeople. Each player sees only their own role, and can hide it. Two Mafia are told who their partner is.
+- **Night lasts at most 20 seconds, and everyone's mic is paused**, with "Night: the Mafia is choosing" shown on the mic. The design allows this for short secret phases only.
+  - Every phone lifts the pause by itself after about 22 seconds, even if the narrator's phone goes quiet.
+  - People whose mic was on are told "Night is over. Tap the mic to talk."
+- **Day:** everyone talks, then votes. While voting, only "3 of 5 have voted" shows. The result, with the number of votes, comes at the end of the day. Live counts would let people work out who voted for whom from the timing.
+- **"Out" players stay in the room**, keep listening and can chat; they just can't vote. Nobody is ever muted or removed for real.
+
+**Choices I made (open to change)**
+- **Draughts is 8 × 8.** Many Nigerians play 10 × 10 (international draughts); tell me if you'd like that instead.
+- **Whot's "General market" lets the player go again.** House rules vary; tell me yours.
+- **The starter's phone holds the whole game,** including everyone's Whot hand. Someone with a changed app could peek at the hands of a game they started. For the open test that's fine. Later, the cards can be dealt by the server, the way Find the Impostor's words already are.
+- **Nobody suggests a chess move, or a draughts team never moves?** There's no forced move: these are talking games, and the starter can End game. Tell me if you'd like a turn limit.
+- **Question for you: board size.** The boards are 280 points wide, as in the design, so each square is 35 points. That is smaller than the 44-point minimum for taps. A full-width board (about 340 on most phones) would give 42-point squares. Shall I widen it?
+- **Not built yet:** Draw and Guess, Ayo, Finish the Line, Story Chain, and On the Same Wave.
+
+**Phone checklist** (3 or more phones, in a game room)
+- [ ] Table, then **Draughts**: teams appear. Your team taps a ringed piece, then a square.
+- [ ] Table, then **Chess in teams**: suggest a move, and a teammate taps **Agree**.
+- [ ] Table, then **Whot**: each phone shows only its own cards. Play a 2, and the next person picks two.
+- [ ] With 5 phones: Table, then **Mafia**. The starter sees everyone's role and the others only their own. At night, mics pause and the night roles choose. By day, vote.
+
+## 13. Room sizes
+
+- **Support rooms need 3 people and a trained host** before anyone can talk, as before. The host counts as one of the 3. If a support room drops to 2, the 2-minute countdown starts.
+- **Every other room goes live at 2.** One person can start or join a room and wait in it ("Nobody's here yet"). If it drops to 1, the same 2-minute countdown runs, then the room closes.
+- **Games keep their own minimum.** In a room of 2, Ludo, Draughts, Chess and Whot can be played. Find the Impostor and Mafia are greyed out and say "Needs at least 3 people" or "Needs at least 5 people: a narrator and 4 players".
+- **Nothing to set up.** This is app-only; the room server already fills the fullest room first.
+
+**Phone checklist (2 phones)**
+- [ ] On one phone, I want to talk, then **Find my room**. It says "Nobody's here yet" and the mic says "Mic paused / Waiting for someone to join".
+- [ ] The second phone does the same and lands in the same room. Both mics turn orange ("You're muted / Tap to talk"). Talk.
+- [ ] In a game room with 2, tap the Table: Ludo works; Find the Impostor says "Needs at least 3 people".
+- [ ] One phone leaves. The other sees the 2-minute countdown ("Waiting for someone to join"). Joining again brings the room back.
+
+## 14. Game mode (a full screen for games)
+
+Built from `docs/design/pages/game-mode.md`. When a game goes on the table, every phone switches to one full screen that never scrolls:
+- **Faces at the top.** Small avatars, with team rings and icons in team games, the speaking glow, and "You". Tap the strip to fold it to one line ("5 here. Ada is speaking"). The speaker's name always stays.
+- **Whose turn it is**, in one line, under the faces.
+- **A bigger board.** It fills the screen width (about 41-point squares on the smallest phones, 44 or more on most).
+- **The game's own buttons** under the board.
+- **At the bottom: only the mic and Chat.** Muting is always one tap away.
+- **Everything else is in the ⋯ menu:** How to play, Hide faces, Sound on/off, Report or block someone, Leave game (or Stop watching, or End game), and Leave room. Leave room always asks first.
+
+**How it feels**
+- **Your own move shows straight away.** It's checked on your phone first, so wrong moves never start. If the starter's phone doesn't confirm it within 3 seconds, the piece slides back and it says "That move didn't go through. Try again." Dice and dealing still come only from one phone, so nobody can cheat.
+- **Movement:** pieces slide, Ludo tokens hop square by square, taken pieces fade, a new king flips, Whot cards fly to the pile and slide in from market, the dice tumbles. With the phone's Reduce motion setting on, these become quick fades.
+- **Draughts and Chess:** tap a piece then a square, or drag the piece.
+- **Sounds:** quiet sounds for your turn, dice, moves, captures, cards, market, Mafia night and day, and a win. They're mixed in with the voices, never pausing or lowering them, and follow the phone's silent switch. Sound on/off is in the ⋯ menu and in Me.
+- **Buzz:** a light buzz when you pick a piece or card, a firmer one on a capture or a "Pick two", and a buzz when it becomes your turn.
+- **Mafia's night** dims the screen around a moon and a countdown ring.
+- **When the starter leaves,** the game ends for everyone with "The game ended because Tolu left." and Back to the room.
+- **Stepped out of a game** (Leave game or Stop watching)? The room shows "Back to the game" while it's still going.
+
+**Choices I made (open to change)**
+- **The sounds are made for Circles** by a small script (`scripts/make-sounds.py`), not taken from a sound pack, so there's no licence to follow. If you'd rather have Kenney's sounds, I can swap them.
+- **Sound is on by default.** Games only run in play rooms, so Learn rooms never play game sounds.
+- **Each phone plays its own game sounds**, and the "your turn" chime only on the phones whose turn it is. The phone's echo cancelling should keep them out of your mic; the echo check below makes sure.
+- **"Report or block someone"** (the design says "Report someone"): you pick the person, then get their usual card with Save, Block and Report. Without it, Block couldn't be reached during a game, and the rules say Block and Report are on every person in a room.
+- **Play again** at the end of Ludo and Find the Impostor is for whoever started the game (anyone, once they've left). **Back to the room** closes the game on your phone only, unless you started it.
+- **Not done yet from the design:** the seats shrinking up into the face strip when a game starts (the board grows in instead), and the one-time glow on your movable pieces when your turn starts (the turn line glows).
+- **"Leave game" in Find the Impostor** takes you out of the screen on your phone only; your turn passes in silence.
+
+**What you need to do**
+1. **One new app build.** Sounds (`expo-audio`) and the later reminders (`expo-notifications`) are new phone features, so an over-the-air update isn't enough this time. On your computer, in PowerShell, in your `Circles_app` folder:
+   ```
+   git stash
+   git pull origin claude/dreamy-meitner-mjoykp
+   npm install
+   npx eas-cli build --profile preview --platform android
+   ```
+   When it's finished, open the link Expo gives you on each phone and install it.
+2. Nothing new in Supabase.
+
+**Phone checklist (3 phones)**
+- [ ] In a game room, start Ludo. Every phone switches to the full game screen, with the faces at the top and only the mic and Chat at the bottom.
+- [ ] Tap **Roll the dice**: it rattles and tumbles, then settles. Tap a token with a white ring: it hops square by square straight away.
+- [ ] Tap the faces: they fold to "3 here". Tap again to open them.
+- [ ] Tap **⋯**: How to play shows the rules. Turn Sound off: no more sounds. Turn it back on.
+- [ ] Tap **⋯**, then **Leave room**: it asks first. Tap **Stay**.
+- [ ] Start Draughts from the Table. Drag a piece to a square: it slides there. Take a piece: it fades with a firmer click.
+- [ ] Start Whot: tap a card to lift it, tap again to play it. It flies to the pile.
+- [ ] **Echo check:** with game sounds on, ask the others if they can hear your phone's game sounds through your mic. If they can, tell me and I'll lower them.
+- [ ] Lock the screen during a game: voice keeps going.
+
+## 15. Scores for the sitting
+
+Your idea (2026-10-08): keep the score while people keep playing, and celebrate the winner.
+- **Before Ludo, Draughts, Chess or Whot starts,** the person starting picks how to keep score: **Just keep count**, **First to 3 wins**, or **First to 5 wins**.
+- **During the game** the score sits at the end of the turn line: "Sun 2, Sky 1".
+- **At the end** of each game: the result, the score ("Team Sun 2, Team Sky 1") and "Good game. Scores are just for this room: they're gone when it ends."
+- **Play again keeps the same teams** and carries the score on. Anyone who joined goes onto the smaller team. **New teams** mixes them again and starts the score from zero.
+- **Whot** scores by person ("Ada_K 2, You 1"), with **Start the score again**.
+- **Winning the set:** "Team Sun wins the set, 3 to 1", with the warm glow and the win sound, then **Play another set**.
+
+**Choices I made (open to change)**
+- **No score for Mafia or Find the Impostor.** Roles change every game, and counting who got caught can feel like picking on people.
+- **A draw counts for nobody.**
+- **The teams take turns going first** through a set, in Ludo, Draughts and Chess (see part 16 for Chess).
+- **Play again never adds more people than the game allows** (6 for Draughts and Chess): anyone extra watches.
+- **If a whole team leaves,** Play again mixes new teams and the score starts over, and the room is told so.
+- **In Whot, someone who leaves the room** drops out of the score.
+- **The score is gone** when the game comes off the table, when someone taps New teams, or when the room ends. It's never saved, never on a profile, and there's no leaderboard. This keeps your rule: no scores after a room ends.
+
+**What you need to do:** nothing extra. It's in the same new build as game mode (part 14).
+
+**Phone checklist (2 or 3 phones)**
+- [ ] In a game room, pick Draughts on the Table. It asks how to keep score. Pick **First to 3 wins**.
+- [ ] Finish a game (or leave it on one phone so the other team wins). The end screen shows the score, like "Team Sun 1, Team Sky 0".
+- [ ] Tap **Play again**: the same teams, and the score shows at the top right.
+- [ ] When a team reaches 3: "wins the set, 3 to …" with a glow and a sound, then **Play another set** starts from 0.
+- [ ] Tap **New teams**: teams are mixed and the score starts from 0.
+- [ ] Take the game off the table, then start it again: the score has gone.
+
+## 16. Optional email and logging back in
+
+**Why:** without an email, an account can't be logged back into. Logging out, reinstalling the app, clearing its data or changing phones means starting a new account.
+
+**What changed**
+- **Pick a nickname** now has a second box, **Email (optional)**. Fill it in and we send a code to check it's yours, then you're in. Leave it empty and you go straight in.
+- **Welcome** shows **I already have an account** again: type your email, get a code, and you're back in with your nickname.
+- **Me** shows **Add your email** for anyone who skipped it.
+- **Log out** without an email warns you first, and now says to add your email in Me to keep the account.
+- The app also renews your sign-in as soon as you come back to it, so it should stay signed in between visits.
+- **Chess through a set:** teams keep their own colours and look, and swap places. The team that moved second moves first next game (in chess terms it plays white), and the board turns round so your pieces are always at the bottom.
+- **Everyone in a room needs this update** for Chess: a phone on an older version would show the wrong team's turn when Team Sky goes first.
+- **Adding an email never says whether it's already on another account.** If it is, the app still shows the code screen ("If this email isn't already on another Circles account, we sent it a code"), so nobody can use Circles to find out who's on it.
+
+**What you need to do.** Until you do: your own team's addresses get a link instead of a code, so they get stuck on the code screen; everyone else sees "We couldn't send the code" and can tap **Continue without email**.
+**Order matters:** Supabase only lets you edit the email messages (step 1) after custom SMTP is switched on, so do step 3 (Brevo) first, then steps 1 and 2.
+1. **Put the code in two emails.** In Supabase, open **Authentication**, then **Emails** (Templates).
+   1. Open **Magic Link**. Replace the message with:
+      `Your Circles code is {{ .Token }}. It works for 1 hour. If you didn't ask for it, ignore this email.`
+      Click **Save**.
+   2. Open **Change Email Address**. Replace the message with:
+      `Your Circles code is {{ .Token }}. Type it in the app to add this email to your account.`
+      Click **Save**.
+   This is because the app asks for a code, not a link.
+2. **Check Confirm email is on.** In Supabase, open **Authentication**, then **Sign In / Providers**, then **Email**. **Confirm email** should be on. If it's off, Supabase saves an email without sending a code, and the app would wait for a code that never comes.
+3. **An email-sending service (Brevo, free).** Supabase's own email only sends to your team's addresses, a few an hour, so other people's codes would never arrive. Brevo's free plan sends up to 300 emails a day and works without your own website address. Do this whenever you're ready; nothing else waits for it. Screens on these websites change from time to time, so if a name below doesn't match, look for the nearest one, or ask me.
+   1. **Make the account.** Go to brevo.com and sign up for the free plan with your email. Brevo asks some questions about your business; "Circles, a community app" is fine.
+   2. **Add the sender.** In Brevo, open **Senders, Domains & Dedicated IPs** (under your name, top right), then **Senders**, then **Add a sender**. Name: `Circles`. Email: the address codes should come from (your own email is fine for the test). Brevo emails that address a code: type it in to confirm it.
+   3. **Get the SMTP details.** In Brevo, open **SMTP & API**, then the **SMTP** tab. Write down the **SMTP server** (`smtp-relay.brevo.com`), the **Port** (`587`) and the **Login** (it looks like `something@smtp-brevo.com`). Click **Generate a new SMTP key**, name it `Supabase`, and copy the key. **Don't paste the key into this chat.** It goes only into Supabase, in the next step.
+   4. **Put them into Supabase.** In Supabase, open **Authentication**, then **Emails**, then the **SMTP Settings** tab, and switch on **Enable custom SMTP**. Fill in:
+      - Sender email: the address you added in step 2
+      - Sender name: `Circles`
+      - Host: `smtp-relay.brevo.com`
+      - Port: `587`
+      - Username: the Brevo **Login** from step 3
+      - Password: the SMTP key from step 3
+      Click **Save**.
+   5. **Allow enough emails.** In Supabase, open **Authentication**, then **Rate Limits**, and set "emails sent per hour" to about 100.
+   6. **Tell me when it's done.** I'll add Brevo to the Privacy Policy (it handles people's email addresses to send the codes), then you can test with the checklist below.
+   - Good to know: codes sent from a Gmail or Yahoo address can land in spam. Once Circles has its own web address, we can send from that instead.
+
+**Phone checklist**
+- [ ] On a fresh install, tap **Get started**, answer the 18+ question, type a nickname and your email. A code arrives by email; type it and you're in.
+- [ ] Me no longer shows "Add your email".
+- [ ] Log out (Me, then Log out). On Welcome tap **I already have an account**, type your email, then the code. You're back with the same nickname.
+- [ ] Close the app completely and open it again an hour later: you're still signed in.
+- [ ] Chess with a score: after the first game, the other team moves first.
+
+## 17. The bottom bar: Home, Explore, Groups, Me
+
+Built from `docs/design/pages/tabs.md` (your decision, 2026-10-08), the first half: what works with today's rooms. Scheduled rooms, weekly groups, reminders and invitations come next (part C), and fill the empty parts below.
+- **The bar** sits at the bottom of Home, Explore, Groups and Me, and of the door pages. It's hidden in rooms, after a room, in Start something and while adding an email. The selected tab has a small pill above it as well as brighter colour. Tapping the tab you're on scrolls back to the top. Android's back button goes to Home, and from Home it leaves the app.
+- **Home** keeps the support line and the four doors. Your avatar has moved to the Me tab. Two new sections, only when they apply:
+  - **Go back in:** a room you left in the last hour that's still open, with "3 people still here".
+  - **For you:** up to 2 open rooms like ones you joined before, with the reason ("Igbo, Beginner, like you"). It uses your last 5 rooms, kept only on your phone and only for your account: logging out or deleting your account wipes it, so nobody else on the same phone sees it. Support rooms are never kept or suggested.
+- **Explore** shows **Live now**: every open room (never support rooms), filters for Talk, Play, Learn and each topic, free seats first, then the busiest. When it's quiet it says so and offers **Start a room**. "Tonight" and "Every week" come with part C.
+- **Groups** shows **My people** (faces of people who saved each other with you) and **Start a room with friends**. "Your groups and reminders" says they're coming next.
+- **Me** has your nickname, then groups: Your people, Account (your email, or Add your email; Log out), Sound, Privacy (and blocked people), Help and safety (Help, Room rules, Privacy Policy, Terms), the app version, and Delete my account at the very bottom.
+
+**Choices I made (open to change)**
+- **Thank-yous aren't shown in Me**, because you haven't decided yet whether anyone should see a count.
+- **Editing your nickname** isn't there yet (the design has an Edit button); it needs the "change once every 30 days" rule built first.
+- **The privacy switches** ("Show friends when I'm online", "Show which room I'm in") come with friends being able to see each other online, which isn't built yet.
+- **Explore's chips** filter by door and topic, not by mood. The moods are in the "I want to talk" door.
+- **Offline,** Explore keeps the last list but greys out Join ("You're offline. Rooms need a connection.").
+- **"Saved each other"** in Me, and "and 4 more" in Groups, open the full My people list.
+
+**What you need to do:** nothing in Supabase. It comes with the next build (it's app-only, so an over-the-air update would also do).
+
+**Phone checklist**
+- [ ] The bar shows on Home, Explore, Groups and Me, and on a door page. It disappears in a room.
+- [ ] On Explore, the rooms that are open now show up. Tap **Play**: only game rooms. Tap a room's **Join**: you go in.
+- [ ] Join a talk room, leave it, and go to Home: **Go back in** shows that room with how many are still there.
+- [ ] After a few rooms, **For you** suggests similar open rooms with a reason.
+- [ ] Join a support room and leave: it never appears in Go back in or For you.
+- [ ] Me shows your email (or Add your email), Game sounds, Help, Room rules, and Delete my account at the bottom.
+- [ ] Android back from Explore, Groups or Me goes to Home.
+
+## 18. Scheduled rooms, weekly groups and reminders
+
+Part C of `docs/design/pages/tabs.md`, with `start-something.md` and `circle-detail.md`.
+- **Start something** now asks **Once or every week?**
+  - **Just once:** **Now** (as before), or a day (Today, Tomorrow, or a day this week) and a time, in 15-minute steps (press and hold − or + to move a whole hour). The button says **Schedule the room**.
+  - **Every week:** tick the days (Mon to Sun) and a time. This makes a **group**; each meeting opens a room. The button says **Create group**.
+  - From Explore or Groups you can also choose **Talk** or **Play**. Learn groups start from a language's page, as before.
+- **Explore** has two new sections under Live now:
+  - **Tonight:** rooms later today (and tomorrow's after 9 pm). Each row has the time, the name, "4 going, hosted by Ada" and a **bell**: tap it and you get a reminder. From 5 minutes before, the bell becomes **Go in**.
+  - **Every week:** group cards ("Igbo practice. Every Tuesday and Thursday at 7 pm. 5 regulars"). Tap one for its page.
+- **A group's page:** when it meets, the next meeting, who hosts it, how many regulars, the next 3 dates, and **Join this group** (you become a regular and get a reminder before every meeting). Regulars can **Leave group**; the host can **End this group**. When it's full it says so.
+- **Groups tab:** **Start a group** (the one orange button), **Next up** (your next room, with Go in when it's open), **Your groups**, My people, **Rooms you scheduled** (with **Cancel**), and **Your reminders** (tap the bell to remove one).
+- **Home:** **Coming up** shows up to 2 of tonight's scheduled rooms, yours first, with **See all** (opens Explore).
+- **Reminders:** your phone shows "Ludo night starts in 15 minutes" by itself, so no extra account or server is needed. Tapping it opens Groups, where **Next up** shows the room (or the room itself, once it's open). The first time you set one, the phone asks if Circles may send notifications. Logging out clears them.
+
+**Kept safe**
+- Support rooms can never be scheduled or made into groups. The database refuses it.
+- Only counts are shown ("4 going", "5 regulars"), never who.
+- Someone you blocked (or who blocked you) never sees your scheduled rooms or groups, and you never see theirs.
+- Limits against spam: at most 5 scheduled rooms a day, and 3 weekly groups at a time, per person.
+- When you remove someone from Circles, their scheduled rooms and groups disappear at once and don't open.
+- If the phone isn't allowed to show notifications, Circles says "Turn on notifications for Circles to get a reminder" instead of promising one.
+
+**Choices I made (open to change)**
+- **No separate "Starting soon" screen.** Go in opens the real room from 5 minutes before; the room's own waiting state ("waiting for someone to join") does that job.
+- **Scheduled rooms and groups are for anyone** during the open test. Invite-only ones come with invitations, next.
+- **Reminders come 15 minutes before** and only from your own phone. If someone sets a reminder on one phone, a second phone doesn't know about it until they open Circles there.
+- **Not on the group page yet** (they're in the design): a description, the host's picture, Share, **Report group**, and "Remind me if a spot opens". Report group is the one I'd add soonest, since group names are written by people.
+- **Group times** are written in the group's own time zone (Lagos for nearly everyone). The next meeting's time is always shown in your phone's time.
+
+**What you need to do**
+1. **Database:** in Supabase, open **SQL Editor**, then **New query**. On GitHub, open `supabase/migrations/20261011000000_scheduled_rooms.sql`, click **Copy raw file**, paste it, then click **Run**. It should say **Success**.
+2. **Room server:** in Supabase, open **Edge Functions**, then **livekit-token**, then the **Code** tab. Replace all the code with `supabase/functions/livekit-token/index.ts` from GitHub, then click **Deploy**.
+3. **App:** reminders need the new build from part 14 (it has the notifications feature in it). If your phones already have that build, an over-the-air update is enough.
+
+**Phone checklist**
+- [ ] On Groups, tap **Start a group**. Name it, tick two days, pick a time, tap **Create group**. You land on Groups with "… meets every … We'll remind you." and the group under **Your groups**.
+- [ ] On a second phone, open Explore: the group is under **Every week**. Tap it, tap **Join this group**. The first phone's group now says 2 regulars.
+- [ ] On Explore, tap **Schedule a room** (or Start a room, then a day). Pick Today and a time about 30 minutes from now, and schedule it.
+- [ ] On the second phone, find it under **Tonight** and tap the bell. It fills in and the count goes up by one.
+- [ ] 15 minutes before, a reminder appears on the second phone's lock screen. Tapping it opens Circles on Groups, with the room under **Next up**.
+- [ ] 5 minutes before the time, the bell turns into **Go in**. Both phones go in and hear each other.
+- [ ] Block someone, then check Explore on their phone: your scheduled rooms are gone for them.
+
+## 19. Invitations (inside the app)
+
+The rest of part C, from `docs/design/pages/tabs.md` › Groups › Invitations. Shown inside the app for now; alerts on the lock screen come once Firebase is set up (see "Choices" below).
+- **Who can invite whom:** only people who saved each other. You never see a list of anyone else, and nobody learns who saved whom: if someone isn't a mutual save, they're simply skipped.
+- **Invite** opens a list of your people with tick boxes, then **Invite**. You can invite:
+  - **to the room you're in** (the Invite button at the top of a room; it opens by itself after you start an invite-only room),
+  - **to a weekly group** you host or belong to (**Invite your people** on the group's page),
+  - **to a room you scheduled** (Groups › Rooms you scheduled › **Invite**).
+- **Groups › Invitations:** "Ada_K invited you to Ludo night", with **Join** and **Not now**. Join goes into a live room, sets a reminder for a scheduled one (or goes in if it's open), or opens the group's page. A small orange dot on the **Groups** tab means a new invitation.
+- **Invite only now works without the web version.** In Start something, **Invite only** can be chosen for rooms now, later or every week. It isn't listed anywhere; only people you invite can see it and come in. **Start a room with friends** works again too, once you have people who saved each other with you.
+
+**Kept safe**
+- Never from a support room: there's no Invite button there, and the server refuses it anyway.
+- An invitation shows only the sender's nickname, never who else was invited or who is in the room.
+- Blocking someone hides their invitations at once, both ways.
+- It ends when the room ends (a live room after 3 hours at most), when a scheduled room's time has passed, or when the group ends.
+- Limits: up to 20 people at once, 40 invitations an hour.
+
+**Choices I made (open to change)**
+- **No alert on the lock screen yet.** That needs Firebase (Google's free service for app alerts). If you set it up before your next app build, I can switch alerts on later with a normal update. Without it, people see invitations when they open Circles.
+- **"Invitation sent"** shows even if someone was skipped, so it never gives away who saved you.
+- **On a group's page, Invite is a button on the page**, not a share icon in the top bar as the design shows (the page's top bar only has Back for now).
+- **"Ask the host"** for invite-only groups (from `circle-detail.md`) isn't built: invite-only groups aren't listed, so nobody can find one to ask.
+
+**What you need to do**
+1. **Database:** in Supabase, **SQL Editor**, **New query**: first run `supabase/migrations/20261011000000_scheduled_rooms.sql` again (it changed a little; it's safe to run twice), then `supabase/migrations/20261012000000_invitations.sql`. Each should say **Success**.
+2. **Room server:** replace the code in the **livekit-token** Edge Function with the new `supabase/functions/livekit-token/index.ts`, then **Deploy**.
+
+**Phone checklist** (two phones whose people saved each other after a room)
+- [ ] Phone A: Groups › **Start a room with friends**. The invite list opens by itself. Tick phone B's person and tap **Invite**.
+- [ ] Phone B: a dot appears on **Groups** (within a minute). Open Groups: "… invited you to …" with Join and Not now. Tap **Join**: you're in the same room and can hear each other.
+- [ ] Phone A: start a weekly group with **Invite only**. It doesn't show in Explore on phone B. On its page tap **Invite your people**, pick phone B.
+- [ ] Phone B: the invitation opens the group's page; **Join this group** works.
+- [ ] Phone B: tap **Not now** on an invitation: it goes away.
+- [ ] In a support room there's no Invite button.
+
+## 20. Firebase, for alerts on the lock screen (your steps)
+
+**What it is:** Firebase is Google's free service that delivers app alerts to Android phones, like "Ada_K invited you to Ludo night" showing up while Circles is closed. The free plan is enough; it doesn't ask for a card.
+
+**Why now:** Firebase leaves one small settings file inside the app. If it's in your next app build, I can switch the alerts on later with a normal update, without another reinstall.
+
+**What I changed:** a file called `app.config.js` picks up Firebase's settings file from expo.dev during the build, so it never goes into GitHub. Without it, the app builds exactly as before.
+
+Some button names may be slightly different on your screen; Google and Expo change them often. If something doesn't match, tell me what you see.
+
+**Part A: Firebase (about 5 minutes)**
+1. Open **console.firebase.google.com** and sign in with your Google (Gmail) account.
+2. Click **Create a project** (it may say "Get started by setting up a Firebase project"). Name it `Circles`, then click **Continue**. Accept the terms if it asks.
+3. When it asks about **Google Analytics**, switch it **off** (Circles doesn't need it). Click **Create project**, wait, then **Continue**.
+4. On the project's home page, click the **Android** icon (or **+ Add app**, then **Android**).
+5. For **Android package name**, type exactly `com.sammychris.circles`. For **App nickname**, type `Circles`. Leave the rest empty. Click **Register app**.
+6. Click **Download google-services.json** and save it in Downloads. Then click **Next**, **Next** and **Continue to console**. Skip the other steps; I've done that part.
+7. Click the **gear icon** next to "Project Overview" (top left), then **Project settings**, then the **Service accounts** tab. Click **Generate new private key**, then **Generate key**. A file downloads with a name like `circles-…-firebase-adminsdk-….json`.
+   - **This file is a secret key.** Don't paste it into this chat, send it to anyone, or put it in GitHub.
+
+**Part B: give both files to Expo (about 3 minutes)**
+8. Open **expo.dev**, sign in, and open the **circles** project.
+9. **The secret key:** in the left menu click **Credentials**, then **Android**, then `com.sammychris.circles`. Under **Service credentials**, find **FCM V1 service account key** and click **Add a service account key**. Upload the `…firebase-adminsdk….json` file from step 7, then **Save**.
+10. **The settings file:** in the left menu click **Environment variables**, then **Add variable** (or **Create**).
+    - Name: `GOOGLE_SERVICES_JSON`
+    - Type: **File** (not text)
+    - Visibility: **Secret**
+    - Environments: tick **development**, **preview** and **production**
+    - Upload `google-services.json` from step 6, then **Save**.
+11. Once both are uploaded, you can delete the two downloaded files. New ones can be made any time.
+
+**Part C: the app build**
+12. Tell me when A and B are done. Then make the new app build from part 14 (in PowerShell, in your `Circles_app` folder: `git pull origin claude/dreamy-meitner-mjoykp`, then `npx eas-cli build --profile preview --platform android`).
+13. I'll add the code that sends the alerts. It comes to the phones as a normal update, no reinstall.
+
+## 21. Invitation alerts on the lock screen
+
+Now that Firebase is set up (part 20), an invitation also shows as an alert: **"Ada_K invited you to Ludo night"**, even when Circles is closed. Tapping it opens **Groups**, where the invitation is.
+- **Only phones that allowed notifications get alerts.** Circles never asks just for this out of the blue. It asks when you set a reminder, or when you tap **Turn on** next to "Get an alert when your people invite you" (Groups › My people, shown only if you have people who could invite you).
+- **Each phone's address for alerts** (a code from Expo, not a phone number) is kept by the room server only. Nobody can read it from the app, not even their own. Logging out removes it from that phone. Deleting the account removes all of them.
+- **Never about a support room:** nobody can be invited to one, so no alert can ever mention one.
+- **Lock screens can be seen by others,** so an invite-only room shows as "Ada_K invited you to **a private room**". Groups keep their name.
+- **Inside a room, alerts stay quiet:** no banner or sound over the conversation (above all in a support room). They wait in the phone's notification list.
+- One alert per invitation, even if someone taps Invite twice.
+- Alerts go through Expo's free push service, which passes them to Firebase. No new keys or accounts.
+
+**What you need to do**
+1. **Database:** in Supabase, **SQL Editor**, **New query**: run `supabase/migrations/20261013000000_push_tokens.sql`. It should say **Success**.
+2. **Room server:** replace the code in the **livekit-token** Edge Function with the new `supabase/functions/livekit-token/index.ts`, then **Deploy**.
+3. **App:** this works only on the new build from part 14 (it has Firebase inside). Once that's installed, this comes by a normal update:
+   ```
+   git pull origin claude/dreamy-meitner-mjoykp
+   npx eas-cli update --channel preview --environment development --message "Invitation alerts"
+   ```
+   Then open Circles on each phone, close it fully, and open it again.
+
+**Phone checklist** (two phones whose people saved each other)
+- [ ] Phone B: Groups › My people › **Turn on** (or set any reminder). Allow notifications when the phone asks.
+- [ ] Phone B: close Circles completely.
+- [ ] Phone A: start a room with friends and invite phone B's person.
+- [ ] Phone B: within a few seconds, "… invited you to …" shows on the lock screen. Tap it: Circles opens on Groups with the invitation.
+- [ ] Phone B: log out. Invite again from phone A: no alert comes to phone B.
+
+---
+
+## What you need to do now (for parts 6 to 12)
+
+1. **Database:** in Supabase, open SQL Editor, then New query. On GitHub, open `supabase/migrations/20261010000000_open_test_extras.sql`, click **Copy raw file**, paste it, then click **Run**. It should say **Success**. It's safe to run again even if you ran an older copy.
+2. **Room server:** in Supabase, open Edge Functions, then **livekit-token**, then the Code tab. Replace all the code with `supabase/functions/livekit-token/index.ts` from GitHub, then click **Deploy**.
+3. **App:** if you already installed the build with over-the-air updates, send an update. In PowerShell, in your `Circles_app` folder:
+   ```
+   git stash
+   git pull origin claude/gallant-faraday-7s2l1w
+   npm install
+   npx eas-cli update --channel preview --environment development --message "Table, games, Learn, host tools"
+   ```
+   Then on each phone, open Circles, close it fully, and open it again. **Me** shows the new "updated" time.
+   If you haven't built since the updates were set up, do one build instead (`npx eas-cli build --profile preview --platform android`).

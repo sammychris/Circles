@@ -41,3 +41,7 @@ yarn-error.*
 /android
 .env
 supabase/.temp/
+
+# Firebase files (docs/BUILD_NOTES.md part 20): kept on expo.dev, never in GitHub
+google-services.json
+*firebase-adminsdk*.json

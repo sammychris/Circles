@@ -1,6 +1,6 @@
 import { readdirSync, readFileSync, statSync } from 'fs';
 import { join } from 'path';
-import { night, space, type } from '../src/theme/tokens';
+import { moodColors, night, space, type } from '../src/theme/tokens';
 import tokens from '../docs/design/tokens.json';
 
 function sourceFiles(dir: string): string[] {
@@ -14,6 +14,12 @@ describe('theme matches docs/design/tokens.json', () => {
   it('has every night colour', () => {
     for (const [key, value] of Object.entries(tokens.color.night)) {
       expect((night as Record<string, string>)[key]).toBe(value);
+    }
+  });
+
+  it('has the same mood colours', () => {
+    for (const [key, value] of Object.entries(tokens.color.mood)) {
+      expect((moodColors as Record<string, { fg: string; bg: string }>)[key]).toEqual(value.night);
     }
   });
 

@@ -32,7 +32,7 @@ The UI design already exists. Build on it; do not redesign screens.
 
 - Free peer rooms: 6–7 people.
 - Paid hosted rooms: default 10, max 12; only paying members join (payments come later).
-- Minimum 3 people. If it drops to 2, a short countdown starts, then the room closes.
+- Support ("I need someone to talk to") rooms need 3 people (and a trained host); if one drops to 2, a short countdown starts, then the room closes. Every other room can start with 1 person waiting and goes live at 2; if it drops to 1, the same countdown runs. Each game keeps its own minimum (Sammy's decision, 2026-10-08).
 - New people are placed into existing rooms before new rooms are opened.
 - Connections/follows are private and never displayed.
 

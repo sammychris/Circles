@@ -64,7 +64,7 @@ Host-led. The host picks a ready-made quiz or types questions. Everyone answers 
 Speaking order for storytelling and debates. Current speaker highlighted, gentle timer (1, 2 or 3 min), "Pass" for the speaker, host can skip. Works in talk rooms too.
 
 ## Game over
-"Good game." Shows the winning team for this game only, then **Play again** or **Back to talking**. No points, streaks or leaderboards are saved.
+"Good game." Shows the winning team for this game, then **Play again** or **Back to the room**. While people keep playing in the room, Ludo, Draughts, Chess and Whot keep a score for the sitting (`game-mode.md` › States). No points, streaks or leaderboards are saved: the score is gone when the room ends.
 
 ## Rules
 - Never in `support` rooms.

@@ -78,6 +78,8 @@ export const type = {
   metaStrong: { fontSize: 14, lineHeight: 20, fontFamily: fonts.bold },
   tiny: { fontSize: 12, lineHeight: 16, fontFamily: fonts.bold },
   button: { fontSize: 18, lineHeight: 24, fontFamily: fonts.extraBold },
+  // The one 48 px size: the big word at the centre of a game card (design direction › Typography).
+  giant: { fontSize: 48, lineHeight: 52, fontFamily: fonts.extraBold },
 } as const;
 
 export const space = { 1: 4, 2: 8, 3: 12, 4: 16, 5: 24, 6: 32, 7: 48, gutter: 24 } as const;
@@ -93,7 +95,24 @@ export const size = {
   avatarRoom: 64,
   avatarBadge: 24,
   roomRing: 248,
+  // Rooms of 7 to 10: a wider ring with smaller avatars (design direction › The room circle).
+  roomRingLarge: 264,
+  avatarSeatSmall: 48,
+  maxSeats: 10,
   input: 56,
+  tableAction: 48,
+  moodTile: 104,
+  rowAction: 96,
+  doorTile: 120,
+  tileIconBox: 40,
+  supportLine: 80,
+  chip: 32,
+  countdownRing: 128,
+  countdownStroke: 6,
+  avatarList: 44,
+  sheetList: 320,
+  switchWidth: 52,
+  switchHeight: 32,
   welcomeRing: 168,
   avatarWelcome: 48,
   icon: 24,
@@ -101,9 +120,15 @@ export const size = {
   iconButton20: 20,
   iconMeta: 16,
   iconStroke: 2,
+  // The bottom bar (docs/design/pages/tabs.md): 76 tall plus the safe area, a 24 × 4 pill over the
+  // selected tab, and an 8 px dot for something new.
+  bottomNav: 76,
+  tabPill: 24,
+  tabPillHeight: 4,
+  newDot: 8,
 } as const;
 
-export const border = { input: 2, selected: 2, seatRing: 2 } as const;
+export const border = { hairline: 1, input: 2, selected: 2, seatRing: 2 } as const;
 
 export const motion = { fast: 150, base: 250, slow: 350, breathe: 900 } as const;
 
@@ -115,16 +140,85 @@ export const roomGlowScale = { edge: 1.4, core: 1.2 } as const;
 // The lift under the one primary action (Join the room, You're muted).
 export const lift = { radius: 24, offset: 8, elevation: 8 } as const;
 
-export const rules = { maxTextScale: 1.3 } as const;
+// From docs/design/tokens.json › rules.
+export const rules = { maxTextScale: 1.3, roomMinPeople: 2, supportMinPeople: 3, roomDropWaitSeconds: 120 } as const;
 
 export const effects = {
   liveGlow: 'rgba(84, 201, 154, 0.25)',
   emberGlow: 'rgba(244, 161, 78, 0.22)',
   roomGlow: 'rgba(244, 161, 78, 0.20)',
   roomGlowEdge: 'rgba(244, 161, 78, 0.06)',
+  // Design direction › The table slot: 0 0 48px 8px rgba(244,161,78,0.10), for the web.
+  tableGlowWeb: '0 0 48px 8px rgba(244, 161, 78, 0.10)',
 } as const;
 
 // The ring around whoever is speaking: a gap in the background colour, then a ring, then a soft glow.
-export const speaking = { gap: 4, ring: 3, glow: 14 } as const;
+export const speaking = { gap: 4, ring: 3, glow: 14, glowStrength: 2.5 } as const;
 
 export const sheetHandle = { width: 40, height: 4 } as const;
+
+// docs/design/tokens.json › color.mood (night). Only for small mood icons and mood chips.
+export const moodColors = {
+  down: { fg: '#94B7E6', bg: '#212B3B' },
+  bored: { fg: '#D7BC8E', bg: '#392F23' },
+  laugh: { fg: '#F3D05E', bg: '#39311D' },
+  advice: { fg: '#92C99F', bg: '#233427' },
+} as const;
+
+// The tinted icon squares on Home's door tiles (docs/screens/01-home.png): laugh yellow, sky blue, sage, rose.
+export const doorColors = {
+  play: moodColors.laugh,
+  talk: moodColors.down,
+  learn: moodColors.advice,
+  people: { fg: '#E6AFD2', bg: '#352230' },
+} as const;
+
+// Ludo teams: always with a name and an icon, never colour alone (play.md › Pick teams).
+export const teamColors = {
+  sun: moodColors.laugh,
+  sky: moodColors.down,
+} as const;
+
+export const ludo = { board: 280, token: 14, baseToken: 20, die: 56, pip: 10 } as const;
+
+// Game mode: the full game screen (docs/design/pages/game-mode.md, tokens.json › gameMode).
+export const gameMode = {
+  faceStrip: 56,
+  faceStripFolded: 32,
+  faceAvatar: 32,
+  faceOverlap: 8,
+  turnLine: 40,
+  boardInset: 16,
+  controlsMax: 140,
+  chatButton: 56,
+  die: 72,
+  card: { w: 56, h: 80 },
+  legalDot: 12,
+  // The faint tint on the last move's two squares (an opacity over the warm white).
+  lastMoveTint: 0.12,
+  // A move not confirmed by the starter's phone in this time slides back.
+  moveTimeoutMs: 3000,
+  diceMinMs: 600,
+  hopMs: 120,
+  hopMaxMs: 1000,
+  cardStaggerMs: 60,
+  wonGlowMs: 1200,
+  // At this text size the face strip starts folded (game-mode.md › Accessibility).
+  foldFontScale: 1.2,
+} as const;
+
+// shadow.roomGlow as gradient stops (radial: 20% → 6% at 45% → 0 at 70%).
+export const glowStops = Object.assign(
+  [
+    { offset: '0%', opacity: 0.2 },
+    { offset: '45%', opacity: 0.06 },
+    { offset: '70%', opacity: 0 },
+  ],
+  { color: night.ember },
+);
+
+// The table card: lifted like a sheet, with a faint ember glow, "lit by the lamp" (design direction › The table slot).
+export const tableCard = { shadowRadius: 48, shadowOpacity: 0.1, elevation: 6 } as const;
+
+// Shapes of things on the table: a video, a photo, and a phone's shared screen (portrait).
+export const media = { video: 16 / 9, photo: 4 / 3, screen: 3 / 4 } as const;

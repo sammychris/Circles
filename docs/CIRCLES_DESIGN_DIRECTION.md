@@ -26,7 +26,7 @@ Talking to strangers at night should feel like sitting around a lamp with a few 
 | Warm, calm, welcoming | Loud, hyped, gamified |
 | Night-first: easy on tired eyes | Bright white, high-glare, cold blue-grey |
 | Kind and plain-spoken | Clinical, legal, or jokey about pain |
-| Private by default | Public scores, counts, rankings |
+| Private by default | Public scores, counts, rankings (a game's score for the sitting, seen only in that room and gone when it ends, is fine: Sammy, 2026-10-08, `game-mode.md`) |
 
 Seven rules that apply to every screen:
 
@@ -289,18 +289,18 @@ People sit on a ring, not in a grid.
 - Badges bottom-right, 24 px with a 2 px `bg` ring: mic-off (`raised` / `textSoft`), hand (`emberSoft` / `emberText`).
 - The speaker gets the Speaking glow from section 4.
 - Empty seats: 2 px dashed `seatEmpty` circle with a plus.
-- The same drawing is reused, smaller, on Room drops to 2, Nobody here yet and the welcome screen.
+- The same drawing is reused, smaller, on Room drops below its minimum (2 in support rooms, 1 elsewhere), Nobody here yet and the welcome screen.
 
 ### The table slot
 The middle of the room circle. In Version 1 it shows "6 here / 4 seats open". When something is put on the table:
 - The seats move up into a gentle arc of 44 px avatars across the top (speaker keeps the Speaking glow; teams show a 2 px team-colour ring plus the team name and icon).
 - The item appears below as a **table card**: `raised` fill, radius 20, 24 padding, Sheet-level shadow plus a faint ember glow (`0 0 48px 8px rgba(244,161,78,0.10)`), so it reads as lit by the lamp.
 - The card header says who put it there ("Bayo put a note on the table") with a 44 px options button (Take it off the table, Report).
-- Games and other activities draw only inside the card area. Seats, mic and the bottom row never move or hide.
+- Activities draw only inside the card area, and the seats, mic and bottom row never move or hide. **Exception: games.** A game switches the room to **game mode**, a full, non-scrolling game screen with a face strip, the board, the mic and chat, and a ⋯ menu (`docs/design/pages/game-mode.md`, Sammy's decision, 2026-10-08). The mic is never hidden.
 - Photos and screenshots are blurred until each person taps them.
 
 ### Room bottom row
-Four equal buttons, 56 tall, radius 20, icon over a `tiny` label: **Raise hand, Chat, Table, Leave**. During an activity the third button becomes **Leave game** (members) or **End game** (host). The mic control sits under the row.
+Four equal buttons, 56 tall, radius 20, icon over a `tiny` label: **Raise hand, Chat, Table, Leave**. During a non-game activity the third button becomes **Leave game** (members) or **End game** (host). The mic control sits under the row. In game mode the row is replaced by the mic and Chat, and Leave game, End game and Leave room move into the ⋯ menu (`game-mode.md`).
 
 ### Table action button
 For actions inside a table activity (Bring out a token, Reveal answer, Start countdown): `text` fill, `bg` text, 48 tall, pill, 16/800. It's strong but not ember, so the mic stays the room's one ember action.
@@ -325,7 +325,7 @@ Shown only on paid group pages and the payment sheet, never in rooms or lists of
 `surface` card, radius 20. Leading date block: day ("Fri", `metaStrong`, `textMeta`) over time ("10pm", `heading`). Title, meta ("In 6 days, with 7 regulars"), reminder icon button.
 
 ### Bottom navigation
-Removed. Circles has no tab bar (see section 9). The only thing pinned to the bottom of pages is the room bar while you're in a room.
+Four tabs: Home, Explore, Groups, Me. It's 76 tall plus the safe area. The selected tab shows a pill indicator as well as its colour. The room bar sits above it while you're in a room, and it's hidden inside rooms. See `docs/design/pages/tabs.md`.
 
 ### Bottom sheet
 `surface`, 28 px top corners, 40 × 4 handle in `seatEmpty`, Sheet depth, `scrim` behind. 24 side padding, 24 between groups. Destructive confirms can't be dismissed by tapping the scrim.
@@ -382,11 +382,11 @@ The circle-of-seats drawing (or another simple shape drawing), one `title`, one 
 
 ## 9. Navigation
 
-- **No tab bar.** Home is the house; every door is visible on it. Each door opens its own page; back always returns Home.
+- **A bottom bar with four tabs: Home, Explore, Groups, Me** (Sammy's decision, 2026-10-08; this replaces "No tab bar"). Home is still the house: every door is visible on it. Explore is what's happening, Groups is what's yours, and Me is you. Full rules: `docs/design/pages/tabs.md`. Each door opens its own page; back returns to where you came from.
 - **Home, top to bottom:** greeting with the bell and your avatar (Me); the question "What brings you in tonight?"; the **support line** ("Need someone to talk to? Come in"); four door tiles in a 2 × 2 grid (I'm bored, I want to talk, Learn together, My people); Coming up; a quiet "38 people in rooms right now".
 - **The support line** is always first under the question, on every visit, in the same place. Warm tint (`emberTint`), heart icon, "Come in" in `emberText` with a chevron. Gentle, never an alarm, never moved below games.
 - **Door pages** share one shape: title, one line, one ember "now" button with a helper line, then ways to browse, then "Start one" as a quiet link. See `docs/design/pages/doors.md`.
-- **Me** opens from the avatar at the top of Home: profile, saved people, thank-yous, settings; later payments, Circles Plus, host tools.
+- **Me** is the fourth tab: profile, saved people, thank-yous, settings; later payments, Circles Plus, host tools.
 - **The room is a layer above everything**, full screen. Minimise shrinks it to a room bar at the bottom of every page; the room keeps running.
 - One **Start** flow for everything, reached from each door.
 - Notifications and invite links open the exact screen they refer to, even from a cold start, in the app or in the browser.
@@ -432,6 +432,8 @@ The circle-of-seats drawing (or another simple shape drawing), one `title`, one 
 | Learn space, language pages, Practise now, Igbo app link | `docs/design/pages/learn.md` |
 | Paid groups, payments, Circles Plus, host earnings | `docs/design/pages/paid-groups.md` |
 | Play space, games, watch-along, quiz, take turns | `docs/design/pages/play.md` |
+| Game mode: the full game screen, movement, sound, buzz | `docs/design/pages/game-mode.md` |
+| Bottom bar; Home changes; Explore, Groups, Me | `docs/design/pages/tabs.md` |
 | Room preview | `docs/design/pages/room-preview.md` |
 | Notifications | `docs/design/pages/notifications.md` |
 | Group detail (was Circle detail) | `docs/design/pages/circle-detail.md` (same page shape for every group; paid version in `docs/design/pages/paid-groups.md`) |

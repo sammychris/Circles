@@ -1,21 +1,38 @@
 import type { ReactNode } from 'react';
-import { Modal, Pressable, View } from 'react-native';
+import { KeyboardAvoidingView, Modal, Pressable, StyleSheet, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { radius, sheetHandle, space, useColors } from '../theme';
 
-export function Sheet({ visible, onClose, children }: { visible: boolean; onClose: () => void; children: ReactNode }) {
+type Props = {
+  visible: boolean;
+  onClose: () => void;
+  children: ReactNode;
+  // Destructive confirms (Block) and sending states can't be dismissed by tapping outside.
+  dismissable?: boolean;
+};
+
+export function Sheet({ visible, onClose, children, dismissable = true }: Props) {
   const colors = useColors();
   const insets = useSafeAreaInsets();
   return (
-    <Modal visible={visible} transparent animationType="slide" onRequestClose={onClose} statusBarTranslucent>
-      <Pressable
-        accessibilityRole="button"
-        accessibilityLabel="Close"
-        onPress={onClose}
-        style={{ flex: 1, backgroundColor: colors.scrim, justifyContent: 'flex-end' }}
-      >
+    <Modal
+      visible={visible}
+      transparent
+      animationType="slide"
+      onRequestClose={dismissable ? onClose : () => {}}
+      statusBarTranslucent
+    >
+      {/* Sheets with a text box move up with the keyboard. */}
+      <KeyboardAvoidingView behavior="padding" style={{ flex: 1, justifyContent: 'flex-end' }}>
+        {/* The scrim sits behind the sheet, so screen readers reach what's inside on its own. */}
         <Pressable
-          accessible={false}
+          accessibilityRole="button"
+          accessibilityLabel="Close"
+          disabled={!dismissable}
+          onPress={onClose}
+          style={[StyleSheet.absoluteFill, { backgroundColor: colors.scrim }]}
+        />
+        <View
           style={{
             backgroundColor: colors.surface,
             borderTopLeftRadius: radius.sheet,
@@ -36,8 +53,8 @@ export function Sheet({ visible, onClose, children }: { visible: boolean; onClos
             }}
           />
           {children}
-        </Pressable>
-      </Pressable>
+        </View>
+      </KeyboardAvoidingView>
     </Modal>
   );
 }

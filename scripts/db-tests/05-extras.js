@@ -1,0 +1,85 @@
+// Open-test extras: reports outlive the reporter's account; rooms people start themselves.
+module.exports = async ({ users, as, fails, check, assert, db }) => {
+  await check('nicknames that pass for the Circles team are refused', async () => {
+    await fails(as(users.dami, "select public.set_nickname('Circles_Team')"), 'reserved_nickname');
+    await fails(as(users.dami, "select public.set_nickname('Admin')"), 'reserved_nickname');
+    await as(users.dami, "select public.set_nickname('Modupe')");
+  });
+
+  await check('a report stays when the person who sent it deletes their account', async () => {
+    const leaver = (await db.query('select gen_random_uuid() as id')).rows[0].id;
+    await db.query('insert into auth.users (id) values ($1)', [leaver]);
+    await as(leaver, "select public.submit_report($1, 'Bayo', 'r9', 'threats', 'kept')", [users.bayo]);
+    await db.query('delete from auth.users where id = $1', [leaver]);
+    const kept = (await db.query("select * from public.reports where room_id = 'r9'")).rows;
+    assert.strictEqual(kept.length, 1);
+    assert.strictEqual(kept[0].reporter_id, null);
+    assert.strictEqual(kept[0].reported_user_id, users.bayo);
+  });
+
+  await check('invite-only rooms and support rooms are never readable from the app', async () => {
+    await db.query(
+      "insert into public.rooms (id, kind, door, title, capacity, status, livekit_room_name, custom, private, topic) values ('p1', 'peer', 'talk', 'Friends only', 6, 'open', 'circles-p1', true, true, 'music'), ('o1', 'peer', 'talk', 'Arsenal fans', 6, 'open', 'circles-o1', true, false, 'football')",
+    );
+    const seen = (await as(users.ada, "select id from public.rooms where id in ('p1', 'o1')")).rows.map((r) => r.id);
+    assert.deepStrictEqual(seen, ['o1']);
+  });
+
+  await check('nobody can read who opened a room', async () => {
+    await fails(as(users.ada, "select created_by from public.rooms where id = 'o1'"), 'permission denied');
+    await fails(as(users.ada, "select livekit_room_name from public.rooms where id = 'o1'"), 'permission denied');
+  });
+
+  await check('people can never start a support room, and titles stay short', async () => {
+    await fails(
+      db.query("insert into public.rooms (id, kind, door, capacity, status, livekit_room_name, custom) values ('s9', 'hosted', 'support', 6, 'open', 'circles-s9', true)"),
+      'rooms_custom_door_check',
+    );
+    await fails(
+      db.query("insert into public.rooms (id, kind, door, title, capacity, status, livekit_room_name) values ('t9', 'peer', 'talk', $1, 6, 'open', 'circles-t9')", ['x'.repeat(41)]),
+      'rooms_title_check',
+    );
+    await fails(as(users.ada, "insert into public.rooms (id, kind, door, capacity, status, livekit_room_name) values ('a9', 'peer', 'talk', 6, 'open', 'circles-a9')"), '');
+  });
+
+  await check('a report carries what was on the table', async () => {
+    await as(users.chi, "select public.submit_report($1, 'Bayo', 'room-t', 'sexual', null)", [users.bayo]);
+    await as(users.chi, "select public.add_report_evidence('room-t', 'On the table, 2 photos by Bayo: a.jpg, b.jpg')");
+    const row = (await db.query("select evidence from public.reports where room_id = 'room-t'")).rows[0];
+    assert(row.evidence.includes('a.jpg'));
+    // Nobody can add evidence to someone else's report.
+    await as(users.ada, "select public.add_report_evidence('room-t', 'fake')");
+    const again = (await db.query("select evidence from public.reports where room_id = 'room-t'")).rows[0];
+    assert(!again.evidence.includes('fake'));
+  });
+
+  await check('photos: people upload only into their own folder, and can read only their own', async () => {
+    await as(users.ada, "insert into storage.objects (bucket_id, name, owner) values ('table', $1, $2)", [`${users.ada}/r1/a.jpg`, users.ada]);
+    await fails(as(users.ada, "insert into storage.objects (bucket_id, name, owner) values ('table', $1, $2)", [`${users.bayo}/r1/b.jpg`, users.ada]), 'row-level security');
+    assert.strictEqual((await as(users.bayo, "select * from storage.objects where bucket_id = 'table'")).rows.length, 0);
+    const bucket = (await db.query("select public from storage.buckets where id = 'table'")).rows[0];
+    assert.strictEqual(bucket.public, false);
+  });
+
+  await check('old table photos are found for deletion, except reported ones', async () => {
+    await db.query("insert into storage.objects (bucket_id, name, owner, created_at) values ('table', $1, $2, now() - interval '4 hours'), ('table', $3, $2, now() - interval '4 hours'), ('table', $4, $2, now())", [
+      `${users.ada}/r2/old-0.jpg`, users.ada, `${users.ada}/r2/old-1.jpg`, `${users.ada}/r2/new-0.jpg`,
+    ]);
+    await db.query("update public.reports set evidence = $1 where room_id = 'room-t'", [`photos: ${users.ada}/r2/old-1.jpg`]);
+    const rows = (await db.query('select * from public.expired_table_photos(50) as name')).rows.map((r) => r.name);
+    assert(rows.includes(`${users.ada}/r2/old-0.jpg`));
+    assert(!rows.includes(`${users.ada}/r2/old-1.jpg`), 'reported photos are kept');
+    assert(!rows.includes(`${users.ada}/r2/new-0.jpg`), 'new photos are kept');
+    await fails(as(users.ada, 'select * from public.expired_table_photos(50)'), 'permission denied');
+  });
+
+  await check('removals are private, and only the removed person can appeal, once', async () => {
+    await db.query("insert into public.room_removals (room_id, user_id, by_host, reason) values ('r5', $1, $2, 'unkind')", [users.bayo, users.ada]);
+    assert.strictEqual((await as(users.bayo, 'select * from public.room_removals')).rows.length, 0);
+    await as(users.bayo, "select public.appeal_removal('r5', 'I was only joking')");
+    await as(users.bayo, "select public.appeal_removal('r5', 'second try')");
+    await as(users.chi, "select public.appeal_removal('r5', 'not mine')");
+    const row = (await db.query("select appeal from public.room_removals where room_id = 'r5'")).rows[0];
+    assert.strictEqual(row.appeal, 'I was only joking');
+  });
+};

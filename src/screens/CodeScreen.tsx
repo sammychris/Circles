@@ -76,7 +76,7 @@ export function CodeScreen({ purpose, email, onBack, onDone }: Props) {
       body={
         purpose === 'signIn'
           ? `If ${email} has a Circles account, we sent it a code. It can take a minute to arrive. Check your spam folder too.`
-          : `We sent a code to ${email}. It can take a minute to arrive. Check your spam folder too.`
+          : `If ${email} isn't already on another Circles account, we sent it a code. It can take a minute to arrive. Check your spam folder too.`
       }
       onBack={onBack}
       footer={<Button label="Continue" variant="primary" loading={busy} onPress={() => void verify()} />}

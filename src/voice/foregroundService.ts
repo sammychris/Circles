@@ -1,4 +1,4 @@
-import notifee, { AndroidForegroundServiceType, AndroidImportance } from '@notifee/react-native';
+import notifee, { AndroidForegroundServiceType, AndroidImportance, AndroidVisibility } from '@notifee/react-native';
 import { PermissionsAndroid, Platform } from 'react-native';
 
 const CHANNEL_ID = 'circles-room';
@@ -10,7 +10,8 @@ export function registerForegroundService() {
 }
 
 // Talking needs the microphone type. Listening only uses the media type, which needs no mic permission.
-export async function startRoomService(roomTitle: string, canTalk: boolean) {
+// The text never names the room: a support room must never show on a lock screen (CLAUDE.md, Never list).
+export async function startRoomService(_roomTitle: string, canTalk: boolean) {
   if (Platform.OS !== 'android') return;
   const channelId = await notifee.createChannel({
     id: CHANNEL_ID,
@@ -19,9 +20,11 @@ export async function startRoomService(roomTitle: string, canTalk: boolean) {
   });
   await notifee.displayNotification({
     id: NOTIFICATION_ID,
-    title: "You're in a room",
-    body: roomTitle,
+    title: 'Circles',
+    body: "You're in a room. Voice stays on.",
     android: {
+      // On a locked screen Android shows only "Circles", never the text.
+      visibility: AndroidVisibility.PRIVATE,
       channelId,
       asForegroundService: true,
       ongoing: true,
