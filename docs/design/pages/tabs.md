@@ -1,5 +1,7 @@
 # Bottom bar and the four main pages: Home, Explore, Groups, Me
 
+**Renamed (Sammy, 2026-10-11):** the Explore tab is labelled **Rooms**. The code still calls it `explore`.
+
 **Kind:** navigation + 4 screens · **Release:** after game mode · **Decided by:** Sammy, 2026-10-08
 **Replaces:** "No tab bar" (`CIRCLES_DESIGN_DIRECTION.md` › 9 Navigation, and › Bottom navigation).
 **Builds on these existing designs (reuse them, don't redraw them):**

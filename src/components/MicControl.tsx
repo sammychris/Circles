@@ -11,7 +11,7 @@ const COPY: Record<MicState, { title: string; hint: string }> = {
   live: { title: "You're live", hint: 'Tap to mute' },
   notAllowed: { title: 'Mic not allowed', hint: 'Tap to turn on' },
   blocked: { title: 'Mic is off in your phone settings', hint: 'Tap to fix' },
-  paused: { title: 'Mic paused', hint: 'Waiting for someone to join' },
+  paused: { title: 'Mic paused', hint: 'Turns on when someone joins' },
 };
 
 export function MicControl({
@@ -27,7 +27,6 @@ export function MicControl({
   const colors = useColors();
   const { title } = COPY[state];
   const hint = state === 'paused' && pausedReason ? pausedReason : COPY[state].hint;
-  const paused = state === 'paused';
   const muted = state === 'muted';
   const live = state === 'live';
 
@@ -41,8 +40,6 @@ export function MicControl({
       accessibilityRole="button"
       accessibilityLabel={`${title}. ${hint}`}
       accessibilityLiveRegion="polite"
-      accessibilityState={{ disabled: paused }}
-      disabled={paused}
       onPress={() => {
         if (Platform.OS !== 'web') void Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
         onPress();

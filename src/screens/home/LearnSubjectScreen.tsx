@@ -11,8 +11,8 @@ import { listOpenRooms, type OpenRoom, type RoomRequest } from '../../rooms/api'
 import { LEARN_CAPACITY, levelLabel, subjectById, type LearnLevel } from '../../rooms/learn';
 import { radius, size, space, useColors } from '../../theme';
 
-// A language or skill page (docs/screens/15-igbo.png, learn.md). Practice groups open now; hosted, paid
-// classes come later, so that part isn't shown yet.
+// A language or skill page (docs/screens/15-igbo.png, learn.md). Practice groups open now; classes with
+// teachers don't exist yet and are only mentioned as coming soon.
 export function LearnSubjectScreen({
   subjectId,
   onBack,
@@ -85,31 +85,34 @@ export function LearnSubjectScreen({
               }
             }}
           />
-          <View style={{ flexDirection: 'row', justifyContent: 'center', alignItems: 'center', gap: space[1] }}>
-            <Text variant="meta" color="textMeta">
-              {level ? `Your level: ${levelLabel(level)}.` : "We'll ask your level first."}
-            </Text>
-            {level ? (
-              <Pressable
-                accessibilityRole="link"
-                accessibilityLabel="Change your level"
-                onPress={() => setAsking(true)}
-                hitSlop={space[3]}
-                style={{ minHeight: size.minTarget, justifyContent: 'center' }}
-              >
-                <Text variant="metaStrong" style={{ textDecorationLine: 'underline' }}>
-                  Change
-                </Text>
-              </Pressable>
-            ) : null}
-          </View>
+          <Text variant="meta" color="textMeta" center>
+            {"Voice chat. If nobody's in yet, you wait in the room until someone joins."}
+          </Text>
         </>
       }
     >
+      {/* Your level before you're matched, never assumed. */}
+      <View style={{ flexDirection: 'row', alignItems: 'center', gap: space[1] }}>
+        <Text variant="body" color="textSoft">
+          {level ? `Your level: ${levelLabel(level)} ·` : 'Your level: not set yet ·'}
+        </Text>
+        <Pressable
+          accessibilityRole="button"
+          accessibilityLabel={level ? 'Change your level' : 'Choose your level'}
+          onPress={() => setAsking(true)}
+          hitSlop={space[3]}
+          style={{ minHeight: size.minTarget, justifyContent: 'center' }}
+        >
+          <Text variant="bodyStrong" style={{ textDecorationLine: 'underline' }}>
+            {level ? 'Change' : 'Choose'}
+          </Text>
+        </Pressable>
+      </View>
+
       <View style={{ gap: space[2] }}>
         <Text variant="heading">Practice groups</Text>
-        <Text variant="meta" color="textSoft">
-          {`Free. Up to ${LEARN_CAPACITY} people, everyone talks.`}
+        <Text variant="body" color="textSoft">
+          {`Free voice chat · up to ${LEARN_CAPACITY} people, everyone talks.`}
         </Text>
         {rooms === null && !failed ? (
           <View accessible accessibilityLabel="Loading groups" style={{ gap: space[3] }}>
@@ -126,24 +129,30 @@ export function LearnSubjectScreen({
           </View>
         ) : sorted.length === 0 ? (
           <Text variant="body" color="textSoft">
-            No groups are open right now. Tap Practise now and you'll start one; others at your level will join you.
+            No groups open yet. Start one and others at your level will join.
           </Text>
         ) : (
           sorted.map((room) => <RoomRow key={room.id} room={room} onJoin={() => onEnter({ kind: 'join', roomId: room.id })} />)
         )}
       </View>
-      <Text variant="meta" color="textMeta">
-        Hosted classes with verified teachers come later.
-      </Text>
-      {/* Last on the page, as in the design (screenshot 15). */}
+      {/* Not the same as Practise now: you name the group and pick when it happens (Start screen). */}
       <Pressable
         accessibilityRole="button"
+        accessibilityLabel="Host your own group. Pick its name and time, now or later."
         onPress={onStart}
-        style={{ minHeight: size.minTarget, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: space[2] }}
+        style={{ minHeight: size.minTarget, flexDirection: 'row', alignItems: 'center', gap: space[3] }}
       >
         <Plus size={size.icon} color={colors.textSoft} strokeWidth={size.iconStroke} />
-        <Text variant="bodyStrong" color="textSoft">{`Start ${subject.kind === 'language' ? `${'AEIOU'.includes(subject.name[0]) ? 'an' : 'a'} ${subject.name}` : 'a'} practice group`}</Text>
+        <View style={{ flex: 1 }}>
+          <Text variant="bodyStrong">Host your own group</Text>
+          <Text variant="meta" color="textSoft">
+            Pick its name and time, now or later
+          </Text>
+        </View>
       </Pressable>
+      <Text variant="meta" color="textMeta">
+        Classes with teachers are coming soon.
+      </Text>
 
       <LevelSheet
         subject={asking ? subject : null}

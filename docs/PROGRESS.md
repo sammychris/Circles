@@ -4,6 +4,15 @@ Claude Code updates this file at the end of every build step. Newest entries at 
 
 ## Current step
 
+**2026-10-11, screen fixes from Sammy's critiques (front end only, nothing in the database or room server), reviewed by `circles-reviewer`, not yet tested on phones:**
+- Home: intro line, live count always shown with its green dot, cards Games / Talk / Learn / Friends, arrows on every card, a "how it works" line and the "In crisis right now? Get help" link (same HelpModal as the support page). The Explore tab is now called **Rooms**.
+- Learn: Practise plus greyed Quiz / Challenge / Debate "Soon"; categories Nigerian languages / Other languages / Skills; 18 greyed "Coming soon" subjects (`SOON` in `src/rooms/learn.ts`). Subject page: level at the top, "Host your own group", "Classes with teachers are coming soon."
+- Let's play: all 6 games listed and tappable (the room starts the tapped game once it can; the wish stays on the phone), Open now under Play now (first 3, then See all), Host a room button.
+- Game room: "Ludo room" / "Game room" title, one waiting message in the circle, Invite friends as the main button, + seats invite, red Leave, Games button, tappable Mic paused, muting releases the microphone (`stopMicTrackOnMute`).
+- **Minimise:** ⌄ in the room (and Android back) shrinks it to a bar above the tabs; voice stays on; tap the bar to go back in. Joining another room from there asks first. The room opens again by itself when it needs you (ended, removed, closing countdown).
+- Details per page: the dated notes at the end of `docs/design/pages/doors.md`, `learn.md`, `play.md` and `tabs.md`.
+- To test on a phone: the mic light going off when muted, and whether the first words after unmuting get cut off.
+
 **Room sizes, game mode, scores, optional email, the bottom bar, scheduled rooms with weekly groups and phone reminders, and in-app invitations (NEXT.md items 1 to 5) are built and reviewed, not yet tested on phones. Game mode and reminders need one new app build. Invitation alerts on the lock screen are built too and need that same new build (Firebase is set up). Everything still waits for Sammy's Supabase updates (migrations `20261011000000_scheduled_rooms.sql`, `20261012000000_invitations.sql` and `20261013000000_push_tokens.sql`), the new build, and the phone test. The to-do list is in `docs/NEXT.md`. Read it next.**
 
 Every choice made so far, and Sammy's click-by-click steps, are in `docs/BUILD_NOTES.md`.

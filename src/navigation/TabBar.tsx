@@ -6,13 +6,13 @@ import { Avatar } from '../components/Avatar';
 import { Text } from '../components/Text';
 import { border, fonts, radius, size, space, useColors } from '../theme';
 
-// The bottom bar: Home, Explore, Groups, Me (docs/design/pages/tabs.md, Sammy's decision 2026-10-08).
+// The bottom bar: Home, Rooms (was Explore), Groups, Me (docs/design/pages/tabs.md, Sammy's decision 2026-10-08).
 // Shown on the four main pages and the pages opened from them; hidden in rooms, sign-up and Start.
 
 export type Tab = 'home' | 'explore' | 'groups' | 'me';
 const TABS: { id: Tab; label: string }[] = [
   { id: 'home', label: 'Home' },
-  { id: 'explore', label: 'Explore' },
+  { id: 'explore', label: 'Rooms' },
   { id: 'groups', label: 'Groups' },
   { id: 'me', label: 'Me' },
 ];

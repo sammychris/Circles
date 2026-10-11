@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useRef, useState, type ReactNode } from 'react';
 import { Alert, AppState, Linking, Platform, Pressable, ScrollView, Share, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { Flag, Hand, Hash, Heart, SquarePlus, LogOut, MessageCircle, Share2, Shield, X } from 'lucide-react-native';
+import { ChevronDown, ChevronUp, Dice5, Flag, Hand, Hash, Heart, Mic, MicOff, SquarePlus, LogOut, MessageCircle, Share2, Shield, X } from 'lucide-react-native';
 import { Avatar } from '../components/Avatar';
 import { BlockSheet } from '../components/BlockSheet';
 import { InviteSheet } from '../components/InviteSheet';
@@ -19,7 +19,7 @@ import { RoomCircle } from '../components/RoomCircle';
 import { Sheet } from '../components/Sheet';
 import { Text } from '../components/Text';
 import { Toast } from '../components/Toast';
-import { BASE, teamOf } from '../games/ludo/engine';
+import { BASE, MIN_PLAYERS as LUDO_MIN, teamOf } from '../games/ludo/engine';
 import { BackFromGame, GameModeProvider, GameStage, type GameModeEnv } from '../games/mode/GameMode';
 import { GAME_TITLE } from '../games/mode/howToPlay';
 import { TableAction } from '../components/TableAction';
@@ -90,9 +90,15 @@ type Props = {
   // Called after leaving. No summary means the person never got into a room.
   onLeft: (summary: RoomSummary | null) => void;
   onMove: (request: RoomRequest) => void;
+  // Minimised: a small bar above the tabs while you browse; voice stays on.
+  minimised: boolean;
+  onMinimise: () => void;
+  onExpand: () => void;
+  // Whether ⌄ and Android's back can minimise right now (only while connected).
+  onCanMinimise: (can: boolean) => void;
 };
 
-export function RoomScreen({ me, request, onLeft, onMove }: Props) {
+export function RoomScreen({ me, request, onLeft, onMove, minimised, onMinimise, onExpand, onCanMinimise }: Props) {
   const colors = useColors();
   const voice = useVoiceRoom();
   const { status, room, people } = voice;
@@ -334,7 +340,9 @@ export function RoomScreen({ me, request, onLeft, onMove }: Props) {
         ? phase === 'countdown'
           ? 'Finding a third person'
           : 'Support rooms need three people'
-        : 'Waiting for someone to join';
+        : 'Turns on when someone joins';
+  // Paused isn't a dead button: tapping it says why.
+  const micPress = () => (micState === 'paused' ? setToast(`Mic paused. ${pausedReason}.`) : void onMicPress());
   // People whose mic the night paused are told when they can talk again.
   const pausedByNight = useRef(false);
   useEffect(() => {
@@ -462,9 +470,16 @@ export function RoomScreen({ me, request, onLeft, onMove }: Props) {
   const topic = topicLabel(room?.topic) ?? (room?.door === 'learn' ? levelLabel(room.level) : null);
   // During Find the Impostor the header shows the game and the round (docs/screens/12).
   const impostorOn = connected && room?.door === 'play' && phase === 'live' && !ludo.game && !!impostor.round;
+  // Matched game rooms are all called "Let's play" (the door's name), so say which game instead.
+  const gameName =
+    tableItem.item?.kind === 'game' ? GAMES[tableItem.item.game]?.name : ludo.game ? 'Ludo' : wantedGameName(request);
   const title = impostorOn
     ? 'Find the Impostor'
-    : room?.title ?? (status === 'connecting' ? 'Finding your room' : 'Circles');
+    : room?.door === 'play' && room.title === "Let's play"
+      ? gameName
+        ? `${gameName} room`
+        : 'Game room'
+      : room?.title ?? (status === 'connecting' ? 'Finding your room' : 'Circles');
 
   let message: { title: string; body: string } | null = null;
   if (status === 'noHost') {
@@ -493,10 +508,8 @@ export function RoomScreen({ me, request, onLeft, onMove }: Props) {
       ? hostPresent
         ? { title: 'A quiet room is opening', body: 'It starts when three people are here. Mics stay off until then.' }
         : { title: 'Waiting for a host', body: 'Support rooms always have a trained host. Mics stay off until one is here.' }
-      : {
-          title: room?.mood === 'laugh' ? "Nobody's laughing yet" : room?.mood === 'advice' ? 'Nobody else here yet' : "Nobody's here yet",
-          body: "You're the first one here. Waiting for someone to join. Mics turn on when they do.",
-        };
+      : // Said once, in the circle ("Waiting for players · 1 of 6"); Invite friends is the thing to do.
+        null;
   } else if (phase === 'countdown') {
     message =
       isSupport && !hostPresent
@@ -689,6 +702,37 @@ export function RoomScreen({ me, request, onLeft, onMove }: Props) {
     });
   }
 
+  // Came in by tapping a game on Let's play: start it once the room is live with enough people and the
+  // table has stayed free long enough to hear from anyone already presenting (useTable's hello).
+  // Anything already on the table wins, and the wish is dropped.
+  const wantedGame = useRef(request.kind === 'match' ? request.game : undefined);
+  const toldWait = useRef(false);
+  useEffect(() => {
+    const game = wantedGame.current;
+    if (!game || !ludo.ready || !impostor.ready) return;
+    // Ludo and Find the Impostor aren't table items, so they're checked as well.
+    if (tableItem.item || ludo.game || impostor.round) {
+      wantedGame.current = undefined;
+      return;
+    }
+    if (phase !== 'live') return;
+    const engine = game === 'impostor' || game === 'ludo' ? null : GAMES[game];
+    const min = engine ? engine.min : game === 'impostor' ? IMPOSTOR_MIN : LUDO_MIN;
+    if (people.length < min) {
+      const name = engine ? engine.name : game === 'impostor' ? 'Find the Impostor' : 'Ludo';
+      if (!toldWait.current) setToast(`${name} starts when ${min} people are here.`);
+      toldWait.current = true;
+      return;
+    }
+    const timer = setTimeout(() => {
+      wantedGame.current = undefined;
+      onTablePick(game);
+    }, 3500);
+    return () => clearTimeout(timer);
+    // onTablePick is rebuilt every render; these are what decide when to start.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [phase, people.length, tableItem.item, ludo.ready, ludo.game, impostor.ready, impostor.round]);
+
   // Games on the table take the whole screen instead (game mode, below).
   if (!table && connected && phase === 'live' && tableItem.item && tableItem.item.kind !== 'game') {
     const item = tableItem.item;
@@ -777,7 +821,14 @@ export function RoomScreen({ me, request, onLeft, onMove }: Props) {
 
   // Games have their own Leave game, End game and Stop watching, in game mode's ⋯ menu.
   let tableAction = null;
-  if (!tableAction && connected) tableAction = <RowButton Icon={SquarePlus} label="Table" onPress={openTable} />;
+  // In game rooms the table is mostly games, so it says so.
+  if (!tableAction && connected)
+    tableAction =
+      room?.door === 'play' ? (
+        <RowButton Icon={Dice5} label="Games" onPress={openTable} />
+      ) : (
+        <RowButton Icon={SquarePlus} label="Table" onPress={openTable} />
+      );
 
   // Your screen is shared only while it's your item on the table. If sharing stops from the phone's own
   // notification, the item comes off too.
@@ -814,7 +865,7 @@ export function RoomScreen({ me, request, onLeft, onMove }: Props) {
       Icon={Hand}
       label={handUp ? 'Lower hand' : 'Raise hand'}
       active={handUp}
-      disabled={micLive && !handUp}
+      disabled={(micLive || others.length === 0) && !handUp}
       onPress={() => void toggleHand()}
     />
   );
@@ -985,7 +1036,7 @@ export function RoomScreen({ me, request, onLeft, onMove }: Props) {
   }
   const gameEnv: GameModeEnv = {
     people,
-    mic: <MicControl state={micState} pausedReason={pausedReason} onPress={() => void onMicPress()} />,
+    mic: <MicControl state={micState} pausedReason={pausedReason} onPress={micPress} />,
     unread,
     onChat: () => setChatOpen(true),
     onPerson: onSeat,
@@ -996,7 +1047,7 @@ export function RoomScreen({ me, request, onLeft, onMove }: Props) {
     above: (
       <>
         <Toast message={toast} onDone={clearToast} />
-        {voice.audioBlocked ? <Button label="Tap to hear the room" onPress={() => void voice.unblockAudio()} /> : null}
+        {voice.audioBlocked ? <Button label="Turn on sound" onPress={() => void voice.unblockAudio()} /> : null}
       </>
     ),
   };
@@ -1234,6 +1285,28 @@ export function RoomScreen({ me, request, onLeft, onMove }: Props) {
     </>
   );
 
+  // Minimised and something changed that needs you (removed, the room ended, the connection dropped):
+  // open the room again so you see it.
+  const needsYou = (!connected && status !== 'connecting') || phase === 'countdown';
+  useEffect(() => {
+    if (minimised && needsYou) onExpand();
+  }, [minimised, needsYou, onExpand]);
+  useEffect(() => {
+    onCanMinimise(connected);
+  }, [connected, onCanMinimise]);
+
+  if (minimised) {
+    return (
+      <MiniRoomBar
+        title={title}
+        here={people.length}
+        mic={micState}
+        onOpen={onExpand}
+        onMic={() => void onMicPress()}
+      />
+    );
+  }
+
   if (gameView) {
     return (
       <SafeAreaView style={{ flex: 1, backgroundColor: colors.bg }}>
@@ -1254,6 +1327,18 @@ export function RoomScreen({ me, request, onLeft, onMove }: Props) {
           minHeight: size.minTarget,
         }}
       >
+        <View style={{ flexDirection: 'row', alignItems: 'center', gap: space[3] }}>
+        {connected ? (
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel="Minimise the room. You stay in it"
+            onPress={onMinimise}
+            hitSlop={space[2]}
+            style={{ minHeight: size.minTarget, minWidth: size.minTarget, alignItems: 'center', justifyContent: 'center' }}
+          >
+            <ChevronDown size={size.icon} color={colors.textSoft} strokeWidth={size.iconStroke} />
+          </Pressable>
+        ) : null}
         {canInvite ? (
           <Pressable
             accessibilityRole="button"
@@ -1269,6 +1354,7 @@ export function RoomScreen({ me, request, onLeft, onMove }: Props) {
         ) : (
           <View />
         )}
+        </View>
         {connected ? (
           <Pressable
             accessibilityRole="button"
@@ -1323,16 +1409,33 @@ export function RoomScreen({ me, request, onLeft, onMove }: Props) {
                 people={people}
                 capacity={room?.capacity}
                 emptyHint={status === 'connecting' ? 'Finding your room' : undefined}
-                centre={countdown !== null ? <CountdownRing seconds={countdown} /> : undefined}
+                centre={
+                  countdown !== null ? (
+                    <CountdownRing seconds={countdown} />
+                  ) : phase === 'waiting' && !isSupport ? (
+                    <>
+                      <Text variant="heading" center>
+                        Waiting for players
+                      </Text>
+                      <Text variant="meta" color="textMeta" center>
+                        {`${people.length} of ${room?.capacity ?? people.length}`}
+                      </Text>
+                    </>
+                  ) : undefined
+                }
                 onSeatPress={onSeat}
+                onEmptyPress={canInvite ? invite : undefined}
               />
             )}
           </BackFromGame>
         )}
 
-        {connected && voice.audioBlocked ? (
-          <Button label="Tap to hear the room" onPress={() => void voice.unblockAudio()} />
+        {connected && voice.audioBlocked && others.length > 0 ? (
+          <Button label="Turn on sound" onPress={() => void voice.unblockAudio()} />
         ) : null}
+
+        {/* Alone in a room: inviting is the one useful thing to do. */}
+        {connected && phase === 'waiting' && !isSupport && canInvite ? <Button label="Invite friends" variant="primary" onPress={invite} /> : null}
 
         {backToGame ? <Button label="Back to the game" onPress={backToGame} /> : null}
 
@@ -1453,11 +1556,11 @@ export function RoomScreen({ me, request, onLeft, onMove }: Props) {
               {phase === 'countdown' ? (
                 <Button label="Leave" variant="quiet" onPress={() => void leaveRoom()} style={{ flex: 1 }} />
               ) : (
-                <RowButton Icon={LogOut} label="Leave" onPress={() => void leaveRoom()} />
+                <RowButton Icon={LogOut} label="Leave" danger onPress={() => void leaveRoom()} />
               )}
             </View>
             {phase !== 'countdown' ? (
-              <MicControl state={micState} pausedReason={pausedReason} onPress={() => void onMicPress()} />
+              <MicControl state={micState} pausedReason={pausedReason} onPress={micPress} />
             ) : null}
           </>
         ) : status === 'connecting' ? (
@@ -1513,6 +1616,86 @@ function tableGameStatus(game: GameId, g: unknown, me: string): 'playing' | 'wat
 }
 
 // Room bottom row button: 56 tall, radius 20, icon over a tiny label (design direction › Room bottom row).
+// The game tapped on Let's play, while it hasn't started yet.
+function wantedGameName(request: RoomRequest): string | undefined {
+  const game = request.kind === 'match' ? request.game : undefined;
+  if (!game) return undefined;
+  return game === 'ludo' ? 'Ludo' : game === 'impostor' ? 'Find the Impostor' : GAMES[game]?.name;
+}
+
+// The room while you browse the app: its name, how many are here, your mic, and a tap to go back in.
+function MiniRoomBar({
+  title,
+  here,
+  mic,
+  onOpen,
+  onMic,
+}: {
+  title: string;
+  here: number;
+  mic: MicState;
+  onOpen: () => void;
+  onMic: () => void;
+}) {
+  const colors = useColors();
+  const live = mic === 'live';
+  // Only a mic that can be switched here: paused, blocked or not-yet-allowed mics are handled in the room.
+  const canSwitch = mic === 'live' || mic === 'muted';
+  return (
+    <View
+      style={{
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: space[2],
+        marginHorizontal: space[2],
+        marginBottom: space[2],
+        paddingLeft: space[4],
+        backgroundColor: colors.raised,
+        borderRadius: radius.card,
+        minHeight: size.buttonPrimary,
+      }}
+    >
+      <Pressable
+        accessibilityRole="button"
+        accessibilityLabel={`${title}, ${here} here. Open the room`}
+        onPress={onOpen}
+        style={{ flex: 1, flexDirection: 'row', alignItems: 'center', gap: space[3], minHeight: size.minTarget }}
+      >
+        {live ? <View style={{ width: space[2], height: space[2], borderRadius: radius.pill, backgroundColor: colors.live }} /> : null}
+        <View style={{ flex: 1 }}>
+          <Text variant="bodyStrong" numberOfLines={1}>
+            {title}
+          </Text>
+          <Text variant="meta" color="textSoft" numberOfLines={1}>
+            {`${here} here · ${live ? "You're live" : mic === 'muted' ? "You're muted" : 'Mic off'}`}
+          </Text>
+        </View>
+        <ChevronUp size={size.icon} color={colors.textSoft} strokeWidth={size.iconStroke} />
+      </Pressable>
+      <Pressable
+        accessibilityRole="button"
+        accessibilityLabel={live ? "You're live. Tap to mute" : canSwitch ? "You're muted. Tap to talk" : 'Mic off. Open the room to turn it on'}
+        accessibilityState={{ disabled: !canSwitch }}
+        disabled={!canSwitch}
+        onPress={onMic}
+        style={{
+          width: size.buttonPrimary,
+          height: size.buttonPrimary,
+          alignItems: 'center',
+          justifyContent: 'center',
+          opacity: canSwitch ? 1 : opacity.disabled,
+        }}
+      >
+        {live ? (
+          <Mic size={size.icon} color={colors.live} strokeWidth={size.iconStroke} />
+        ) : (
+          <MicOff size={size.icon} color={colors.textSoft} strokeWidth={size.iconStroke} />
+        )}
+      </Pressable>
+    </View>
+  );
+}
+
 function RowButton({
   Icon,
   label,
@@ -1520,6 +1703,7 @@ function RowButton({
   badge = 0,
   active = false,
   disabled = false,
+  danger = false,
 }: {
   Icon: typeof LogOut;
   label: string;
@@ -1530,6 +1714,8 @@ function RowButton({
   disabled?: boolean;
   // A small count in the corner, e.g. unread chat messages.
   badge?: number;
+  // Leave: the exit for good, in the danger colour.
+  danger?: boolean;
 }) {
   const colors = useColors();
   return (
@@ -1550,8 +1736,8 @@ function RowButton({
         gap: space[1],
       }}
     >
-      <Icon size={size.icon} color={active ? colors.emberText : colors.textSoft} strokeWidth={size.iconStroke} />
-      <Text variant="tiny" color={active ? 'emberText' : 'textSoft'}>
+      <Icon size={size.icon} color={active ? colors.emberText : danger ? colors.danger : colors.textSoft} strokeWidth={size.iconStroke} />
+      <Text variant="tiny" color={active ? 'emberText' : danger ? 'danger' : 'textSoft'}>
         {label}
       </Text>
       {badge > 0 ? (

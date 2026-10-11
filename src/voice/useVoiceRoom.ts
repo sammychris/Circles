@@ -234,7 +234,9 @@ export function useVoiceRoom() {
         }
 
         // dynacast: a shared screen is only sent while someone is watching it.
-        const lkRoom = new Room({ dynacast: true, adaptiveStream: true });
+        // stopMicTrackOnMute: muted or paused really lets go of the microphone, so the phone's own mic
+        // light goes off and nobody thinks they're being listened to.
+        const lkRoom = new Room({ dynacast: true, adaptiveStream: true, publishDefaults: { stopMicTrackOnMute: true } });
         roomRef.current = lkRoom;
 
         lkRoom

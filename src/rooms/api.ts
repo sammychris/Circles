@@ -1,4 +1,5 @@
 import { supabase } from '../lib/supabase';
+import type { GameId } from '../games/tableGame';
 import type { LearnLevel } from './learn';
 import type { Topic } from './start';
 
@@ -21,7 +22,8 @@ export type RoomTicket = { token: string; url: string; roomName: string; room: R
 
 // How someone gets into a room: matched through a door, or picked from the Open now list.
 export type RoomRequest =
-  | { kind: 'match'; door: Door; mood: Mood | null; excludeRoomId?: string; language?: string; level?: LearnLevel }
+  // game: tapped on Let's play. Stays on this phone (never sent); the room starts it once it can.
+  | { kind: 'match'; door: Door; mood: Mood | null; excludeRoomId?: string; language?: string; level?: LearnLevel; game?: GameId | 'ludo' | 'impostor' }
   // door: where they found the room, so "Find me another room" looks behind the same door.
   | { kind: 'join'; roomId: string; door?: 'talk' | 'play' }
   // A scheduled room or a weekly group's meeting: open from 5 minutes before its time.

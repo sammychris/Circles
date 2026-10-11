@@ -1,14 +1,15 @@
 import { useCallback, useEffect, useState, type ComponentType } from 'react';
 import { Pressable, RefreshControl, ScrollView, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { BookOpen, ChevronRight, Dice5, Heart, MessageCircle, Users } from 'lucide-react-native';
+import { BookOpen, ChevronRight, Dice5, Heart, MessageCircle, Phone, Users } from 'lucide-react-native';
 import { RoomRow } from '../../components/RoomRow';
 import { ScheduledRow } from '../../components/Scheduled';
 import { Button } from '../../components/Button';
 import { Glow } from '../../components/Glow';
+import { HelpModal } from '../../components/HelpModal';
 import { Text } from '../../components/Text';
 import { Toast } from '../../components/Toast';
-import { greeting, peopleInRooms, timeWord } from '../../lib/timeOfDay';
+import { peopleInRooms, timeWord } from '../../lib/timeOfDay';
 import { forYou, goBackRoom, loadVisits } from '../../lib/roomHistory';
 import { useScreenEdges, useTabScroll } from '../../navigation/TabBar';
 import { listOpenRoomsAt, roomStats, type ListedRoom, type RoomRequest } from '../../rooms/api';
@@ -49,17 +50,20 @@ function DoorTile({
         opacity: pressed ? opacity.pressed : 1,
       })}
     >
-      <View
-        style={{
-          width: size.tileIconBox,
-          height: size.tileIconBox,
-          borderRadius: radius.small,
-          backgroundColor: tint.bg,
-          alignItems: 'center',
-          justifyContent: 'center',
-        }}
-      >
-        <Icon size={size.iconButton20} color={tint.fg} strokeWidth={size.iconStroke} />
+      <View style={{ flexDirection: 'row', justifyContent: 'space-between' }}>
+        <View
+          style={{
+            width: size.tileIconBox,
+            height: size.tileIconBox,
+            borderRadius: radius.small,
+            backgroundColor: tint.bg,
+            alignItems: 'center',
+            justifyContent: 'center',
+          }}
+        >
+          <Icon size={size.iconButton20} color={tint.fg} strokeWidth={size.iconStroke} />
+        </View>
+        <ChevronRight size={size.icon} color={colors.textSoft} strokeWidth={size.iconStroke} />
       </View>
       <View style={{ gap: space[1] }}>
         <Text variant="heading">{title}</Text>
@@ -114,6 +118,7 @@ export function HomeScreen({ me, onOpen, onEnter, onExplore }: Props) {
   // Coming up: tonight's scheduled rooms (the same as Explore › Tonight, behind See all), yours first.
   const schedule = useSchedule(me.id);
   const [note, setNote] = useState<string | null>(null);
+  const [helpOpen, setHelpOpen] = useState(false);
   const coming = tonight(schedule.rooms ?? [])
     .sort((a, b) => Number(b.reminded || b.regular || b.mine) - Number(a.reminded || a.regular || a.mine))
     .slice(0, 2)
@@ -160,17 +165,14 @@ export function HomeScreen({ me, onOpen, onEnter, onExplore }: Props) {
           />
         }
       >
-        {/* Me is a tab now, so the avatar has left the top right. */}
-        <View style={{ minHeight: size.minTarget, justifyContent: 'center' }}>
-          <Text variant="bodyStrong" color="textSoft" numberOfLines={1}>
-            {`${greeting()}, ${me.nickname}`}
-          </Text>
-        </View>
-
         <View style={{ gap: space[3] }}>
           <Text variant="display" accessibilityRole="header">
             {`What brings you in ${timeWord()}?`}
           </Text>
+          <Text variant="body" color="textSoft">
+            Live voice rooms with real people. Talk, play or learn together.
+          </Text>
+          {/* Always shown, green dot included (Sammy, 2026-10-11). */}
           {people !== null ? (
             <View style={{ flexDirection: 'row', alignItems: 'center', gap: space[2] }}>
               <View style={{ width: space[2], height: space[2], borderRadius: radius.pill, backgroundColor: colors.live }} />
@@ -185,7 +187,7 @@ export function HomeScreen({ me, onOpen, onEnter, onExplore }: Props) {
           {/* The support line: always first under the question, never moved, hidden or shrunk. */}
           <Pressable
             accessibilityRole="button"
-            accessibilityLabel="Need someone to talk to? Come in. It's quiet and kind."
+            accessibilityLabel="Need someone to talk to? Real people who listen. Quiet and kind."
             onPress={() => onOpen('support')}
             style={({ pressed }) => ({
               minHeight: size.supportLine,
@@ -215,18 +217,18 @@ export function HomeScreen({ me, onOpen, onEnter, onExplore }: Props) {
             <View style={{ flex: 1, gap: space[1] }}>
               <Text variant="bodyStrong">Need someone to talk to?</Text>
               <Text variant="meta" color="textSoft">
-                Come in. It's quiet and kind.
+                Real people who listen. Quiet and kind.
               </Text>
             </View>
             <ChevronRight size={size.icon} color={colors.textSoft} strokeWidth={size.iconStroke} />
           </Pressable>
 
           <View style={{ flexDirection: 'row', gap: space[3] }}>
-            <DoorTile Icon={Dice5} title="I'm bored" line="Play while you talk" tint={doorColors.play} onPress={() => onOpen('play')} />
+            <DoorTile Icon={Dice5} title="Games" line="Play with others" tint={doorColors.play} onPress={() => onOpen('play')} />
             <DoorTile
               Icon={MessageCircle}
-              title="I want to talk"
-              line="Topics and moods"
+              title="Talk"
+              line="Join a conversation"
               tint={doorColors.talk}
               onPress={() => onOpen('talk')}
             />
@@ -234,12 +236,12 @@ export function HomeScreen({ me, onOpen, onEnter, onExplore }: Props) {
           <View style={{ flexDirection: 'row', gap: space[3] }}>
             <DoorTile
               Icon={BookOpen}
-              title="Learn together"
-              line="Languages, skills"
+              title="Learn"
+              line="Languages and skills"
               tint={doorColors.learn}
               onPress={() => onOpen('learn')}
             />
-            <DoorTile Icon={Users} title="My people" line="Friends and groups" tint={doorColors.people} onPress={() => onOpen('people')} />
+            <DoorTile Icon={Users} title="Friends" line="People you know" tint={doorColors.people} onPress={() => onOpen('people')} />
           </View>
         </View>
 
@@ -284,10 +286,31 @@ export function HomeScreen({ me, onOpen, onEnter, onExplore }: Props) {
             <Button label="See all" variant="quiet" onPress={onExplore} />
           </View>
         ) : null}
+
+        <View style={{ gap: space[3] }}>
+          <Text variant="meta" color="textSoft">
+            Tap a card and you join a small live room. Everyone uses a nickname, and you can leave any time.
+          </Text>
+          <Pressable
+            accessibilityRole="link"
+            accessibilityLabel="In crisis right now? Get help"
+            onPress={() => setHelpOpen(true)}
+            style={{ minHeight: size.minTarget, flexDirection: 'row', alignItems: 'center', gap: space[3] }}
+          >
+            <Phone size={size.icon} color={colors.textSoft} strokeWidth={size.iconStroke} />
+            <Text variant="body" color="textSoft" style={{ flex: 1 }}>
+              In crisis right now?
+            </Text>
+            <Text variant="bodyStrong" style={{ textDecorationLine: 'underline' }}>
+              Get help
+            </Text>
+          </Pressable>
+        </View>
       </ScrollView>
       <View style={{ position: 'absolute', left: 0, right: 0, bottom: space[4] }} pointerEvents="none">
         <Toast message={note} onDone={() => setNote(null)} />
       </View>
+      <HelpModal visible={helpOpen} onClose={() => setHelpOpen(false)} inRoom={false} />
     </SafeAreaView>
   );
 }

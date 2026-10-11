@@ -207,7 +207,7 @@ export function GroupScreen({ me, groupId, first, backLabel, onBack, onEnter }: 
           variant="quiet"
           disabled={busy}
           onPress={() =>
-            Alert.alert('End this group?', "Its meetings stop and it leaves Explore. This can't be undone.", [
+            Alert.alert('End this group?', "Its meetings stop and it leaves Rooms. This can't be undone.", [
               { text: 'Keep it', style: 'cancel' },
               { text: 'End it', style: 'destructive', onPress: () => void act(() => endGroup(group.id), 'The group has ended.') },
             ])

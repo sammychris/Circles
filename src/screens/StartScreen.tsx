@@ -435,11 +435,11 @@ export function StartScreen({ door: firstDoor, subject, draft, onBack, onStart, 
               title="Anyone"
               line={
                 when !== 'now'
-                  ? 'Listed in Explore, so anyone can see it and set a reminder.'
+                  ? 'Listed in Rooms, so anyone can see it and set a reminder.'
                   : learnSubject
                     ? `Listed on the ${learnSubject.name} page for anyone to join.`
                     : talk
-                      ? 'Listed under "I want to talk" for anyone to join.'
+                      ? 'Listed under "Talk" for anyone to join.'
                       : 'Listed under "Let\'s play" for anyone to join.'
               }
               selected={inviteOnly === false}

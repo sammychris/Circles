@@ -85,12 +85,14 @@ function Seat({
   point,
   reduceMotion,
   onPress,
+  onEmptyPress,
   g,
 }: {
   person: Person | null;
   point: { x: number; y: number };
   reduceMotion: boolean;
   onPress?: (person: Person) => void;
+  onEmptyPress?: () => void;
   g: Geometry;
 }) {
   const colors = useColors();
@@ -98,10 +100,16 @@ function Seat({
   const top = g.centre.y + point.y - g.avatar / 2;
 
   if (!person) {
+    // An open seat: tapping + invites someone into it. Filled with the page colour so the ring's dashed
+    // line stops at the seat's edge.
     return (
-      <View
-        accessibilityElementsHidden
-        importantForAccessibility="no-hide-descendants"
+      <Pressable
+        disabled={!onEmptyPress}
+        onPress={onEmptyPress}
+        accessibilityRole={onEmptyPress ? 'button' : undefined}
+        accessibilityLabel={onEmptyPress ? 'Open seat. Invite someone' : undefined}
+        accessibilityElementsHidden={!onEmptyPress}
+        importantForAccessibility={onEmptyPress ? 'auto' : 'no-hide-descendants'}
         style={{
           position: 'absolute',
           left,
@@ -112,12 +120,13 @@ function Seat({
           borderWidth: border.seatRing,
           borderStyle: 'dashed',
           borderColor: colors.seatEmpty,
+          backgroundColor: colors.bg,
           alignItems: 'center',
           justifyContent: 'center',
         }}
       >
         <Plus size={size.icon} color={colors.seatEmpty} strokeWidth={size.iconStroke} />
-      </View>
+      </Pressable>
     );
   }
 
@@ -233,11 +242,13 @@ type Props = {
   // Replaces the "6 here" centre, e.g. the countdown ring.
   centre?: ReactNode;
   onSeatPress?: (person: Person) => void;
+  // Tapping an open seat (+), e.g. to invite someone.
+  onEmptyPress?: () => void;
   // Taken seats without names, for people who may not see who's inside yet (a room link).
   anonymousTaken?: number;
 };
 
-export function RoomCircle({ people, capacity = ROOM_CAPACITY, emptyHint, centre, onSeatPress, anonymousTaken = 0 }: Props) {
+export function RoomCircle({ people, capacity = ROOM_CAPACITY, emptyHint, centre, onSeatPress, onEmptyPress, anonymousTaken = 0 }: Props) {
   const colors = useColors();
   const [reduceMotion, setReduceMotion] = useState(false);
   useEffect(() => {
@@ -331,6 +342,7 @@ export function RoomCircle({ people, capacity = ROOM_CAPACITY, emptyHint, centre
           point={points[i]}
           reduceMotion={reduceMotion}
           onPress={onSeatPress}
+          onEmptyPress={onEmptyPress}
           g={g}
         />
         ),

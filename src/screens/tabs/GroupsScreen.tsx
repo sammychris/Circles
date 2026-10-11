@@ -66,7 +66,7 @@ export function GroupsScreen({
   const made = (schedule.rooms ?? []).filter((r) => r.mine && !r.groupId && r.startsAt.getTime() > now);
   const reminders = (schedule.rooms ?? []).filter((r) => r.reminded && !r.regular && !r.mine && r.startsAt.getTime() > now);
   const cancel = (room: ScheduledRoom) =>
-    Alert.alert(`Cancel ${room.title}?`, 'It leaves Explore, and nobody gets a reminder for it.', [
+    Alert.alert(`Cancel ${room.title}?`, 'It leaves Rooms, and nobody gets a reminder for it.', [
       { text: 'Keep it', style: 'cancel' },
       {
         text: 'Cancel it',
@@ -412,7 +412,7 @@ export function GroupsScreen({
                 Your groups and reminders will show here.
               </Text>
             </View>
-            <Button label="Explore groups" onPress={onExplore} />
+            <Button label="See groups in Rooms" onPress={onExplore} />
           </View>
         ) : null}
       </ScrollView>
