@@ -9,9 +9,9 @@ export const LIVEKIT_URL = process.env.EXPO_PUBLIC_LIVEKIT_URL ?? '';
 export const PHOTO_URL_START = `${(process.env.EXPO_PUBLIC_SUPABASE_URL ?? '').replace(/\/+$/, '')}/storage/v1/object/sign/table/`;
 export const WEB_URL = (process.env.EXPO_PUBLIC_WEB_URL ?? '').replace(/\/+$/, '');
 
-// Optional email (Sammy, 2026-10-08): an email box on the nickname screen, "Add your email" in Me, and
-// "I already have an account" on Welcome, so people can log back in. Needs the Supabase email setup in
-// docs/BUILD_NOTES.md part 16 (the code in the email templates, and an email-sending service).
+// Optional email: "Add your email" in Me, used only to reset a forgotten password (Sammy, 2026-10-11).
+// Needs the Supabase email setup in docs/BUILD_NOTES.md part 16 (the code in the email templates, and an
+// email-sending service).
 export const EMAIL_ENABLED = true;
 
 export const TEST_ROOM_ID = 'test-room';

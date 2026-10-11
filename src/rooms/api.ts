@@ -65,7 +65,7 @@ export class TooManyRoomsError extends Error {
 
 export class BadTitleError extends Error {
   constructor() {
-    super('That title can’t be used');
+    super('That title canâ€™t be used');
   }
 }
 
@@ -148,7 +148,7 @@ export async function getTicket(request: RoomRequest): Promise<RoomTicket> {
   return data as RoomTicket;
 }
 
-// Start something › Later or Every week: sets a room for a time, or a weekly group.
+// Start something â€º Later or Every week: sets a room for a time, or a weekly group.
 export type ScheduleRequest = {
   door: 'talk' | 'play' | 'learn';
   title: string;
@@ -218,6 +218,25 @@ export async function supportStatus(): Promise<{ hostInRoom: boolean; iAmHost: b
 // Deletes this person's account and everything tied to it. Can't be undone.
 export async function deleteMyAccount(): Promise<void> {
   await call<{ status: string }>({ action: 'delete_account' });
+}
+
+type Tokens = { access_token: string; refresh_token: string };
+
+async function keepSignIn(tokens: Tokens) {
+  const { error } = await supabase.auth.setSession(tokens);
+  if (error) throw error;
+}
+
+// Nickname and password. 'ok' means signed in on this phone; App moves on by itself.
+export async function logIn(nickname: string, password: string): Promise<'ok' | 'wrong' | 'locked'> {
+  const data = await call<{ status: 'ok' | 'wrong' | 'locked' } & Tokens>({ action: 'login', nickname, password });
+  if (data.status === 'ok') await keepSignIn(data);
+  return data.status;
+}
+
+// A new password signs the account out everywhere, so the room server sends a fresh sign-in for this phone.
+export async function setPassword(password: string): Promise<void> {
+  await keepSignIn(await call<Tokens>({ action: 'set_password', password }));
 }
 
 export type RoomPreview = { status: 'open'; room: RoomInfo; here: number } | { status: 'ended' };

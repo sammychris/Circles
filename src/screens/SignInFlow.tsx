@@ -4,12 +4,13 @@ import { supabase } from '../lib/supabase';
 import { CodeScreen } from './CodeScreen';
 import { EmailScreen, OFFLINE_TEXT, isOffline } from './EmailScreen';
 import { LinkPreviewScreen } from './LinkPreviewScreen';
+import { LoginScreen } from './LoginScreen';
 import { WelcomeScreen } from './WelcomeScreen';
 
-type Stage = { name: 'welcome' } | { name: 'email' } | { name: 'code'; email: string };
+type Stage = { name: 'welcome' } | { name: 'login' } | { name: 'email' } | { name: 'code'; email: string };
 
 // Signed out. Get started makes a new account straight away (open test: no email needed).
-// "I already have an account" signs back in with the email that was added to it.
+// Log in uses nickname and password; a forgotten password is reset with the email added to the account.
 type Props = {
   // A room link someone opened. They see the room first, then sign up and go straight in.
   linkRoom?: { roomId: string; by?: string };
@@ -22,11 +23,11 @@ export function SignInFlow({ linkRoom, onLinkEnded }: Props) {
   const [email, setEmail] = useState('');
   const [starting, setStarting] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  // Android back: from the code to the email, from the email to Welcome (not out of the app).
+  // Android back: code → email → Log in → Welcome (not out of the app).
   useEffect(() => {
     if (stage.name === 'welcome') return;
     const sub = BackHandler.addEventListener('hardwareBackPress', () => {
-      setStage(stage.name === 'code' ? { name: 'email' } : { name: 'welcome' });
+      setStage(stage.name === 'code' ? { name: 'email' } : stage.name === 'email' ? { name: 'login' } : { name: 'welcome' });
       return true;
     });
     return () => sub.remove();
@@ -61,7 +62,7 @@ export function SignInFlow({ linkRoom, onLinkEnded }: Props) {
           onLinkEnded?.();
           void start();
         }}
-        onHaveAccount={() => setStage({ name: 'email' })}
+        onHaveAccount={() => setStage({ name: 'login' })}
       />
     );
   }
@@ -71,16 +72,19 @@ export function SignInFlow({ linkRoom, onLinkEnded }: Props) {
         starting={starting}
         error={error}
         onStart={() => void start()}
-        onHaveAccount={() => setStage({ name: 'email' })}
+        onHaveAccount={() => setStage({ name: 'login' })}
       />
     );
+  }
+  if (stage.name === 'login') {
+    return <LoginScreen onBack={() => setStage({ name: 'welcome' })} onForgot={() => setStage({ name: 'email' })} />;
   }
   if (stage.name === 'email') {
     return (
       <EmailScreen
-        purpose="signIn"
+        purpose="reset"
         initialEmail={email}
-        onBack={() => setStage({ name: 'welcome' })}
+        onBack={() => setStage({ name: 'login' })}
         onCodeSent={(sentTo) => {
           setEmail(sentTo);
           setStage({ name: 'code', email: sentTo });
@@ -88,5 +92,5 @@ export function SignInFlow({ linkRoom, onLinkEnded }: Props) {
       />
     );
   }
-  return <CodeScreen purpose="signIn" email={stage.email} onBack={() => setStage({ name: 'email' })} />;
+  return <CodeScreen purpose="reset" email={stage.email} onBack={() => setStage({ name: 'email' })} />;
 }

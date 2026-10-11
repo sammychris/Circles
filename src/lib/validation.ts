@@ -69,6 +69,16 @@ export const NICKNAME_PROBLEM_TEXT: Record<Exclude<NicknameProblem, null>, strin
   reserved: 'That name is kept for the Circles team. Pick another.',
 };
 
+export const PASSWORD_MIN = 8;
+
+// Accounts without an email get a login-only address for their password (the room server's
+// set_password). It never receives mail and is never shown.
+export const LOGIN_ONLY_EMAIL = '@users.circles.invalid';
+
+export function realEmail(email: string | null | undefined): string | null {
+  return email && !email.endsWith(LOGIN_ONLY_EMAIL) ? email : null;
+}
+
 // supabase-js reports a dropped connection as a failed fetch rather than a status code.
 export function looksOffline(message: string | undefined): boolean {
   return !!message && /network request failed|failed to fetch|fetch failed/i.test(message);

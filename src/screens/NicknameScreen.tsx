@@ -1,37 +1,25 @@
-import { useEffect, useRef, useState } from 'react';
-import { BackHandler, type TextInput } from 'react-native';
+import { useRef, useState } from 'react';
+import type { TextInput } from 'react-native';
 import { AuthLayout } from '../components/AuthLayout';
 import { Button } from '../components/Button';
 import { TextField } from '../components/TextField';
-import { EMAIL_ENABLED } from '../config';
 import { supabase } from '../lib/supabase';
-import { NICKNAME_MAX, NICKNAME_PROBLEM_TEXT, isValidEmail, looksOffline, nicknameProblem } from '../lib/validation';
-import { CodeScreen } from './CodeScreen';
-import { OFFLINE_TEXT, friendlyAuthError, sendEmailCode } from './EmailScreen';
+import { NICKNAME_MAX, NICKNAME_PROBLEM_TEXT, PASSWORD_MIN, looksOffline, nicknameProblem } from '../lib/validation';
+import { setPassword } from '../rooms/api';
+import { OFFLINE_TEXT } from './EmailScreen';
 
 type Props = { onSaved: () => void; onBack: () => void };
 
-// The nickname, and an optional email (Sammy, 2026-10-08) so people can log back in after a new
-// phone or a reinstall. With an email, a code is sent to check it's theirs before they go in.
+// The nickname and a password (Sammy, 2026-10-11): together they log you back in on any phone.
 export function NicknameScreen({ onSaved, onBack }: Props) {
   const [nickname, setNickname] = useState('');
-  const [email, setEmail] = useState('');
+  const [password, setPasswordText] = useState('');
   const [error, setError] = useState<string | null>(null);
-  const [emailError, setEmailError] = useState<string | null>(null);
+  const [passwordError, setPasswordError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
-  // The nickname is saved once; if the email then needs another try, it isn't saved again.
+  // The nickname is saved once; if the password then needs another try, it isn't saved again.
   const [saved, setSaved] = useState(false);
-  const [codeSentTo, setCodeSentTo] = useState<string | null>(null);
-  const emailBox = useRef<TextInput>(null);
-  // Android back on the code screen: back to the email box (not out of the app).
-  useEffect(() => {
-    if (!codeSentTo) return;
-    const sub = BackHandler.addEventListener('hardwareBackPress', () => {
-      setCodeSentTo(null);
-      return true;
-    });
-    return () => sub.remove();
-  }, [codeSentTo]);
+  const passwordBox = useRef<TextInput>(null);
 
   async function saveNickname(): Promise<boolean> {
     if (saved) return true;
@@ -53,38 +41,26 @@ export function NicknameScreen({ onSaved, onBack }: Props) {
   }
 
   async function save() {
-    const clean = email.trim().toLowerCase();
-    if (clean && !isValidEmail(clean)) {
-      setEmailError('Check your email address, or leave it empty.');
+    if (password.length < PASSWORD_MIN) {
+      setPasswordError(`Use at least ${PASSWORD_MIN} characters.`);
       return;
     }
     setBusy(true);
     setError(null);
-    setEmailError(null);
-    const ok = await saveNickname();
-    if (!ok) {
+    setPasswordError(null);
+    if (!(await saveNickname())) {
       setBusy(false);
       return;
     }
-    if (!clean) {
+    try {
+      await setPassword(password);
+    } catch (e) {
       setBusy(false);
-      onSaved();
+      setPasswordError(looksOffline((e as Error).message) ? OFFLINE_TEXT : "We couldn't save your password. Try again.");
       return;
     }
-    const sendError = await sendEmailCode('add', clean);
     setBusy(false);
-    // 422: already on another account. Carry on as if a code was sent, so nobody can test which emails
-    // use Circles (the code screen says so).
-    if (sendError && sendError.status !== 422) {
-      setEmailError(friendlyAuthError(sendError.status));
-      return;
-    }
-    setCodeSentTo(clean);
-  }
-
-  if (codeSentTo) {
-    // Back from the code: change the email, or go on without it (it can be added later in Me).
-    return <CodeScreen purpose="add" email={codeSentTo} onBack={() => setCodeSentTo(null)} onDone={onSaved} />;
+    onSaved();
   }
 
   return (
@@ -94,12 +70,7 @@ export function NicknameScreen({ onSaved, onBack }: Props) {
       // Once the nickname is saved, going back would throw the account away, so there's no Back.
       onBack={saved ? undefined : onBack}
       backHint="Takes you back to the start"
-      footer={
-        <>
-          <Button label="Continue" variant="primary" loading={busy} onPress={() => void save()} />
-          {saved ? <Button label="Continue without email" variant="quiet" disabled={busy} onPress={onSaved} /> : null}
-        </>
-      }
+      footer={<Button label="Continue" variant="primary" loading={busy} onPress={() => void save()} />}
     >
       <TextField
         label="Nickname"
@@ -111,35 +82,35 @@ export function NicknameScreen({ onSaved, onBack }: Props) {
         placeholder="For example, NightOwl_22"
         autoCapitalize="none"
         autoCorrect={false}
+        autoComplete="username"
+        textContentType="username"
         maxLength={NICKNAME_MAX}
         helper={saved ? 'Saved. This is your nickname.' : `Letters, numbers and _ only, up to ${NICKNAME_MAX} characters.`}
         error={error}
         editable={!saved}
-        returnKeyType={EMAIL_ENABLED ? 'next' : 'done'}
-        onSubmitEditing={() => (EMAIL_ENABLED ? emailBox.current?.focus() : void save())}
+        returnKeyType="next"
+        onSubmitEditing={() => passwordBox.current?.focus()}
         autoFocus
       />
-      {EMAIL_ENABLED ? (
-        <TextField
-          ref={emailBox}
-          label="Email (optional)"
-          value={email}
-          onChangeText={(t) => {
-            setEmail(t);
-            setEmailError(null);
-          }}
-          placeholder="you@example.com"
-          keyboardType="email-address"
-          autoCapitalize="none"
-          autoCorrect={false}
-          autoComplete="email"
-          textContentType="emailAddress"
-          helper="So you can log back in on a new phone. We'll send a code. Nobody else sees it."
-          error={emailError}
-          returnKeyType="done"
-          onSubmitEditing={() => void save()}
-        />
-      ) : null}
+      <TextField
+        ref={passwordBox}
+        label="Password"
+        value={password}
+        onChangeText={(t) => {
+          setPasswordText(t);
+          setPasswordError(null);
+        }}
+        secureTextEntry
+        autoCapitalize="none"
+        autoCorrect={false}
+        autoComplete="new-password"
+        textContentType="newPassword"
+        maxLength={72}
+        helper={`At least ${PASSWORD_MIN} characters. You'll log in with your nickname and this password.`}
+        error={passwordError}
+        returnKeyType="done"
+        onSubmitEditing={() => void save()}
+      />
     </AuthLayout>
   );
 }

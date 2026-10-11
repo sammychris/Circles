@@ -1,7 +1,28 @@
 # Circles: what's next
 
 The to-do list for the next Claude Code session. Read it after `docs/PROGRESS.md`.
-Last updated 2026-10-08.
+Last updated 2026-10-11.
+
+---
+
+## 0. Now (2026-10-11): browser test by Claude, and what Sammy asked for
+
+Claude clicked through the whole app in Chrome at phone size (Playwright, two test people), then talked it over with Sammy.
+
+**Built:** log in with nickname and password, email only for a forgotten password (`docs/BUILD_NOTES.md` part 22). Waiting for Sammy's 4 Supabase steps there; then Claude tests it in the browser, then the app update.
+
+**Found, not fixed yet:**
+1. **Play now and Find my room skip rooms people started** (`pickRoom` in the room server: `if (room.custom) return false`). With few users, two people end up alone in separate rooms. Proposed: fill started rooms marked Anyone too.
+2. **Lag:** a Ludo dice roll takes about 1.2 s to show on both phones even on fast internet. Every move goes to Supabase and back (about 270 ms each way from Sammy's computer), plus a 0.6 s dice animation. Worse on mobile data.
+3. **Joining a room takes 5 to 6 seconds.**
+4. **Log out and Delete my account do nothing in the browser:** they use `Alert.alert`, which doesn't work on web. Phones are fine.
+5. **Start a room:** "Who can join?" has nothing picked; it should start on Anyone.
+
+**Sammy's requests, to talk over before building:**
+- **The Table:** show every option in every room, greyed out (light grey) with a reason when it can't be used, instead of hiding it. Support rooms stay notes only (CLAUDE.md, Never list).
+- **A drawing pad** for Learn rooms (the same pad Draw and Guess needs).
+- **Photos:** Sammy wants a "slider". Ask what he means (a swipeable slideshow?) and what didn't work when he tried photos.
+- **The age question:** Sammy wants it removed from sign-up and asked only for special rooms. Claude pushed back (CLAUDE.md: nobody speaks before passing 18+; voice with strangers is the risk; Google Play checks it) and suggested one "I'm 18 or older" tick box on Welcome instead of the date screen. **Waiting for Sammy's decision.**
 
 Everything up to here is built, reviewed by `circles-reviewer`, and pushed to
 `claude/gallant-faraday-7s2l1w`, and carried on in `claude/dreamy-meitner-mjoykp`. None of it has been tested on phones yet.
@@ -133,6 +154,15 @@ The full click-by-click steps are in `docs/BUILD_NOTES.md`, under "What you need
 - Linking from another app straight into a Learn page (`circles://learn/igbo`)
 - From the Table design: a photo ban for repeat reports, and a host switch to turn off notes in support rooms
 
+**Game ideas from Sammy (2026-10-11), for after the app works well:**
+- Light car games for 3 to 6 people in a play room: racing each other, and a bumper-car game where cars can hit each other (for example, knock the others off the arena).
+- More games where 4 to 6 people all compete at once. Ideas:
+  - **Bumper-car arena** (try this first): a top-down view, everyone has a small car, push the others off the edge, and the last car left wins the round.
+  - **Quick-tap race:** everyone taps when the signal shows, and the fastest wins.
+  - **Trivia race:** the first to answer right gets the point.
+  - **Hot potato:** pass the "bomb" before it goes off.
+- Claude's view: a good fit if rounds are short (1 to 2 minutes), controls are simple (tilt or two buttons), the graphics are light enough for cheap phones and mobile data, and voice keeps going while people play. Never in support rooms, and no scores kept after the room ends. Fast games like these are harder to keep in step across phones than turn-based ones, so try one simple game first. `CIRCLES_INTENT.md` lists graphics-heavy games under Later.
+
 **Later, only when Sammy decides:**
 - Email, then phone checks, made required
 - Paid hosted rooms, payments (Paystack or similar), gifts, Circles Plus
@@ -156,6 +186,8 @@ The full click-by-click steps are in `docs/BUILD_NOTES.md`, under "What you need
   1. Run the `circles-reviewer` agent.
   2. Fix what it finds.
   3. Update `docs/BUILD_NOTES.md` and `docs/PROGRESS.md`.
+- **Supabase from this computer (2026-10-11):** the folder is linked to project `tikcuoyauriohbtapspr` and the CLI is logged in. Database changes: add a migration, then `npx supabase db push --linked`. Room server: `npx supabase functions deploy livekit-token --use-api --project-ref tikcuoyauriohbtapspr`. Don't use `config push` (no `config.toml`; it would overwrite the Brevo and rate-limit settings).
+- **Browser testing:** `npx expo start --web --port 8081`, then Playwright at 390×844 with Chrome (`channel: 'chrome'`). `Alert.alert` does nothing on web.
 - **Checks to run before saving:**
   - `npx tsc --noEmit -p .`
   - `npx jest`

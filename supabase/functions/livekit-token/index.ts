@@ -5,6 +5,8 @@
 //   { action: 'stats' }                               how many people are in rooms right now (support rooms not counted)
 //   { action: 'support' }                             whether a trained host is in a support room (yes/no only)
 //   { action: 'delete_account' }                      deletes the person's own account and everything tied to it
+//   { action: 'login', nickname, password }           logs in with a nickname and password (before signing in)
+//   { action: 'set_password', password }              sets or changes this account's password
 //   { action: 'create', door, title, topic?, capacity?, private? }  starts a Talk or Play room (Start something)
 //   { action: 'host', roomId, personId, act, reason? }  a trained host lowers a hand, mutes or removes someone
 //   { action: 'hand', roomId, up }                    raises or lowers your hand in a room you're in
@@ -20,6 +22,18 @@ const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
+
+// The same ending as LOGIN_ONLY_EMAIL in src/lib/validation.ts.
+const LOGIN_ONLY_EMAIL = '@users.circles.invalid';
+
+// Signs in with an email and password and returns the tokens for the app, or null if they don't match.
+// shortcut: these sign-ins all come from this server's address, so Supabase's per-address sign-in limit
+// is shared by everyone; raise it in Authentication › Rate Limits before a wide launch.
+async function passwordSession(email: string, password: string) {
+  const auth = createClient(Deno.env.get('SUPABASE_URL')!, Deno.env.get('SUPABASE_ANON_KEY')!, { auth: { persistSession: false } });
+  const { data } = await auth.auth.signInWithPassword({ email, password });
+  return data.session ? { access_token: data.session.access_token, refresh_token: data.session.refresh_token } : null;
+}
 
 function json(body: unknown, status = 200) {
   return new Response(JSON.stringify(body), {
@@ -271,6 +285,32 @@ Deno.serve(async (req) => {
     });
   }
 
+  // Log in with nickname and password. The account's email (real, or the login-only one) stays on the
+  // server, so nobody can find out someone's email from their nickname.
+  if (body.action === 'login') {
+    const nickname = String(body.nickname ?? '').trim().toLowerCase();
+    const password = String(body.password ?? '');
+    if (!/^[a-z0-9_]{2,20}$/.test(nickname) || !password || password.length > 72) return json({ status: 'wrong' });
+    const { data: lock } = await admin.from('login_failures').select('failures, locked_until').eq('nickname', nickname).maybeSingle();
+    if (lock?.locked_until && new Date(lock.locked_until).getTime() > Date.now()) return json({ status: 'locked' });
+    // ilike ignores capitals, like the unique nickname index; _ is escaped so it isn't a wildcard.
+    const { data: profile } = await admin.from('profiles').select('id').ilike('nickname', nickname.replace(/_/g, '\\_')).maybeSingle();
+    const email = profile ? (await admin.auth.admin.getUserById(profile.id)).data.user?.email : null;
+    const session = email ? await passwordSession(email, password) : null;
+    if (!session) {
+      // shortcut: two wrong tries at the same moment can count as one; fine for a 5-try lock.
+      const failures = (lock?.failures ?? 0) + 1;
+      await admin.from('login_failures').upsert(
+        failures >= 5
+          ? { nickname, failures: 0, locked_until: new Date(Date.now() + 15 * 60_000).toISOString() }
+          : { nickname, failures, locked_until: null },
+      );
+      return json({ status: failures >= 5 ? 'locked' : 'wrong' });
+    }
+    if (lock) await admin.from('login_failures').delete().eq('nickname', nickname);
+    return json({ status: 'ok', ...session });
+  }
+
   // 1. Who is asking? Use their own sign-in, so Row Level Security applies to what we read for them.
   const authHeader = req.headers.get('Authorization') ?? '';
   const supabase = createClient(Deno.env.get('SUPABASE_URL')!, Deno.env.get('SUPABASE_ANON_KEY')!, {
@@ -338,6 +378,20 @@ Deno.serve(async (req) => {
     const { error } = await admin.auth.admin.deleteUser(user.id);
     if (error) return json({ error: 'Could not delete the account' }, 500);
     return json({ status: 'deleted' });
+  }
+
+  // A password for logging in with your nickname. Supabase needs an email for passwords, so an account
+  // without one gets a login-only address that never receives mail (.invalid is reserved for this).
+  if (action === 'set_password') {
+    const password = String(body.password ?? '');
+    if (password.length < 8 || password.length > 72) return json({ error: 'Passwords are 8 to 72 characters' }, 400);
+    const email = user.email || `${user.id}${LOGIN_ONLY_EMAIL}`;
+    const { error } = await admin.auth.admin.updateUserById(user.id, user.email ? { password } : { password, email, email_confirm: true });
+    if (error) return json({ error: 'Could not save the password' }, 500);
+    // A new password signs the account out everywhere, so this phone gets a fresh sign-in.
+    const session = await passwordSession(email, password);
+    if (!session) return json({ error: 'Could not sign in again' }, 500);
+    return json({ status: 'saved', ...session });
   }
 
   // --- list and stats: no voice, so no 18+ or nickname check needed beyond being signed in ---

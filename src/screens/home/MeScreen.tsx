@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useState, type ComponentType, type ReactNode } from 'react';
 import { Pressable, ScrollView, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { BookOpen, ChevronRight, FileText, LifeBuoy, LogOut, Mail, ScrollText, Shield, Users } from 'lucide-react-native';
+import { BookOpen, ChevronRight, FileText, KeyRound, LifeBuoy, LogOut, Mail, ScrollText, Shield, Users } from 'lucide-react-native';
 import { Avatar } from '../../components/Avatar';
 import { Button } from '../../components/Button';
 import { SwitchRow } from '../../components/Choice';
@@ -26,6 +26,7 @@ type Props = {
   // The email on this account, or null. Only ever shown to its owner, here.
   email: string | null;
   onAddEmail: () => void;
+  onPassword: () => void;
   onOpenPeople: () => void;
   onLogOut: () => void;
   onDelete: () => void;
@@ -87,7 +88,7 @@ function Row({
 }
 
 // Me: you and your settings (docs/design/pages/tabs.md › Me). Only your nickname is ever shown to others.
-export function MeScreen({ me, email, onAddEmail, onOpenPeople, onLogOut, onDelete, notice }: Props) {
+export function MeScreen({ me, email, onAddEmail, onPassword, onOpenPeople, onLogOut, onDelete, notice }: Props) {
   const colors = useColors();
   const edges = useScreenEdges();
   const scroll = useTabScroll('me');
@@ -165,9 +166,10 @@ export function MeScreen({ me, email, onAddEmail, onOpenPeople, onLogOut, onDele
                 trailing={<Button label="Change" onPress={onAddEmail} style={{ width: size.rowAction }} />}
               />
             ) : (
-              <Row Icon={Mail} title="Add your email" line="Keeps your account if you change phones" onPress={onAddEmail} />
+              <Row Icon={Mail} title="Add your email" line="So you can reset a forgotten password" onPress={onAddEmail} />
             )
           ) : null}
+          <Row Icon={KeyRound} title="Password" line="Set or change the password you log in with" onPress={onPassword} />
           <Row Icon={LogOut} title="Log out" onPress={onLogOut} />
         </Group>
 

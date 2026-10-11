@@ -13,7 +13,8 @@ import { Text } from './src/components/Text';
 import { missingConfig } from './src/config';
 import { supabase } from './src/lib/supabase';
 import { useProfile } from './src/lib/useProfile';
-import { isAdult } from './src/lib/validation';
+import { isAdult, realEmail } from './src/lib/validation';
+import { PasswordScreen } from './src/screens/PasswordScreen';
 import { AddEmailFlow } from './src/screens/AddEmailFlow';
 import { AgeScreen } from './src/screens/AgeScreen';
 import { ConfigMissingScreen } from './src/screens/ConfigMissingScreen';
@@ -98,7 +99,7 @@ function confirmSignOut(hasEmail: boolean, fromMe = false) {
   Alert.alert(
     'Log out?',
     fromMe
-      ? "You won't be able to get this account or nickname back after you log out. To keep it, tap Stay, then Add your email."
+      ? "You won't be able to get this account or nickname back after you log out. To keep it, tap Stay, then Password."
       : "You won't be able to get this account or nickname back after you log out.",
     [
       { text: 'Stay', style: 'cancel' },
@@ -115,6 +116,7 @@ type Screen =
   | { name: 'groups'; notice?: string }
   | { name: 'group'; groupId: string; first?: Group; from: 'explore' | 'groups' }
   | { name: 'addEmail' }
+  | { name: 'password' }
   | {
       name: 'start';
       door: 'talk' | 'play' | 'learn';
@@ -131,16 +133,19 @@ type Screen =
 // Signed in: date of birth first, then a nickname, then the house. Nobody reaches a room without both.
 function SignedIn({
   session,
+  recovering,
   pendingRequest,
   onPendingUsed,
 }: {
   session: Session;
+  // Signed in from a password reset email: ask for the new password first.
+  recovering: boolean;
   // A room to open as soon as the person is ready (from a room link).
   pendingRequest: RoomRequest | null;
   onPendingUsed: () => void;
 }) {
   const { state, reload } = useProfile(session.user.id);
-  const [screen, setScreen] = useState<Screen>({ name: 'home' });
+  const [screen, setScreen] = useState<Screen>(recovering ? { name: 'password' } : { name: 'home' });
   const [ban, setBan] = useState<Ban | null>(null);
   // A room link waits until we know whether the account is paused.
   const [banChecked, setBanChecked] = useState(false);
@@ -242,7 +247,7 @@ function SignedIn({
       else if (screen.name === 'start')
         setScreen(screen.door === 'learn' ? { name: 'learn', subject: screen.subject ?? '' } : { name: 'door', door: screen.door });
       else if (screen.name === 'learn') setScreen({ name: 'door', door: 'learn' });
-      else if (screen.name === 'addEmail') setScreen({ name: 'me' });
+      else if (screen.name === 'addEmail' || screen.name === 'password') setScreen({ name: 'me' });
       else setScreen({ name: 'home' });
       return true;
     });
@@ -333,10 +338,11 @@ function SignedIn({
         return (
           <MeScreen
             me={me}
-            email={session.user.email ?? null}
+            email={realEmail(session.user.email)}
             notice={screen.notice}
             onOpenPeople={() => setScreen({ name: 'door', door: 'people' })}
             onAddEmail={() => setScreen({ name: 'addEmail' })}
+            onPassword={() => setScreen({ name: 'password' })}
             onLogOut={() => confirmSignOut(hasEmail, true)}
             onDelete={confirmDeleteAccount}
           />
@@ -346,6 +352,14 @@ function SignedIn({
           <AddEmailFlow
             onClose={() => setScreen({ name: 'me' })}
             onAdded={() => setScreen({ name: 'me', notice: 'Email added. Your account is safe.' })}
+          />
+        );
+      case 'password':
+        return (
+          <PasswordScreen
+            title={recovering ? 'Make a new password' : 'Your password'}
+            onClose={() => setScreen({ name: 'me' })}
+            onSaved={() => setScreen({ name: 'me', notice: 'Password saved.' })}
           />
         );
       case 'learn':
@@ -456,6 +470,7 @@ export default function App() {
   const [fontsLoaded] = useFonts({ Nunito_400Regular, Nunito_700Bold, Nunito_800ExtraBold });
   const [session, setSession] = useState<Session | null>(null);
   const [sessionChecked, setSessionChecked] = useState(false);
+  const [recovering, setRecovering] = useState(false);
   const missing = missingConfig();
   // A room link or legal page this app was opened with (web address, or circles:// on phones).
   const [link, setLink] = useState<LinkTarget>(() =>
@@ -488,7 +503,11 @@ export default function App() {
       setSession(data.session);
       setSessionChecked(true);
     });
-    const { data } = supabase.auth.onAuthStateChange((_event, next) => setSession(next));
+    const { data } = supabase.auth.onAuthStateChange((event, next) => {
+      setSession(next);
+      if (event === 'PASSWORD_RECOVERY') setRecovering(true);
+      if (event === 'SIGNED_OUT') setRecovering(false);
+    });
     return () => data.subscription.unsubscribe();
   }, [missing.length]);
 
@@ -510,6 +529,7 @@ export default function App() {
       <SignedIn
         key={session.user.id}
         session={session}
+        recovering={recovering}
         pendingRequest={
           link.roomId ? { kind: 'join', roomId: link.roomId } : linkEnded ? { kind: 'match', door: 'talk', mood: null } : null
         }
