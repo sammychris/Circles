@@ -24,6 +24,7 @@ import { rememberUnderAge, underAgeUntil } from './src/lib/underAge';
 import { RoomScreen } from './src/screens/RoomScreen';
 import { BlockedScreen, EditProfileScreen, HelpContactScreen, ManageAccountScreen, NotificationsScreen } from './src/screens/MePages';
 import { ActivityScreen } from './src/screens/ActivityScreen';
+import { WatchScreen } from './src/screens/home/WatchScreen';
 import { HostApplyScreen } from './src/screens/HostApplyScreen';
 import { HostToolsScreen } from './src/screens/HostToolsScreen';
 import { AfterRoomScreen } from './src/screens/AfterRoomScreen';
@@ -560,6 +561,7 @@ function SignedIn({
           />
         );
       case 'door':
+        if (screen.door === 'watch') return <WatchScreen onBack={home} />;
         if (screen.door === 'talk') {
           return (
             <TalkDoorScreen

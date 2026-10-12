@@ -1,6 +1,6 @@
 import type { ComponentType } from 'react';
 import { Platform, Pressable, View } from 'react-native';
-import { CircleHelp, Crown, Dice5, FileText, Grid3x3, Images, Languages, ListOrdered, MonitorPlay, MonitorUp, Search, Spade, VenetianMask } from 'lucide-react-native';
+import { CircleHelp, Crown, Dice5, FileText, Grid3x3, Images, Languages, ListOrdered, MonitorUp, Search, Spade, VenetianMask } from 'lucide-react-native';
 import type { Door, TableKind } from '../../table/model';
 import { GAMES } from '../../games/registry';
 import { MIN_PLAYERS as IMPOSTOR_MIN } from '../../games/impostor/logic';
@@ -141,9 +141,8 @@ export function PutOnTableSheet({ visible, door, gamesReady, peopleCount, onClos
           {allowed.includes('quiz') ? (
             <Row Icon={CircleHelp} title="Quiz" line="You ask, everyone answers on their phone" onPress={() => onPick('quiz')} />
           ) : null}
-          {allowed.includes('video') ? (
-            <Row Icon={MonitorPlay} title="Watch together" line="A YouTube or Vimeo video, the same moment for everyone" onPress={() => onPick('video')} />
-          ) : null}
+          {/* Watch together left the Table: it becomes its own place (WatchScreen, Sammy 2026-10-12). The
+              video code stays for it. */}
         </View>
       ) : null}
 

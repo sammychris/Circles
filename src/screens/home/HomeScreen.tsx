@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useState, type ComponentType } from 'react';
 import { Pressable, RefreshControl, ScrollView, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { Bell, BookOpen, ChevronRight, Dice5, Heart, MessageCircle, Phone, Users } from 'lucide-react-native';
+import { Bell, BookOpen, ChevronRight, Dice5, Heart, MessageCircle, Phone, Tv } from 'lucide-react-native';
 import { RoomRow } from '../../components/RoomRow';
 import { ScheduledRow } from '../../components/Scheduled';
 import { Button } from '../../components/Button';
@@ -20,7 +20,7 @@ import { tonight } from '../../rooms/schedule';
 import { useSchedule } from '../../rooms/useSchedule';
 import { doorColors, opacity, radius, size, space, useColors } from '../../theme';
 
-export type DoorName = 'support' | 'play' | 'talk' | 'learn' | 'people';
+export type DoorName = 'support' | 'play' | 'talk' | 'learn' | 'people' | 'watch';
 
 type Icon = ComponentType<{ size: number; color: string; strokeWidth: number }>;
 
@@ -252,7 +252,8 @@ export function HomeScreen({ me, onOpen, onEnter, onExplore, onActivity }: Props
               tint={doorColors.learn}
               onPress={() => onOpen('learn')}
             />
-            <DoorTile Icon={Users} title="Friends" line="People you know" tint={doorColors.people} onPress={() => onOpen('people')} />
+            {/* Friends live in the People tab; this spot is Watch Together (Sammy, 2026-10-12). */}
+            <DoorTile Icon={Tv} title="Watch" line="Watch together, soon" tint={doorColors.people} onPress={() => onOpen('watch')} />
           </View>
         </View>
 
