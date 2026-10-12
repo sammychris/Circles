@@ -38,6 +38,11 @@ module.exports = async ({ as, fails, check, assert, db }) => {
     await fails(as(u.femi, "select public.update_my_profile('femi_new', null, null)"), 'paused');
   });
 
+  await check('joining a weekly group needs the 18+ answer', async () => {
+    const g = (await db.query("insert into public.groups (name, door, days, start_time, time_zone, capacity, created_by) values ('Chess club', 'play', '{1}', '20:00', 'UTC', 6, $1) returning id", [u.ngozi])).rows[0].id;
+    await fails(as(u.femi, 'select public.join_group($1)', [g]), 'adults_only');
+  });
+
   await check('alerts: your own settings only', async () => {
     await as(u.femi, 'select public.set_notification_prefs(false, true)');
     assert.strictEqual((await as(u.femi, 'select invitations from public.notification_prefs')).rows[0].invitations, false);

@@ -65,7 +65,9 @@ export function HostApplyScreen({ onClose }: { onClose: () => void }) {
     } catch (e) {
       const m = e instanceof Error ? e.message : '';
       setError(
-        m.includes('already_pending')
+        m.includes('adults_only')
+          ? 'Hosts must be 18 or over. Join a room first, and answer the age question there.'
+          : m.includes('already_pending')
           ? 'You already have an application waiting. We’ll review it soon.'
           : m.includes('already_host')
             ? "You're already a host."

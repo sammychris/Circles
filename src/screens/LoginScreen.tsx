@@ -2,15 +2,16 @@ import { useRef, useState } from 'react';
 import type { TextInput } from 'react-native';
 import { AuthLayout } from '../components/AuthLayout';
 import { Button } from '../components/Button';
-import { TextField } from '../components/TextField';
+import { ShowPassword, TextField } from '../components/TextField';
 import { looksOffline } from '../lib/validation';
 import { logIn } from '../rooms/api';
 import { OFFLINE_TEXT } from './EmailScreen';
 
-type Props = { onBack: () => void; onForgot: () => void };
+type Props = { onBack: () => void; onForgot: () => void; onSignUp: () => void };
 
 // Nickname and password. On success App sees the account and moves on by itself.
-export function LoginScreen({ onBack, onForgot }: Props) {
+export function LoginScreen({ onBack, onForgot, onSignUp }: Props) {
+  const [showPassword, setShowPassword] = useState(false);
   const [nickname, setNickname] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState<string | null>(null);
@@ -42,6 +43,7 @@ export function LoginScreen({ onBack, onForgot }: Props) {
         <>
           <Button label="Log in" variant="primary" loading={busy} onPress={() => void submit()} />
           <Button label="Forgot your password?" variant="quiet" disabled={busy} onPress={onForgot} />
+          <Button label="Don't have an account? Sign up" variant="quiet" disabled={busy} onPress={onSignUp} />
         </>
       }
     >
@@ -68,7 +70,7 @@ export function LoginScreen({ onBack, onForgot }: Props) {
           setPassword(t);
           setError(null);
         }}
-        secureTextEntry
+        secureTextEntry={!showPassword}
         autoCapitalize="none"
         autoCorrect={false}
         autoComplete="current-password"
@@ -77,6 +79,7 @@ export function LoginScreen({ onBack, onForgot }: Props) {
         onSubmitEditing={() => void submit()}
         error={error}
       />
+      <ShowPassword shown={showPassword} onToggle={() => setShowPassword(!showPassword)} />
     </AuthLayout>
   );
 }

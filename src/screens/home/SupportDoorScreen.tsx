@@ -120,7 +120,9 @@ export function SupportDoorScreen({ onBack, onEnter, onBecomeHost }: Props) {
       const code = e instanceof OneOnOneError ? e.code : 'other';
       setAsking(null);
       setToast(
-        code === 'already_waiting'
+        code === 'adults_only'
+          ? 'One-on-one is for people 18 and over. Tap Come in or join any room first, and answer the age question there.'
+          : code === 'already_waiting'
           ? "You're already waiting for an answer."
           : code === 'payment_needed'
             ? "Paying in the app is coming soon, so paid sessions can't be booked yet."
@@ -347,7 +349,7 @@ export function SupportDoorScreen({ onBack, onEnter, onBecomeHost }: Props) {
           </Text>
         </View>
         <Pressable
-          accessibilityRole="link"
+          accessibilityRole="button"
           onPress={onBecomeHost}
           style={{ minHeight: size.minTarget, flexDirection: 'row', alignItems: 'center', gap: space[1] }}
         >

@@ -243,7 +243,7 @@ export function BlockedScreen({ me, onBack }: { me: Me; onBack: () => void }) {
         </Text>
       ) : blocked.length === 0 ? (
         <Text variant="body" color="textSoft">
-          {"You haven't blocked anyone."}
+          {"You haven't blocked anyone. To block someone, tap their seat in a room, then Block."}
         </Text>
       ) : (
         <View>
@@ -336,7 +336,7 @@ export function ManageAccountScreen({ onBack, onDelete }: { onBack: () => void; 
   return (
     <DoorLayout title="Manage account" onBack={onBack} backLabel="Back to Me">
       <Text variant="body" color="textSoft">
-        Your account is your nickname, your look, your friends and your settings. Nothing else about you is kept.
+        Your account holds your nickname, your look, your birth date (never shown to anyone), your friends, your settings and any email you added. Reports and safety records are kept as the Privacy Policy explains.
       </Text>
       <Pressable accessibilityRole="button" onPress={onDelete} style={{ minHeight: size.minTarget, justifyContent: 'center', alignSelf: 'flex-start' }}>
         <Text variant="meta" color="danger">

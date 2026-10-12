@@ -6,6 +6,8 @@ module.exports = async ({ users: older, as, fails, check, assert, db }) => {
   for (const name of ['ada', 'bayo', 'chi', 'dami']) {
     users[name] = (await db.query('select gen_random_uuid() as id')).rows[0].id;
     await db.query('insert into auth.users (id) values ($1)', [users[name]]);
+    // Adults: joining a group needs the 18+ answer (20261019_adult_groups).
+    await db.query("insert into public.birth_dates (id, date_of_birth) values ($1, date '1990-01-01')", [users[name]]);
   }
   void older;
   const soon = "now() + interval '3 hours'";

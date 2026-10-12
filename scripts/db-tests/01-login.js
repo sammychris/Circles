@@ -6,10 +6,12 @@ module.exports = async ({ users, as, fails, check, assert }) => {
     await fails(as(users.ada, "select public.set_date_of_birth('1990-01-01')"), 'already_set');
   });
 
-  await check('under 18 is recorded as not adult and cannot pick a nickname', async () => {
+  // Sign-up no longer asks the age (Sammy, 2026-10-12): a nickname comes first, and the age is asked
+  // before the first room. Under 18 is still recorded as not adult, and the room server keeps them out.
+  await check('under 18 is recorded as not adult; a nickname no longer needs the age first', async () => {
     const r = await as(users.kid, "select public.set_date_of_birth('2012-01-01') as adult");
     assert.strictEqual(r.rows[0].adult, false);
-    await fails(as(users.kid, "select public.set_nickname('KidName')"), 'not_adult');
+    await as(users.kid, "select public.set_nickname('KidName')");
   });
 
   await check('nickname rules', async () => {

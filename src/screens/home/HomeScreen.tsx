@@ -300,10 +300,10 @@ export function HomeScreen({ me, onOpen, onEnter, onExplore, onActivity }: Props
 
         <View style={{ gap: space[3] }}>
           <Text variant="meta" color="textSoft">
-            Tap a card and you join a small live room. Everyone uses a nickname, and you can leave any time.
+            Pick what you're in the mood for, then join a small live room. Everyone uses a nickname, and you can leave any time.
           </Text>
           <Pressable
-            accessibilityRole="link"
+            accessibilityRole="button"
             accessibilityLabel="In crisis right now? Get help"
             onPress={() => setHelpOpen(true)}
             style={{ minHeight: size.minTarget, flexDirection: 'row', alignItems: 'center', gap: space[3] }}

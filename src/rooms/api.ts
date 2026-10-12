@@ -93,6 +93,13 @@ export class NotYetError extends Error {
   }
 }
 
+// No 18+ answer yet (or under 18): rooms and anything that leads to one need it.
+export class AdultsOnlyError extends Error {
+  constructor() {
+    super('adults_only');
+  }
+}
+
 export class PausedError extends Error {
   constructor() {
     super('Your account is paused');
@@ -118,6 +125,7 @@ export async function call<T>(body: Record<string, unknown>): Promise<T> {
     if (payload.status === 'bad_title') throw new BadTitleError();
     if (status === 409) throw new RoomFullError();
     if (status === 403 && payload.error === 'Your account is paused') throw new PausedError();
+    if (status === 403 && payload.error === 'Circles is for adults') throw new AdultsOnlyError();
     throw new Error(payload.error ?? 'Could not reach the room server');
   }
   return data as T;
@@ -244,6 +252,16 @@ async function keepSignIn(tokens: Tokens) {
 export async function logIn(nickname: string, password: string): Promise<'ok' | 'wrong' | 'locked'> {
   const data = await call<{ status: 'ok' | 'wrong' | 'locked' } & Tokens>({ action: 'login', nickname, password });
   if (data.status === 'ok') await keepSignIn(data);
+  return data.status;
+}
+
+// Sign up: a nickname and a password, made in one step by the room server (before signing in).
+export type SignUpResult = 'ok' | 'taken' | 'reserved' | 'bad_nickname' | 'bad_password' | 'too_many';
+export async function signUp(nickname: string, password: string): Promise<SignUpResult> {
+  const data = await call<{ status: SignUpResult | 'made_log_in' } & Tokens>({ action: 'signup', nickname, password });
+  if (data.status === 'ok') await keepSignIn(data);
+  // The account was made but its sign-in hit a limit: log in with it the usual way.
+  if (data.status === 'made_log_in') return (await logIn(nickname, password)) === 'ok' ? 'ok' : 'too_many';
   return data.status;
 }
 

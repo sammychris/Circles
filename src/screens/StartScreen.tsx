@@ -10,7 +10,7 @@ import { Text } from '../components/Text';
 import { TextField } from '../components/TextField';
 import { allowReminders, reminderNote } from '../lib/reminders';
 import { WEEKDAYS_SHORT, WEEK_ORDER, clockWords, dayAndTime, weeklyWords } from '../lib/when';
-import { BadTitleError, TooManyRoomsError, scheduleRoom, type RoomRequest } from '../rooms/api';
+import { AdultsOnlyError, BadTitleError, TooManyRoomsError, scheduleRoom, type RoomRequest } from '../rooms/api';
 import { LEARN_CAPACITY, LEVELS, subjectById, type LearnLevel } from '../rooms/learn';
 import { ROOM_SIZES, TITLE_MAX, TITLE_PROBLEM_TEXT, TOPICS, titleProblem, type Topic } from '../rooms/start';
 import { border, fonts, opacity, radius, size, space, useColors } from '../theme';
@@ -190,6 +190,8 @@ export function StartScreen({ door: firstDoor, subject, draft, onBack, onStart, 
             ? 'You already run three weekly groups. End one first.'
             : "You've scheduled a few rooms today. Try again tomorrow.",
         );
+      else if (e instanceof AdultsOnlyError)
+        setSendError('Rooms are for people 18 and over. Join any room first, and answer the age question there.');
       else setSendError("That didn't work. Check that you're online, then try again.");
     } finally {
       setBusy(false);
@@ -234,7 +236,7 @@ export function StartScreen({ door: firstDoor, subject, draft, onBack, onStart, 
           ? 'Practise out loud with people at your level.'
           : talk
             ? 'Pick a name people will want to join.'
-            : 'Play Ludo or Find the Impostor with people you invite, or anyone.'
+            : 'Play any of the games with people you invite, or anyone.'
       }
       onBack={onBack}
       footer={
@@ -250,7 +252,7 @@ export function StartScreen({ door: firstDoor, subject, draft, onBack, onStart, 
             <Text variant="meta" color="textMeta">
               {when === 'now' ? 'It opens now and goes live when someone joins.' : 'It opens 5 minutes before the time.'}
             </Text>
-            <Pressable accessibilityRole="link" onPress={() => setRulesOpen(true)} hitSlop={space[3]}>
+            <Pressable accessibilityRole="button" onPress={() => setRulesOpen(true)} hitSlop={space[3]} style={{ minHeight: size.minTarget, justifyContent: 'center' }}>
               <Text variant="metaStrong" style={{ textDecorationLine: 'underline' }}>
                 Room rules
               </Text>

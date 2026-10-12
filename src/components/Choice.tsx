@@ -24,6 +24,8 @@ export function RadioRow({
     <Pressable
       accessibilityRole="radio"
       accessibilityState={{ checked: selected, disabled }}
+      aria-checked={selected}
+      aria-disabled={disabled}
       accessibilityLabel={line ? `${title}. ${line}` : title}
       onPress={onPress}
       disabled={disabled}
@@ -85,6 +87,7 @@ export function SwitchRow({
     <Pressable
       accessibilityRole="switch"
       accessibilityState={{ checked: value }}
+      aria-checked={value}
       accessibilityLabel={line ? `${title}. ${line}` : title}
       onPress={() => onChange(!value)}
       style={{ minHeight: size.minTarget, flexDirection: 'row', alignItems: 'center', gap: space[3] }}

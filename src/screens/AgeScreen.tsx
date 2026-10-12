@@ -55,10 +55,10 @@ export function AgeScreen({ onSaved, onBack }: Props) {
 
   return (
     <AuthLayout
-      title="When were you born?"
-      body="Circles is for people 18 and over. We don't show your age to anyone."
+      title="Before your first room"
+      body="Rooms are live voice with people you don't know, so they're for people 18 and over. When were you born? We never show your age to anyone."
       onBack={onBack}
-      backHint="Takes you back to the start"
+      backHint="Takes you back to Home"
       footer={
         <Button label="Continue" variant="primary" loading={busy} disabled={!complete} onPress={() => void save()} />
       }

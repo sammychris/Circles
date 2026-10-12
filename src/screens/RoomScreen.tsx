@@ -365,7 +365,7 @@ export function RoomScreen({ me, request, onLeft, onMove, minimised, onMinimise,
         ? phase === 'countdown'
           ? 'Finding a third person'
           : 'Support rooms need three people'
-        : 'Turns on when someone joins';
+        : 'You can talk once someone joins';
   // Paused isn't a dead button: tapping it says why.
   const micPress = () => (micState === 'paused' ? setToast(`Mic paused. ${pausedReason}.`) : void onMicPress());
   // People whose mic the night paused are told when they can talk again.
@@ -1544,7 +1544,7 @@ export function RoomScreen({ me, request, onLeft, onMove, minimised, onMinimise,
                   ) : phase === 'waiting' && !isSupport ? (
                     <>
                       <Text variant="heading" center>
-                        Waiting for players
+                        {room?.door === 'play' ? 'Waiting for players' : 'Waiting for people'}
                       </Text>
                       <Text variant="meta" color="textMeta" center>
                         {`${people.length} of ${room?.capacity ?? people.length}`}
@@ -1625,7 +1625,7 @@ export function RoomScreen({ me, request, onLeft, onMove, minimised, onMinimise,
 
         {isSupport ? (
           <Pressable
-            accessibilityRole="link"
+            accessibilityRole="button"
             accessibilityLabel="Need more than a chat tonight? Get help"
             onPress={onOpenHelp}
             style={{ minHeight: size.buttonSecondary + space[1], flexDirection: 'row', alignItems: 'center', gap: space[3] }}

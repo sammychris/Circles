@@ -26,6 +26,8 @@ export function FilterChip({
     <Pressable
       accessibilityRole="radio"
       accessibilityState={{ checked: selected, disabled }}
+      aria-checked={selected}
+      aria-disabled={disabled}
       disabled={disabled}
       accessibilityLabel={label}
       onPress={onPress}

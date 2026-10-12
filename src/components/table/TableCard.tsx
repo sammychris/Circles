@@ -155,7 +155,7 @@ export function NoteBody({ item }: { item: Extract<TableItem, { kind: 'note' }> 
       ) : null}
       {item.link ? (
         <Pressable
-          accessibilityRole="link"
+          accessibilityRole="button"
           accessibilityLabel={`Open ${linkSite(item.link)}. Leaves Circles`}
           onPress={() => openLink(item.link as string)}
           style={{ minHeight: size.minTarget, flexDirection: 'row', alignItems: 'center', gap: space[2], alignSelf: 'flex-start' }}

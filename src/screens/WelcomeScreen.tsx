@@ -81,7 +81,7 @@ export function WelcomeScreen({ onStart, onHaveAccount, starting, error }: Props
   const colors = useColors();
   const [doc, setDoc] = useState<LegalDoc | null>(null);
   const link = (label: string, d: LegalDoc) => (
-    <Pressable accessibilityRole="link" onPress={() => setDoc(d)} hitSlop={space[3]}>
+    <Pressable accessibilityRole="button" onPress={() => setDoc(d)} hitSlop={space[3]}>
       <Text variant="meta" style={{ textDecorationLine: 'underline' }}>
         {label}
       </Text>

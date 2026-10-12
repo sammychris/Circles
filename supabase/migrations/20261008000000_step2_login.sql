@@ -17,10 +17,9 @@ drop policy if exists "birth_dates: read own" on public.birth_dates;
 create policy "birth_dates: read own" on public.birth_dates
   for select to authenticated using (auth.uid() = id);
 
--- Step 1 test profiles had no date of birth. Clear them so those people go through the 18+ question.
--- (Everyone else gets a birth date before a profile, so this only ever touches Step 1 leftovers.)
-delete from public.profiles p
-where not exists (select 1 from public.birth_dates b where b.id = p.id);
+-- Step 1 test profiles had no date of birth; they were cleared when this first ran (2026-10-08).
+-- Not repeated: since 2026-10-12 new accounts get their nickname first and the age before their first
+-- room, so a re-run would wipe real accounts.
 
 alter table public.profiles drop constraint if exists profiles_nickname_check;
 alter table public.profiles drop constraint if exists profiles_nickname_format;
