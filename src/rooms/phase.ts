@@ -14,14 +14,17 @@ export type PhaseInput = {
   everLive: boolean;
   isSupport: boolean;
   hostPresent: boolean;
+  // A one-on-one with a vetted host: the host and one person (CIRCLES_INTENT.md › Support).
+  oneOnOne?: boolean;
 };
 
-export function minPeopleFor(isSupport: boolean): number {
+export function minPeopleFor(isSupport: boolean, oneOnOne = false): number {
+  if (oneOnOne) return 2;
   return isSupport ? rules.supportMinPeople : rules.roomMinPeople;
 }
 
-export function roomPhase({ count, everLive, isSupport, hostPresent }: PhaseInput): RoomPhase {
-  const enoughPeople = count >= minPeopleFor(isSupport);
+export function roomPhase({ count, everLive, isSupport, hostPresent, oneOnOne = false }: PhaseInput): RoomPhase {
+  const enoughPeople = count >= minPeopleFor(isSupport, oneOnOne);
   const hosted = !isSupport || hostPresent;
   if (enoughPeople && hosted) return 'live';
   return everLive ? 'countdown' : 'waiting';

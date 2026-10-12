@@ -4,6 +4,8 @@
 //   { action: 'list', door: 'talk' }                  lists open talk rooms with how many people are in them
 //   { action: 'stats' }                               how many people are in rooms right now (support rooms not counted)
 //   { action: 'support' }                             whether a trained host is in a support room (yes/no only)
+//   { action: 'support_rooms' }                       live support rooms: title, host's nickname and badge, how many (never who)
+//   { action: 'one_on_one_request', hostId }          asks a host for one-on-one, and alerts the host's phone
 //   { action: 'delete_account' }                      deletes the person's own account and everything tied to it
 //   { action: 'login', nickname, password }           logs in with a nickname and password (before signing in)
 //   { action: 'set_password', password }              sets or changes this account's password
@@ -412,7 +414,8 @@ Deno.serve(async (req) => {
   if (action === 'support') {
     const [{ data: hostRows }, { data: rooms }] = await Promise.all([
       admin.from('hosts').select('user_id'),
-      admin.from('rooms').select('livekit_room_name').eq('status', 'open').eq('door', 'support'),
+      // Group support rooms only: a host busy in a one-on-one isn't a room anyone can come into.
+      admin.from('rooms').select('livekit_room_name').eq('status', 'open').eq('door', 'support').eq('kind', 'hosted').eq('private', false),
     ]);
     const hostIds = new Set((hostRows ?? []).map((h) => h.user_id as string));
     const people = await peopleIn((rooms ?? []).map((r) => r.livekit_room_name as string)).catch(
@@ -423,6 +426,37 @@ Deno.serve(async (req) => {
       if (list.some((p) => hostIds.has(p))) hostInRoom = true;
     });
     return json({ hostInRoom, iAmHost: hostIds.has(user.id) });
+  }
+
+  // Live support rooms for the support page: only rooms with a host in them, and only how many people,
+  // never who (CLAUDE.md, Never list). The host's nickname and badge are shown: hosting is a public role.
+  if (action === 'support_rooms') {
+    const [{ data: hostRows }, { data: rooms }] = await Promise.all([
+      admin.from('host_profiles').select('user_id, kind'),
+      admin.from('rooms').select('id, title, capacity, livekit_room_name').eq('status', 'open').eq('door', 'support').eq('kind', 'hosted').eq('private', false),
+    ]);
+    const badge = new Map((hostRows ?? []).map((h) => [h.user_id as string, h.kind as string]));
+    const { data: allHosts } = await admin.from('hosts').select('user_id');
+    const hostIds = new Set((allHosts ?? []).map((h) => h.user_id as string));
+    const names = (rooms ?? []).map((r) => r.livekit_room_name as string);
+    const live = await service.listRooms(names).catch(() => []);
+    const list = [];
+    for (const r of rooms ?? []) {
+      if (!live.some((l) => l.name === r.livekit_room_name && l.numParticipants > 0)) continue;
+      const people = await service.listParticipants(r.livekit_room_name as string).catch(() => []);
+      const host = people.find((p) => hostIds.has(p.identity));
+      if (!host) continue;
+      list.push({
+        id: r.id,
+        title: r.title ?? 'Someone to talk to',
+        here: people.length,
+        capacity: r.capacity,
+        host: host.name ?? 'Host',
+        hostKind: badge.get(host.identity) ?? 'listener',
+      });
+    }
+    list.sort((a, b) => Number(a.here >= a.capacity) - Number(b.here >= b.capacity) || b.here - a.here);
+    return json({ rooms: list });
   }
 
   if (action === 'list') {
@@ -521,6 +555,21 @@ Deno.serve(async (req) => {
       if (mic) await service.mutePublishedTrack(hostRoom.livekit_room_name, personId, mic.sid, true);
       return json({ status: 'ok' });
     }
+    // "May be in danger": an urgent report for the team. The host's phone also opens the help sheet on
+    // the person's phone (a message only they receive).
+    if (act === 'escalate') {
+      const { error } = await admin.from('reports').insert({
+        reporter_id: user.id,
+        reported_user_id: personId,
+        reported_nickname: target.name?.slice(0, 20) ?? null,
+        room_id: hostRoom.id,
+        reason: 'danger',
+        details: 'A host flagged that this person may be in danger.',
+        urgent: true,
+      });
+      if (error) return json({ error: 'Could not tell the team' }, 500);
+      return json({ status: 'ok' });
+    }
     if (act === 'remove') {
       const reason = ['unkind', 'sexual', 'spam', 'off_topic', 'other'].includes(String(body.reason)) ? String(body.reason) : null;
       if (!reason) return json({ error: 'Choose a reason' }, 400);
@@ -546,7 +595,8 @@ Deno.serve(async (req) => {
     action !== 'create' &&
     action !== 'schedule' &&
     action !== 'go_in' &&
-    action !== 'invite'
+    action !== 'invite' &&
+    action !== 'one_on_one_request'
   ) {
     return json({ error: 'Unknown action' }, 400);
   }
@@ -569,6 +619,14 @@ Deno.serve(async (req) => {
   // Lock-screen alerts through Expo's push service (it passes them on to Firebase for Android).
   // Phones that no longer have Circles are forgotten.
   async function sendAlerts(userIds: string[], body: string, data: Record<string, unknown>) {
+    // Me › Notifications: people who turned this kind of alert off don't get it.
+    const pref = data.kind === 'invitation' ? 'invitations' : data.kind === 'one_on_one_request' ? 'host_requests' : null;
+    if (pref) {
+      const { data: off } = await admin.from('notification_prefs').select('user_id').in('user_id', userIds).eq(pref, false);
+      const skip = new Set((off ?? []).map((r) => r.user_id as string));
+      userIds = userIds.filter((id) => !skip.has(id));
+      if (userIds.length === 0) return;
+    }
     const { data: rows } = await admin.from('push_tokens').select('token').in('user_id', userIds);
     const messages = (rows ?? []).map((r) => ({
       to: r.token as string,
@@ -589,6 +647,27 @@ Deno.serve(async (req) => {
     const out = (await res.json().catch(() => null)) as { data?: { details?: { error?: string } }[] } | null;
     const gone = (out?.data ?? []).flatMap((t, i) => (t?.details?.error === 'DeviceNotRegistered' ? [messages[i].to] : []));
     if (gone.length > 0) await admin.from('push_tokens').delete().in('token', gone);
+  }
+
+  // Ask a host for one-on-one (CIRCLES_INTENT.md › Support). The database checks everything (trusted,
+  // online, blocks, one waiting request, the price); this only adds an alert on the host's phone, which
+  // never names who asked.
+  if (action === 'one_on_one_request') {
+    const hostId = typeof body.hostId === 'string' && /^[0-9a-f-]{36}$/i.test(body.hostId) ? body.hostId : null;
+    // Codes go back as the error text only (400): the app's own room errors key off status and 409.
+    if (!hostId) return json({ error: 'not_available' }, 400);
+    const { data: id, error } = await supabase.rpc('request_one_on_one', { p_host: hostId });
+    if (error) {
+      const code = ['not_available', 'already_waiting', 'too_many', 'payment_needed'].find((c) => error.message.includes(c)) ?? 'other';
+      return json({ error: code }, code === 'other' ? 500 : 400);
+    }
+    const alert = sendAlerts([hostId], 'Someone asked you for a one-on-one. Open Hosting to answer.', { kind: 'one_on_one_request' }).catch(() => {
+      // They still see it in Hosting while the request waits.
+    });
+    const runtime = (globalThis as { EdgeRuntime?: { waitUntil: (p: Promise<unknown>) => void } }).EdgeRuntime;
+    if (runtime) runtime.waitUntil(alert);
+    else await alert;
+    return json({ status: 'ok', id });
   }
 
   // Invite people to the room you're in, a scheduled room, or a group you're in. Only people who saved
@@ -757,9 +836,12 @@ Deno.serve(async (req) => {
     active_at?: string | null;
     language?: string | null;
     level?: string | null;
+    kind?: string;
     livekit_room_name: string;
   };
-  const ROOM_FIELDS = 'id, door, mood, topic, language, level, title, capacity, status, custom, created_at, active_at, livekit_room_name';
+  const ROOM_FIELDS = 'id, door, mood, topic, language, level, title, capacity, status, custom, kind, created_at, active_at, livekit_room_name';
+  // A one-on-one: when its time is up (only for the two people in it).
+  let sessionEndsAt: string | null = null;
   let room: RoomRow | null = null;
 
   if (action === 'create') {
@@ -904,9 +986,23 @@ Deno.serve(async (req) => {
       .select(ROOM_FIELDS)
       .eq('id', String(body.roomId ?? ''))
       .maybeSingle();
-    // Support rooms are only ever reached through the "Need someone to talk to" door, never by a link or
-    // a remembered room id (CLAUDE.md, Never list). To everyone but a host they look like a room that has ended.
-    if (!data || data.status !== 'open' || (data.door === 'support' && !isHost)) {
+    // Support rooms are only ever reached through the "Need someone to talk to" door: its list of live
+    // rooms (a hosted, listed room), or a one-on-one, which only its two people can enter, until its
+    // time is up. Anything else looks like a room that has ended (CLAUDE.md, Never list).
+    if (!data || data.status !== 'open') return json({ error: 'This room has ended', status: 'ended' }, 410);
+    if (data.kind === 'one_on_one') {
+      const { data: session } = await admin
+        .from('one_on_one_requests')
+        .select('ends_at')
+        .eq('room_id', data.id)
+        .eq('status', 'accepted')
+        .or(`user_id.eq.${user.id},host_id.eq.${user.id}`)
+        .maybeSingle();
+      if (!session?.ends_at || Date.parse(session.ends_at as string) <= Date.now()) {
+        return json({ error: 'This room has ended', status: 'ended' }, 410);
+      }
+      sessionEndsAt = session.ends_at as string;
+    } else if (data.door === 'support' && !isHost && (data.kind !== 'hosted' || data.private)) {
       return json({ error: 'This room has ended', status: 'ended' }, 410);
     }
     room = data as RoomRow;
@@ -921,7 +1017,7 @@ Deno.serve(async (req) => {
     const others = people.filter((p: string) => p !== user.id);
     if (others.length >= room.capacity) return json({ error: 'This room is full' }, 409);
     if (others.some((p: string) => avoid.has(p))) return json({ error: 'This room is full' }, 409);
-    if (room.door === 'support' && !isHost && !others.some((p: string) => hosts.has(p))) {
+    if (room.door === 'support' && room.kind !== 'one_on_one' && !isHost && !others.some((p: string) => hosts.has(p))) {
       return json({ error: 'No host here right now', status: 'no_host' }, 409);
     }
   } else {
@@ -1009,6 +1105,37 @@ Deno.serve(async (req) => {
   if (!room) return json({ error: 'Could not find a room' }, 500);
   if (room.custom) await admin.from('rooms').update({ active_at: new Date().toISOString() }).eq('id', room.id);
 
+  // A support room with a host that reaches 3 people counts as a room hosted, once per room and day
+  // (support_host_sessions; one-on-one unlocks at 5 for trained listeners).
+  if (room.door === 'support' && room.kind === 'hosted') {
+    const here = (await peopleOrNone([room.livekit_room_name])).get(room.livekit_room_name) ?? [];
+    const everyone = [...new Set([...here, user.id])];
+    const hostsHere = everyone.filter((p) => hosts.has(p));
+    if (everyone.length >= 3 && hostsHere.length > 0) {
+      await admin
+        .from('support_host_sessions')
+        .upsert(hostsHere.map((h) => ({ host_id: h, room_id: room!.id })), { onConflict: 'host_id,room_id,on_day', ignoreDuplicates: true })
+        .then(() => {}, () => {});
+    }
+  }
+
+  // A host going into a support room: everyone who asked "Notify me when a host is on" gets one alert,
+  // then the list is cleared. The words never say "support": lock screens can be seen by others.
+  if (isHost && room.door === 'support' && room.kind === 'hosted') {
+    const notify = (async () => {
+      const { data: waiting } = await admin.from('support_notify').select('user_id');
+      const ids = (waiting ?? []).map((w) => w.user_id as string).filter((id) => id !== user.id);
+      if (ids.length === 0) return;
+      await admin.from('support_notify').delete().in('user_id', ids);
+      await sendAlerts(ids, 'A room you asked about is open now.', { kind: 'support_open' });
+    })().catch(() => {
+      // A missed alert: they can still open the page and see.
+    });
+    const runtime = (globalThis as { EdgeRuntime?: { waitUntil: (p: Promise<unknown>) => void } }).EdgeRuntime;
+    if (runtime) runtime.waitUntil(notify);
+    else await notify;
+  }
+
   // The ticket only lets this person into this one room, for ten minutes. The nickname is the only name in it.
   const token = new AccessToken(apiKey, apiSecret, {
     identity: user.id,
@@ -1046,6 +1173,8 @@ Deno.serve(async (req) => {
       level: room.level ?? null,
       title: room.title ?? roomTitle(room.door, room.mood),
       capacity: room.capacity,
+      oneOnOne: room.kind === 'one_on_one',
+      endsAt: sessionEndsAt,
     },
     isHost,
   });

@@ -6,15 +6,18 @@ import { Avatar } from '../components/Avatar';
 import { BlockSheet } from '../components/BlockSheet';
 import { HelpModal } from '../components/HelpModal';
 import { Button } from '../components/Button';
+import { FilterChip } from '../components/FilterChip';
 import { ReportSheet } from '../components/ReportSheet';
 import { Text } from '../components/Text';
 import { Toast } from '../components/Toast';
 import { mySavedIds, savePerson, thankPerson, unsavePerson, unthankPerson } from '../lib/people';
+import { rateSession } from '../support/api';
 import type { Blocked } from '../lib/safety';
 import type { RoomSummary, SeenPerson } from '../voice/useVoiceRoom';
 import { border, size, space, useColors } from '../theme';
 
-type Props = { me: { id: string; nickname: string }; summary: RoomSummary; onDone: () => void };
+// oneOnOneId: after a one-on-one you asked for, an optional "How was it?" (support-section-spec.md).
+type Props = { me: { id: string; nickname: string }; summary: RoomSummary; oneOnOneId?: string; onDone: () => void };
 
 function role(p: SeenPerson): string {
   if (p.isHost) return 'Host';
@@ -22,7 +25,7 @@ function role(p: SeenPerson): string {
 }
 
 // "Thanks for being there" (docs/screens/07-after-the-room.png). Nothing here is pre-selected.
-export function AfterRoomScreen({ me, summary, onDone }: Props) {
+export function AfterRoomScreen({ me, summary, oneOnOneId, onDone }: Props) {
   const colors = useColors();
   const people = summary.seen.filter((p) => p.id !== me.id);
   const [saved, setSaved] = useState<Set<string>>(new Set());
@@ -32,6 +35,9 @@ export function AfterRoomScreen({ me, summary, onDone }: Props) {
   const [helpOpen, setHelpOpen] = useState(false);
   const [toBlock, setToBlock] = useState<Blocked | null>(null);
   const [toast, setToast] = useState<string | null>(null);
+  const [rating, setRating] = useState<number | null>(null);
+  const [helpful, setHelpful] = useState<boolean | null>(null);
+  const [rated, setRated] = useState(false);
 
   useEffect(() => {
     void mySavedIds()
@@ -91,6 +97,36 @@ export function AfterRoomScreen({ me, summary, onDone }: Props) {
             {`${summary.minutes} ${summary.minutes === 1 ? 'minute' : 'minutes'} in ${summary.room.title}`}
           </Text>
         </View>
+
+        {oneOnOneId && !rated ? (
+          <View style={{ gap: space[3] }}>
+            <Text variant="heading">How was your session?</Text>
+            <Text variant="meta" color="textSoft">
+              Optional. The host never sees who said what.
+            </Text>
+            <View accessibilityRole="radiogroup" accessibilityLabel="Rating out of 5" style={{ flexDirection: 'row', flexWrap: 'wrap', gap: space[2] }}>
+              {[1, 2, 3, 4, 5].map((n) => (
+                <FilterChip key={n} label={`${n}`} selected={rating === n} onPress={() => setRating(rating === n ? null : n)} />
+              ))}
+            </View>
+            <View accessibilityRole="radiogroup" accessibilityLabel="Was this helpful?" style={{ flexDirection: 'row', gap: space[2] }}>
+              <FilterChip label="Helpful" selected={helpful === true} onPress={() => setHelpful(helpful === true ? null : true)} />
+              <FilterChip label="Not really" selected={helpful === false} onPress={() => setHelpful(helpful === false ? null : false)} />
+            </View>
+            <Button
+              label="Send"
+              disabled={rating === null && helpful === null}
+              onPress={() =>
+                void rateSession(oneOnOneId, rating, helpful)
+                  .then(() => {
+                    setRated(true);
+                    setToast('Thank you.');
+                  })
+                  .catch(() => setToast("That didn't send. Check your connection."))
+              }
+            />
+          </View>
+        ) : null}
 
         {people.length > 0 ? (
           <View style={{ gap: space[3] }}>

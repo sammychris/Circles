@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useRef, useState, type ReactNode } from 'react';
 import { Alert, AppState, Linking, Platform, Pressable, ScrollView, Share, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { ChevronDown, ChevronUp, Dice5, Flag, Hand, Hash, Heart, Mic, MicOff, SquarePlus, LogOut, MessageCircle, Share2, Shield, X } from 'lucide-react-native';
+import { ChevronDown, ChevronUp, Dice5, MoreHorizontal, Flag, Hand, Hash, Heart, Mic, MicOff, SquarePlus, LogOut, MessageCircle, Shield, X } from 'lucide-react-native';
 import { Avatar } from '../components/Avatar';
 import { BlockSheet } from '../components/BlockSheet';
 import { InviteSheet } from '../components/InviteSheet';
@@ -17,6 +17,7 @@ import { MiniProfileSheet, type SheetPerson } from '../components/MiniProfileShe
 import { ReportSheet } from '../components/ReportSheet';
 import { RoomCircle } from '../components/RoomCircle';
 import { Sheet } from '../components/Sheet';
+import { RoomRulesSheet } from '../components/RoomRulesSheet';
 import { Text } from '../components/Text';
 import { Toast } from '../components/Toast';
 import { BASE, MIN_PLAYERS as LUDO_MIN, teamOf } from '../games/ludo/engine';
@@ -66,7 +67,10 @@ import type { Person } from '../voice/useVoiceRoom';
 import { MOOD_STYLE } from '../rooms/moods';
 import { levelLabel } from '../rooms/learn';
 import { topicLabel } from '../rooms/start';
-import { roomPhase, secondsLeft } from '../rooms/phase';
+import { clock, roomPhase, secondsLeft } from '../rooms/phase';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import { HostCardSheet, RequestSheet } from '../components/support/HostCardSheet';
+import { OneOnOneError, hostCard, hostName, myRequest, requestOneOnOne, type HostCard } from '../support/api';
 import { micPermissionGranted, requestMicPermission } from '../voice/foregroundService';
 import { useVoiceRoom, type RoomSummary } from '../voice/useVoiceRoom';
 import { border, gameMode, motion, opacity, radius, size, space, useColors } from '../theme';
@@ -138,7 +142,8 @@ export function RoomScreen({ me, request, onLeft, onMove, minimised, onMinimise,
   const others = people.filter((p) => !p.isMe);
   const hostPresent = people.some((p) => p.isHost);
   // While reconnecting, keep the room as it was: a short blip shouldn't start a countdown or mute anyone.
-  const freshPhase = status === 'connected' ? roomPhase({ count: people.length, everLive, isSupport, hostPresent }) : null;
+  const oneOnOne = !!room?.oneOnOne;
+  const freshPhase = status === 'connected' ? roomPhase({ count: people.length, everLive, isSupport, hostPresent, oneOnOne }) : null;
   if (freshPhase) lastPhase.current = freshPhase;
   const phase = status === 'reconnecting' ? lastPhase.current : freshPhase;
   const micLive = connected && people.some((p) => p.isMe && !p.isMuted);
@@ -230,7 +235,8 @@ export function RoomScreen({ me, request, onLeft, onMove, minimised, onMinimise,
   // --- room rules: 2 people to talk (3 in support rooms); a countdown when a live room drops below ---
   useEffect(() => {
     if (phase === 'live') setEverLive(true);
-    if (phase === 'countdown') {
+    // A one-on-one never closes early: the other person can come back until the time is up.
+    if (phase === 'countdown' && !room?.oneOnOne) {
       setCountdownFrom((from) => {
         if (from !== null) return from;
         setNow(Date.now());
@@ -239,7 +245,7 @@ export function RoomScreen({ me, request, onLeft, onMove, minimised, onMinimise,
     } else setCountdownFrom(null);
     // Mics are paused whenever the room isn't live.
     if (phase && phase !== 'live' && micLive) void voice.setMic(false);
-  }, [phase, micLive, voice.setMic]);
+  }, [phase, micLive, voice.setMic, room?.oneOnOne]);
 
   useEffect(() => {
     if (countdownFrom === null) return;
@@ -248,6 +254,10 @@ export function RoomScreen({ me, request, onLeft, onMove, minimised, onMinimise,
   }, [countdownFrom]);
 
   // Only ever leaves once, however many things ask at the same moment (Leave, the countdown ending).
+  // A one-on-one ends gently when its time is up: a note 2 minutes before, then the room closes for both.
+  const endsAt = room?.endsAt ? Date.parse(room.endsAt) : null;
+  const [timeLeft, setTimeLeft] = useState<number | null>(null);
+  const warned = useRef(false);
   const leaveRoom = useCallback(async () => {
     if (left.current) return;
     left.current = true;
@@ -256,6 +266,21 @@ export function RoomScreen({ me, request, onLeft, onMove, minimised, onMinimise,
     const summary = (await voice.leave()) ?? voice.lastSummary;
     onLeft(summary);
   }, [voice, onLeft, ludo]);
+  useEffect(() => {
+    if (!endsAt || !connected) return;
+    const tick = () => {
+      const left = Math.max(0, Math.ceil((endsAt - Date.now()) / 1000));
+      setTimeLeft(left);
+      if (left <= 120 && left > 0 && !warned.current) {
+        warned.current = true;
+        setToast('2 minutes left.');
+      }
+      if (left === 0) void leaveRoom();
+    };
+    tick();
+    const timer = setInterval(tick, 1000);
+    return () => clearInterval(timer);
+  }, [endsAt, connected, leaveRoom]);
 
   const countdown = countdownFrom === null ? null : secondsLeft(countdownFrom, now);
   useEffect(() => {
@@ -503,6 +528,10 @@ export function RoomScreen({ me, request, onLeft, onMove, minimised, onMinimise,
     message = { title: "We couldn't get you into a room", body: "Check that you're online, then try again." };
   } else if (status === 'dropped') {
     message = { title: 'You were disconnected', body: 'Your connection dropped. You can join again.' };
+  } else if (phase === 'waiting' && oneOnOne) {
+    message = { title: 'Your one-on-one', body: "It starts when you're both here. Only the two of you can come in." };
+  } else if (phase === 'countdown' && oneOnOne) {
+    message = { title: 'The other person has left', body: 'Mics are paused. They can come back until the time is up.' };
   } else if (phase === 'waiting') {
     message = isSupport
       ? hostPresent
@@ -526,7 +555,12 @@ export function RoomScreen({ me, request, onLeft, onMove, minimised, onMinimise,
   // A trained host tapping someone gets the host actions; everyone else gets save, block and report.
   const onSeat = (p: Person) => {
     if (iAmHost && !p.isHost && !p.isMe) setHostPerson(p);
-    else setProfile({ id: p.id, nickname: p.nickname, isHost: p.isHost });
+    // A host in a support room: their card, where you can ask for one-on-one.
+    else if (isSupport && p.isHost && !p.isMe && !oneOnOne) {
+      void hostCard(p.id)
+        .then((c) => (c ? setHostCardShown(c) : setProfile({ id: p.id, nickname: p.nickname, isHost: true })))
+        .catch(() => setProfile({ id: p.id, nickname: p.nickname, isHost: true }));
+    } else setProfile({ id: p.id, nickname: p.nickname, isHost: p.isHost });
   };
   let table = null;
 
@@ -535,6 +569,28 @@ export function RoomScreen({ me, request, onLeft, onMove, minimised, onMinimise,
   const hands = others.filter((p) => p.handUp).sort((a, b) => a.handAt - b.handAt);
   const [handsOpen, setHandsOpen] = useState(false);
   const [hostPerson, setHostPerson] = useState<Person | null>(null);
+  const [hostCardShown, setHostCardShown] = useState<HostCard | null>(null);
+  // The ⋯ menu at the top: room info, invite, rules, help.
+  const [menuOpen, setMenuOpen] = useState(false);
+  const [rulesOpen, setRulesOpen] = useState(false);
+  const [askingHost, setAskingHost] = useState<HostCard | null>(null);
+  // A one-on-one asked for from this room: checked every few seconds until there's an answer.
+  const [askedId, setAskedId] = useState<string | null>(null);
+  useEffect(() => {
+    if (!askedId) return;
+    const timer = setInterval(() => {
+      void myRequest(askedId)
+        .then((r) => {
+          if (!r || r.status === 'pending') return;
+          setAskedId(null);
+          void AsyncStorage.removeItem('circles.oneOnOne').catch(() => {});
+          if (r.status === 'accepted' && r.roomId) onMove({ kind: 'join', roomId: r.roomId, oneOnOneId: askedId });
+          else if (r.status === 'declined' || r.status === 'expired') setToast(`${r.hostNickname} isn't available right now.`);
+        })
+        .catch(() => {});
+    }, 4000);
+    return () => clearInterval(timer);
+  }, [askedId, onMove]);
   const [removePerson, setRemovePerson] = useState<Person | null>(null);
   const [removedFor, setRemovedFor] = useState<RemovalReason | null>(null);
   const [appealOpen, setAppealOpen] = useState(false);
@@ -556,16 +612,22 @@ export function RoomScreen({ me, request, onLeft, onMove, minimised, onMinimise,
       else if (msg.k === 'lowered') setToast('The host lowered your hand. You can raise it again later.');
       else if (msg.k === 'muted') setToast('The host muted you. You can unmute when it’s your turn.');
       else if (msg.k === 'removed' && REMOVAL_REASONS.some((r) => r.id === msg.reason)) setRemovedFor(msg.reason as RemovalReason);
+      // A host thinks you may be in danger: the help options open straight away.
+      else if (msg.k === 'escalate') setHelpOpen(true);
     });
   }, [connected, voice.onData]);
 
   const tellPerson = (p: Person, msg: { k: string; reason?: string }) =>
     voice.publishData('host', utf8Encode(JSON.stringify(msg)), [p.id]);
 
-  async function doHost(p: Person, act: 'letin' | 'notnow' | 'mute' | 'remove', reason?: RemovalReason, alsoReport?: boolean) {
+  async function doHost(p: Person, act: 'letin' | 'notnow' | 'mute' | 'remove' | 'escalate', reason?: RemovalReason, alsoReport?: boolean) {
     if (!room) return;
     try {
-      if (act === 'letin' || act === 'notnow') {
+      if (act === 'escalate') {
+        await tellPerson(p, { k: 'escalate' });
+        await hostAction(room.id, p.id, 'escalate');
+        setToast(`The help options are open on ${p.nickname}'s phone, and the team knows. Stay with them.`);
+      } else if (act === 'letin' || act === 'notnow') {
         await hostAction(room.id, p.id, 'lower');
         await tellPerson(p, { k: act === 'letin' ? 'letin' : 'lowered' });
         setToast(act === 'letin' ? `${p.nickname} can talk now.` : `${p.nickname}'s hand is down.`);
@@ -1190,6 +1252,86 @@ export function RoomScreen({ me, request, onLeft, onMove, minimised, onMinimise,
           setHostPerson(null);
           setTimeout(() => setProfile({ id: p.id, nickname: p.nickname }), motion.slow);
         }}
+        onDanger={
+          isSupport
+            ? (p) => {
+                setHostPerson(null);
+                void doHost(p, 'escalate');
+              }
+            : undefined
+        }
+      />
+      <Sheet visible={menuOpen} onClose={() => setMenuOpen(false)}>
+        <View style={{ gap: space[1] }}>
+          <Text variant="title" accessibilityRole="header">
+            {title}
+          </Text>
+          <Text variant="meta" color="textSoft">
+            {`${people.length} of ${room?.capacity ?? people.length} here.${isSupport ? " Nobody sees you're here." : ''}`}
+          </Text>
+        </View>
+        <View style={{ gap: space[3] }}>
+          {canInvite ? (
+            <Button
+              label="Invite someone"
+              onPress={() => {
+                setMenuOpen(false);
+                setTimeout(invite, motion.slow);
+              }}
+            />
+          ) : null}
+          <Button
+            label="Room rules"
+            onPress={() => {
+              setMenuOpen(false);
+              setTimeout(() => setRulesOpen(true), motion.slow);
+            }}
+          />
+          <Button
+            label="Get help"
+            onPress={() => {
+              setMenuOpen(false);
+              setTimeout(onOpenHelp, motion.slow);
+            }}
+          />
+          <Button label="Close" variant="quiet" onPress={() => setMenuOpen(false)} />
+        </View>
+      </Sheet>
+      <RoomRulesSheet visible={rulesOpen} onClose={() => setRulesOpen(false)} />
+      <HostCardSheet
+        card={hostCardShown}
+        onClose={() => setHostCardShown(null)}
+        onRequest={(c) => {
+          setHostCardShown(null);
+          setTimeout(() => setAskingHost(c), motion.slow);
+        }}
+        onReport={(c) => {
+          setHostCardShown(null);
+          setTimeout(() => setProfile({ id: c.userId, nickname: c.nickname, isHost: true }), motion.slow);
+        }}
+      />
+      <RequestSheet
+        card={askingHost}
+        busy={false}
+        onClose={() => setAskingHost(null)}
+        onConfirm={(c) => {
+          setAskingHost(null);
+          void requestOneOnOne(c.userId)
+            .then((id) => {
+              void AsyncStorage.setItem('circles.oneOnOne', id).catch(() => {});
+              setAskedId(id);
+              setToast(`Asked ${hostName(c)}. If they say yes, you'll go straight to your one-on-one.`);
+            })
+            .catch((e) =>
+              setToast(
+                e instanceof OneOnOneError && e.code === 'payment_needed'
+                  ? "Paying in the app is coming soon, so paid sessions can't be booked yet."
+                  : e instanceof OneOnOneError && e.code === 'already_waiting'
+                    ? "You're already waiting for an answer."
+                    : `${hostName(c)} isn't available right now.`,
+              ),
+            );
+        }}
       />
       <RemoveSheet
         person={removePerson}
@@ -1322,70 +1464,57 @@ export function RoomScreen({ me, request, onLeft, onMove, minimised, onMinimise,
         style={{
           flexDirection: 'row',
           alignItems: 'center',
-          justifyContent: 'space-between',
+          gap: space[1],
           paddingHorizontal: space.gutter,
           minHeight: size.minTarget,
         }}
       >
-        <View style={{ flexDirection: 'row', alignItems: 'center', gap: space[3] }}>
+        {/* Rooms: ⌄ · room name · ⋯ · Report. Report stays one tap away (report-and-block.md). */}
         {connected ? (
           <Pressable
             accessibilityRole="button"
             accessibilityLabel="Minimise the room. You stay in it"
             onPress={onMinimise}
-            hitSlop={space[2]}
             style={{ minHeight: size.minTarget, minWidth: size.minTarget, alignItems: 'center', justifyContent: 'center' }}
           >
             <ChevronDown size={size.icon} color={colors.textSoft} strokeWidth={size.iconStroke} />
           </Pressable>
         ) : null}
-        {canInvite ? (
-          <Pressable
-            accessibilityRole="button"
-            accessibilityLabel="Invite someone to this room"
-            onPress={invite}
-            style={{ minHeight: size.minTarget, minWidth: size.minTarget, flexDirection: 'row', alignItems: 'center', gap: space[2] }}
-          >
-            <Share2 size={size.iconMeta} color={colors.textMeta} strokeWidth={size.iconStroke} />
-            <Text variant="bodyStrong" color="textMeta">
-              Invite
-            </Text>
-          </Pressable>
-        ) : (
-          <View />
-        )}
-        </View>
+        <Text variant="heading" accessibilityRole="header" numberOfLines={1} style={{ flex: 1 }}>
+          {title}
+        </Text>
         {connected ? (
-          <Pressable
-            accessibilityRole="button"
-            accessibilityLabel="Report"
-            onPress={() => {
-              setReportPerson(null);
-              setReportOpen(true);
-            }}
-            style={{
-              minHeight: size.minTarget,
-              minWidth: size.minTarget,
-              flexDirection: 'row',
-              alignItems: 'center',
-              justifyContent: 'center',
-              gap: space[2],
-            }}
-          >
-            <Flag size={size.iconMeta} color={colors.textMeta} strokeWidth={size.iconStroke} />
-            <Text variant="bodyStrong" color="textMeta">
-              Report
-            </Text>
-          </Pressable>
+          <>
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel="More: room info, invite, rules and help"
+              onPress={() => setMenuOpen(true)}
+              style={{ minHeight: size.minTarget, minWidth: size.minTarget, alignItems: 'center', justifyContent: 'center' }}
+            >
+              <MoreHorizontal size={size.icon} color={colors.textSoft} strokeWidth={size.iconStroke} />
+            </Pressable>
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel="Report"
+              onPress={() => {
+                setReportPerson(null);
+                setReportOpen(true);
+              }}
+              style={{ minHeight: size.minTarget, minWidth: size.minTarget, alignItems: 'center', justifyContent: 'center' }}
+            >
+              <Flag size={size.icon} color={colors.textSoft} strokeWidth={size.iconStroke} />
+            </Pressable>
+          </>
         ) : null}
       </View>
 
       <ScrollView contentContainerStyle={{ paddingHorizontal: space.gutter, paddingBottom: space[5], gap: space[5] }}>
         <View style={{ gap: space[3] }}>
-          <Text variant="display" accessibilityRole="header">
-            {title}
-          </Text>
-          {impostorOn && impostor.round ? (
+          {oneOnOne && timeLeft !== null ? (
+            <Text variant="bodyStrong" color="textSoft" style={{ fontVariant: ['tabular-nums'] }}>
+              {`${clock(timeLeft)} left`}
+            </Text>
+          ) : impostorOn && impostor.round ? (
             <Text variant="bodyStrong" color="textSoft">{`Round ${impostor.round.number} of ${ROUNDS_PER_GAME}`}</Text>
           ) : mood || topic || iAmHost || (isSupport && hostPresent) ? (
             <View style={{ flexDirection: 'row', gap: space[2], flexWrap: 'wrap' }}>
@@ -1516,7 +1645,7 @@ export function RoomScreen({ me, request, onLeft, onMove, minimised, onMinimise,
         <Toast message={toast} onDone={clearToast} />
         {connected ? (
           <>
-            {phase === 'countdown' ? (
+            {phase === 'countdown' && !oneOnOne ? (
               <Button label="Move me to another room" variant="primary" onPress={() => void moveToAnotherRoom()} />
             ) : null}
             {iAmHost && hands.length > 0 ? (

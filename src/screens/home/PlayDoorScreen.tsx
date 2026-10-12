@@ -2,6 +2,7 @@ import { useCallback, useEffect, useState, type ComponentType } from 'react';
 import { Pressable, View } from 'react-native';
 import { ChevronRight, Dice5, Search } from 'lucide-react-native';
 import { Button } from '../../components/Button';
+import { ShowSome } from '../../components/ShowSome';
 import { DoorLayout } from '../../components/DoorLayout';
 import { Text } from '../../components/Text';
 import { RoomRow } from '../../components/RoomRow';
@@ -22,7 +23,6 @@ const DOES: Record<GameId, string> = {
   chess: 'Agree each move together',
   mafia: 'Find the Mafia, one of you narrates',
 };
-const SHOW_OPEN = 3;
 const players = (id: GameId) => `${GAMES[id]!.min}–${GAMES[id]!.max} players`;
 // Every game, easiest first (Sammy, 2026-10-11). Mafia last: it needs the most people.
 const LIST: { id: GamePick; Icon: Icon; tint: { fg: string; bg: string }; name: string; line: string }[] = [
@@ -86,8 +86,6 @@ export function PlayDoorScreen({
   const play = (game: GamePick) => onEnter({ kind: 'match', door: 'play', mood: null, game });
   // Game rooms with people in them, including ones people started and opened to anyone.
   const [rooms, setRooms] = useState<OpenRoom[]>([]);
-  // A few open rooms, so the games stay on screen; See all for the rest (as in the Rooms tab).
-  const [all, setAll] = useState(false);
   const load = useCallback(async () => {
     try {
       setRooms(await listOpenRooms('play'));
@@ -114,12 +112,11 @@ export function PlayDoorScreen({
       {rooms.length > 0 ? (
         <View style={{ gap: space[2] }}>
           <Text variant="heading">Open now</Text>
-          {(all ? rooms : rooms.slice(0, SHOW_OPEN)).map((room) => (
-            <RoomRow key={room.id} room={room} onJoin={() => onEnter({ kind: 'join', roomId: room.id, door: 'play' })} />
-          ))}
-          {rooms.length > SHOW_OPEN ? (
-            <Button label={all ? 'Show fewer' : `See all ${rooms.length} open rooms`} variant="quiet" onPress={() => setAll(!all)} />
-          ) : null}
+          <ShowSome
+            items={rooms}
+            noun="open rooms"
+            render={(room) => <RoomRow key={room.id} room={room} onJoin={() => onEnter({ kind: 'join', roomId: room.id, door: 'play' })} />}
+          />
         </View>
       ) : null}
 

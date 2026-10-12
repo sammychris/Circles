@@ -4,6 +4,12 @@ Claude Code updates this file at the end of every build step. Newest entries at 
 
 ## Current step
 
+**2026-10-12, tops of pages (Sammy's rule):** main tabs = big title left, icons right (Home: bell › Activity; People: + › Create a group / Start a room with friends / Invite; Me: "Me" title); inner pages = back then title; rooms = ⌄ · room name · ⋯ (info, Invite, Room rules, Get help) · Report flag (kept one tap away). Activity lists one-on-one requests, invitations, reminders in the next day and new friendships (never who saved whom; `my_new_friends`, migration 20261017, live). Reviewed by `circles-reviewer`, fixes in.
+
+**2026-10-12, Me page rebuilt (docs/me-page-spec.md), live in the database and room server**, reviewed by `circles-reviewer` (fixes in). Edit (nickname once a week, look = colour + initial or symbol, never a photo; an old nickname can't be taken by anyone else for 90 days), Host entry card, Phone number (Coming soon), Notifications (invitations, room reminders, one-on-one requests), Blocked people page, Get help now vs Help & contact (FAQ + write to the team), Log out and Delete always ask (web too). Sign-up gained "Pick your look". The birth-date 18+ step is unchanged until Sammy decides on a tick box. Switches keep the design direction's colours (one orange per screen).
+
+**2026-10-12, Support (hosts and one-on-one) built and live in the database and room server**, reviewed twice by `circles-reviewer` (no privacy, money or access problems; its fixes are in). 178 app tests and 75 database checks pass. Not yet tested on phones. Sammy's steps and what's left: `docs/NEXT.md` › 00.
+
 **2026-10-11, screen fixes from Sammy's critiques (front end only, nothing in the database or room server), reviewed by `circles-reviewer`, not yet tested on phones:**
 - Home: intro line, live count always shown with its green dot, cards Games / Talk / Learn / Friends, arrows on every card, a "how it works" line and the "In crisis right now? Get help" link (same HelpModal as the support page). The Explore tab is now called **Rooms**.
 - Learn: Practise plus greyed Quiz / Challenge / Debate "Soon"; categories Nigerian languages / Other languages / Skills; 18 greyed "Coming soon" subjects (`SOON` in `src/rooms/learn.ts`). Subject page: level at the top, "Host your own group", "Classes with teachers are coming soon."

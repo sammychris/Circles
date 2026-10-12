@@ -1,7 +1,14 @@
 import { useRef, useState } from 'react';
 import type { TextInput } from 'react-native';
+import { View } from 'react-native';
 import { AuthLayout } from '../components/AuthLayout';
+import { Avatar } from '../components/Avatar';
+import { AvatarPicker } from '../components/AvatarPicker';
 import { Button } from '../components/Button';
+import { rememberLook, type Look } from '../lib/avatars';
+import { updateMyProfile } from '../lib/profile';
+import { initialOf, tintIndex } from '../lib/seats';
+import { avatarTints } from '../theme';
 import { TextField } from '../components/TextField';
 import { supabase } from '../lib/supabase';
 import { NICKNAME_MAX, NICKNAME_PROBLEM_TEXT, PASSWORD_MIN, looksOffline, nicknameProblem } from '../lib/validation';
@@ -20,6 +27,10 @@ export function NicknameScreen({ onSaved, onBack }: Props) {
   // The nickname is saved once; if the password then needs another try, it isn't saved again.
   const [saved, setSaved] = useState(false);
   const passwordBox = useRef<TextInput>(null);
+  // Then their look: a colour and their initial or a symbol. Skipping keeps the usual colour.
+  const [picking, setPicking] = useState(false);
+  const [look, setLook] = useState<Look>({ tint: 0, symbol: null });
+  const [myId, setMyId] = useState('preview');
 
   async function saveNickname(): Promise<boolean> {
     if (saved) return true;
@@ -60,7 +71,46 @@ export function NicknameScreen({ onSaved, onBack }: Props) {
       return;
     }
     setBusy(false);
+    // Start on the colour they'd get by skipping, so the preview is true.
+    const { data } = await supabase.auth.getUser().catch(() => ({ data: { user: null } }));
+    if (data.user) {
+      setMyId(data.user.id);
+      setLook({ tint: tintIndex(data.user.id, avatarTints.length), symbol: null });
+    }
+    setPicking(true);
+  }
+
+  async function saveLook() {
+    setBusy(true);
+    try {
+      const { data } = await supabase.auth.getUser();
+      await updateMyProfile(nickname.trim(), look.tint, look.symbol);
+      if (data.user) rememberLook(data.user.id, look);
+    } catch {
+      // Not important enough to stop here: it can be set later in Me › Edit.
+    }
+    setBusy(false);
     onSaved();
+  }
+
+  if (picking) {
+    return (
+      <AuthLayout
+        title="Pick your look"
+        body="A colour, and your initial or a symbol. No photos: people only ever see this and your nickname."
+        footer={
+          <>
+            <Button label="Continue" variant="primary" loading={busy} onPress={() => void saveLook()} />
+            <Button label="Skip for now" variant="quiet" onPress={onSaved} />
+          </>
+        }
+      >
+        <View style={{ alignItems: 'center' }}>
+          <Avatar userId={myId} nickname={nickname} look={look} />
+        </View>
+        <AvatarPicker value={look} initial={initialOf(nickname)} onChange={setLook} />
+      </AuthLayout>
+    );
   }
 
   return (

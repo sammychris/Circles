@@ -71,11 +71,14 @@ export function HostActionsSheet({
   onMute,
   onRemove,
   onMore,
+  onDanger,
 }: {
   person: Person | null;
   onClose: () => void;
   onMute: (p: Person) => void;
   onRemove: (p: Person) => void;
+  // "May be in danger": the help numbers open on their phone and the team is told (support rooms).
+  onDanger?: (p: Person) => void;
   // Save, block and report, like everyone else.
   onMore: (p: Person) => void;
 }) {
@@ -94,6 +97,7 @@ export function HostActionsSheet({
             </View>
           </View>
           <View style={{ gap: space[3] }}>
+            {onDanger ? <Button label="May be in danger" onPress={() => onDanger(person)} /> : null}
             {!person.isMuted ? <Button label="Mute" onPress={() => onMute(person)} /> : null}
             <Button label="Save, block or report" onPress={() => onMore(person)} />
             <Pressable

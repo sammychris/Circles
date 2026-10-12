@@ -1,14 +1,17 @@
 import { useCallback, useEffect, useState, type ComponentType } from 'react';
 import { Pressable, RefreshControl, ScrollView, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { BookOpen, ChevronRight, Dice5, Heart, MessageCircle, Phone, Users } from 'lucide-react-native';
+import { Bell, BookOpen, ChevronRight, Dice5, Heart, MessageCircle, Phone, Users } from 'lucide-react-native';
 import { RoomRow } from '../../components/RoomRow';
 import { ScheduledRow } from '../../components/Scheduled';
 import { Button } from '../../components/Button';
+import { ShowSome } from '../../components/ShowSome';
 import { Glow } from '../../components/Glow';
 import { HelpModal } from '../../components/HelpModal';
 import { Text } from '../../components/Text';
 import { Toast } from '../../components/Toast';
+import { TopIcon } from '../../components/TopIcon';
+import { useUnreadActivity } from '../../lib/activity';
 import { peopleInRooms, timeWord } from '../../lib/timeOfDay';
 import { forYou, goBackRoom, loadVisits } from '../../lib/roomHistory';
 import { useScreenEdges, useTabScroll } from '../../navigation/TabBar';
@@ -81,6 +84,8 @@ type Props = {
   onEnter: (r: RoomRequest) => void;
   // Coming up › See all: Explore, where Tonight is.
   onExplore: () => void;
+  // The bell: Activity.
+  onActivity: () => void;
 };
 
 // Rows for "Go back in" and "For you": a room row with the reason as its line.
@@ -105,8 +110,10 @@ function Suggestion({
   );
 }
 
-// One house, many doors (docs/screens/01-home.png). No ember on Home: each door page has its own.
-export function HomeScreen({ me, onOpen, onEnter, onExplore }: Props) {
+// One house, many doors (docs/screens/01-home.png). No ember button on Home: each door page has its own
+// (the bell's small dot is a status, like the tab bar's).
+export function HomeScreen({ me, onOpen, onEnter, onExplore, onActivity }: Props) {
+  const unread = useUnreadActivity(me.id);
   const colors = useColors();
   const [people, setPeople] = useState<number | null>(null);
   const [refreshing, setRefreshing] = useState(false);
@@ -166,9 +173,13 @@ export function HomeScreen({ me, onOpen, onEnter, onExplore }: Props) {
         }
       >
         <View style={{ gap: space[3] }}>
-          <Text variant="display" accessibilityRole="header">
-            {`What brings you in ${timeWord()}?`}
-          </Text>
+          {/* Main tab: the big title on the left, its icons on the right. */}
+          <View style={{ flexDirection: 'row', alignItems: 'flex-start', gap: space[2] }}>
+            <Text variant="display" accessibilityRole="header" style={{ flex: 1 }}>
+              {`What brings you in ${timeWord()}?`}
+            </Text>
+            <TopIcon Icon={Bell} label="Activity" dot={unread > 0} onPress={onActivity} />
+          </View>
           <Text variant="body" color="textSoft">
             Live voice rooms with real people. Talk, play or learn together.
           </Text>
@@ -264,9 +275,9 @@ export function HomeScreen({ me, onOpen, onEnter, onExplore }: Props) {
             <Text variant="heading" accessibilityRole="header">
               For you
             </Text>
-            {picks.map((p) => (
+            <ShowSome items={picks} noun="rooms for you" render={(p) => (
               <Suggestion key={p.room.id} room={p.room} reason={p.reason} onEnter={onEnter} />
-            ))}
+            )} />
           </View>
         ) : null}
 

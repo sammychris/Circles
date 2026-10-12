@@ -175,7 +175,7 @@ export function StartScreen({ door: firstDoor, subject, draft, onBack, onStart, 
           ? { startsAt: laterAt.toISOString() }
           : { weekly: { days: weekDays, time, timeZone: Intl.DateTimeFormat().resolvedOptions().timeZone || 'Africa/Lagos' } }),
       });
-      const note = `${reminderNote(await allowReminders())}${inviteOnly ? ' Invite your people from Groups.' : ''}`.trim();
+      const note = `${reminderNote(await allowReminders())}${inviteOnly ? ' Invite your friends from People.' : ''}`.trim();
       onScheduled(
         (when === 'later'
           ? `${cleanTitle} is set for ${dayAndTime(laterAt).replace(/^(Today|Tonight|Tomorrow)/, (w) => w.toLowerCase())}. ${note}`

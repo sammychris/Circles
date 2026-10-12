@@ -2,6 +2,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { RefreshControl, ScrollView, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Button } from '../../components/Button';
+import { ShowSome } from '../../components/ShowSome';
 import { FilterChip } from '../../components/FilterChip';
 import { RoomRow } from '../../components/RoomRow';
 import { GroupCard, LoadError, ScheduledRow, SkeletonRows } from '../../components/Scheduled';
@@ -26,7 +27,6 @@ const DOOR_FILTERS: { id: Filter; label: string }[] = [
   { id: 'learn', label: 'Learn' },
 ];
 const FILTERS = [...DOOR_FILTERS, ...TOPICS.map((t) => ({ id: `topic:${t.id}`, label: t.label }))];
-const SHOW = 5;
 
 // onStart: Start something behind the door being looked at (Talk for All and topics); `later` opens it
 // set for a time.
@@ -46,7 +46,6 @@ export function ExploreScreen({ me, onEnter, onStart, onOpenGroup }: Props) {
   const [offline, setOffline] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
   const [filter, setFilter] = useState<Filter>('all');
-  const [all, setAll] = useState(false);
   const [retrying, setRetrying] = useState(false);
   const loaded = useRef(false);
   const schedule = useSchedule(me.id, true);
@@ -128,7 +127,6 @@ export function ExploreScreen({ me, onEnter, onStart, onOpenGroup }: Props) {
                 selected={filter === f.id}
                 onPress={() => {
                   setFilter(f.id);
-                  setAll(false);
                 }}
               />
             ))}
@@ -202,17 +200,20 @@ export function ExploreScreen({ me, onEnter, onStart, onOpenGroup }: Props) {
             </View>
           ) : (
             <View>
-              {(all ? shown : shown.slice(0, SHOW)).map((r) => (
-                <RoomRow
-                  key={r.id}
-                  room={r}
-                  disabled={offline}
-                  onJoin={() => onEnter({ kind: 'join', roomId: r.id, ...(r.door === 'learn' ? {} : { door: r.door }) })}
-                />
-              ))}
-              {!all && shown.length > SHOW ? (
-                <Button label={`See all ${shown.length}`} variant="quiet" onPress={() => setAll(true)} />
-              ) : null}
+              {/* A new filter starts short again. */}
+              <ShowSome
+                key={filter}
+                items={shown}
+                noun="live rooms"
+                render={(r) => (
+                  <RoomRow
+                    key={r.id}
+                    room={r}
+                    disabled={offline}
+                    onJoin={() => onEnter({ kind: 'join', roomId: r.id, ...(r.door === 'learn' ? {} : { door: r.door }) })}
+                  />
+                )}
+              />
             </View>
           )}
         </View>
@@ -234,9 +235,9 @@ export function ExploreScreen({ me, onEnter, onStart, onOpenGroup }: Props) {
             </View>
           ) : (
             <View>
-              {soon.map((r) => (
+              <ShowSome items={soon} noun="rooms tonight" render={(r) => (
                 <ScheduledRow key={r.id} room={r} disabled={offline} onToggle={() => void toggle(r)} onGoIn={() => goIn(r)} />
-              ))}
+              )} />
               <Button label="Schedule a room" variant="quiet" onPress={() => onStart(startDoor, true)} />
             </View>
           )}
@@ -247,9 +248,9 @@ export function ExploreScreen({ me, onEnter, onStart, onOpenGroup }: Props) {
             <Text variant="heading" accessibilityRole="header">
               Every week
             </Text>
-            {weekly.map((g) => (
+            <ShowSome items={weekly} noun="weekly groups" render={(g) => (
               <GroupCard key={g.id} group={g} onPress={() => onOpenGroup(g)} />
-            ))}
+            )} />
           </View>
         ) : null}
       </ScrollView>

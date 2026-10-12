@@ -2,6 +2,7 @@ import { useCallback, useEffect, useState } from 'react';
 import { Pressable, View } from 'react-native';
 import { Plus } from 'lucide-react-native';
 import { Button } from '../../components/Button';
+import { ShowSome } from '../../components/ShowSome';
 import { DoorLayout } from '../../components/DoorLayout';
 import { LevelSheet } from '../../components/LearnSheets';
 import { RoomRow } from '../../components/RoomRow';
@@ -86,7 +87,7 @@ export function LearnSubjectScreen({
             }}
           />
           <Text variant="meta" color="textMeta" center>
-            {"Voice chat. If nobody's in yet, you wait in the room until someone joins."}
+            {"Voice only. If nobody's in yet, you wait in the room until someone joins."}
           </Text>
         </>
       }
@@ -112,7 +113,7 @@ export function LearnSubjectScreen({
       <View style={{ gap: space[2] }}>
         <Text variant="heading">Practice groups</Text>
         <Text variant="body" color="textSoft">
-          {`Free voice chat · up to ${LEARN_CAPACITY} people, everyone talks.`}
+          {`Free voice room · up to ${LEARN_CAPACITY} people, everyone talks.`}
         </Text>
         {rooms === null && !failed ? (
           <View accessible accessibilityLabel="Loading groups" style={{ gap: space[3] }}>
@@ -132,7 +133,11 @@ export function LearnSubjectScreen({
             No groups open yet. Start one and others at your level will join.
           </Text>
         ) : (
-          sorted.map((room) => <RoomRow key={room.id} room={room} onJoin={() => onEnter({ kind: 'join', roomId: room.id })} />)
+          <ShowSome
+            items={sorted}
+            noun="groups"
+            render={(room) => <RoomRow key={room.id} room={room} onJoin={() => onEnter({ kind: 'join', roomId: room.id })} />}
+          />
         )}
       </View>
       {/* Not the same as Practise now: you name the group and pick when it happens (Start screen). */}

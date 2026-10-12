@@ -5,6 +5,24 @@ Last updated 2026-10-11.
 
 ---
 
+## 00. Support build (2026-10-12): live, waiting on 3 things from Sammy
+
+Built to CIRCLES_INTENT.md › Support and docs/support-section-spec.md. Database (`20261015000000_support_hosts.sql`) and room server are **live**; the app part reaches phones with `npx expo start` (live mode) or the usual update.
+
+**Works now:** support page with live support rooms (host name + badge, how many in), "Notify me when one starts", One-on-one list of online trusted hosts, host cards with price shown first, request → host has 10 minutes → private room for two with a timer and a 2-minute note → "How was your session?". Become a host (form, 5 training cards, 5-question check, agreement). Me › Hosting: application status, Start a support room, Online for one-on-one, Requests (with a lock-screen alert), edit your card. Hosts: "May be in danger" on a person (help opens on their phone, urgent report to the team).
+
+**Sammy's steps:**
+1. **Review host applications:** Supabase › Table editor › `host_applications`. Read the row (professionals: check the licence number with the body named). Set `status` to `approved`, `needs_changes` (write `review_note`) or `rejected`, and save. Approved = a host straight away.
+2. **Existing hosts** (added by hand before) have no card yet: ask them to apply in the app (approve them quickly), so they get a card and badge.
+3. **Crisis numbers:** `src/content/helplines.ts` is still empty, so "In crisis? Get help now" and "May be in danger" open a help sheet without numbers. Send Claude checked numbers.
+4. **Payments (paid one-on-one):** needs a payment provider account (Paystack suggested for naira). Until then, paid sessions show their price but can't be booked ("Paying in the app is coming soon"). Free sessions and a professional's free first session work.
+
+5. **Messages from Help & contact** land in Supabase › Table editor › `feedback` (problems, questions, ideas). Old nicknames are in `nickname_history`.
+
+**Not built yet:** payments, payouts and refunds; scheduled support rooms ("Coming up"); the server ending a one-on-one at its time (the phones do it); phone-number checks for hosts (costs money per text).
+
+---
+
 ## 0. Now (2026-10-11): browser test by Claude, and what Sammy asked for
 
 Claude clicked through the whole app in Chrome at phone size (Playwright, two test people), then talked it over with Sammy.

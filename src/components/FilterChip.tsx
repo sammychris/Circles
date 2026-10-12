@@ -1,3 +1,4 @@
+import type { ComponentType } from 'react';
 import { Pressable } from 'react-native';
 import { Check } from 'lucide-react-native';
 import { border, fonts, opacity, radius, size, space, useColors } from '../theme';
@@ -8,11 +9,16 @@ export function FilterChip({
   label,
   selected,
   disabled,
+  Icon,
+  iconColor,
   onPress,
 }: {
   label: string;
   selected: boolean;
   disabled?: boolean;
+  // Shown when not selected; the check takes its place when selected.
+  Icon?: ComponentType<{ size: number; color: string; strokeWidth: number }>;
+  iconColor?: string;
   onPress: () => void;
 }) {
   const colors = useColors();
@@ -37,7 +43,11 @@ export function FilterChip({
       })}
     >
       {/* Never colour alone: the selected chip also has a check. */}
-      {selected ? <Check size={size.iconMeta} color={colors.text} strokeWidth={size.iconStroke} /> : null}
+      {selected ? (
+        <Check size={size.iconMeta} color={colors.text} strokeWidth={size.iconStroke} />
+      ) : Icon ? (
+        <Icon size={size.iconMeta} color={iconColor ?? colors.textSoft} strokeWidth={size.iconStroke} />
+      ) : null}
       <Text variant="metaStrong" style={selected ? { fontFamily: fonts.extraBold } : undefined}>
         {label}
       </Text>

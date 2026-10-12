@@ -16,6 +16,9 @@ export type RoomInfo = {
   level?: LearnLevel | null;
   title: string;
   capacity: number;
+  // A private one-on-one with a host (support), and when its time is up.
+  oneOnOne?: boolean;
+  endsAt?: string | null;
 };
 
 export type RoomTicket = { token: string; url: string; roomName: string; room: RoomInfo; isHost: boolean };
@@ -25,7 +28,8 @@ export type RoomRequest =
   // game: tapped on Let's play. Stays on this phone (never sent); the room starts it once it can.
   | { kind: 'match'; door: Door; mood: Mood | null; excludeRoomId?: string; language?: string; level?: LearnLevel; game?: GameId | 'ludo' | 'impostor' }
   // door: where they found the room, so "Find me another room" looks behind the same door.
-  | { kind: 'join'; roomId: string; door?: 'talk' | 'play' }
+  // oneOnOneId: the request behind a one-on-one, kept on this phone for "How was it?" afterwards.
+  | { kind: 'join'; roomId: string; door?: 'talk' | 'play'; oneOnOneId?: string }
   // A scheduled room or a weekly group's meeting: open from 5 minutes before its time.
   | { kind: 'scheduled'; scheduledId: string }
   // Start something: a room with your own title. Invite-only rooms are only opened by their link.
@@ -95,7 +99,7 @@ export class PausedError extends Error {
   }
 }
 
-async function call<T>(body: Record<string, unknown>): Promise<T> {
+export async function call<T>(body: Record<string, unknown>): Promise<T> {
   const { data, error } = await supabase.functions.invoke('livekit-token', { body });
   if (error) {
     const context = (error as { context?: Response }).context;
@@ -202,7 +206,7 @@ export async function setHandUp(roomId: string, up: boolean): Promise<void> {
 export type RemovalReason = 'unkind' | 'sexual' | 'spam' | 'off_topic' | 'other';
 
 // Trained hosts only (the room server checks): lower a hand, mute someone, or remove them from the room.
-export async function hostAction(roomId: string, personId: string, act: 'lower' | 'mute' | 'remove', reason?: RemovalReason): Promise<void> {
+export async function hostAction(roomId: string, personId: string, act: 'lower' | 'mute' | 'remove' | 'escalate', reason?: RemovalReason): Promise<void> {
   await call<{ status: string }>({ action: 'host', roomId, personId, act, reason });
 }
 
@@ -215,6 +219,13 @@ export async function appealRemoval(roomId: string, text: string): Promise<void>
 // Whether a trained host is in a support room right now. Never who.
 export async function supportStatus(): Promise<{ hostInRoom: boolean; iAmHost: boolean }> {
   return call<{ hostInRoom: boolean; iAmHost: boolean }>({ action: 'support' });
+}
+
+// Live support rooms: title, the host's nickname and badge, and how many are in (never who).
+export type SupportRoom = { id: string; title: string; here: number; capacity: number; host: string; hostKind: 'listener' | 'professional' };
+export async function listSupportRooms(): Promise<SupportRoom[]> {
+  const data = await call<{ rooms: SupportRoom[] }>({ action: 'support_rooms' });
+  return data.rooms ?? [];
 }
 
 // Deletes this person's account and everything tied to it. Can't be undone.
