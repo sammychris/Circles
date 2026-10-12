@@ -72,6 +72,12 @@ Use existing, proven game code plugged into rooms where possible, instead of bui
 
 ---
 
+## Sign-up and age: decided by Sammy (2026-10-12)
+
+- Sign-up is a nickname and a password, like any app; Log in and Sign up link to each other. No age question at sign-up.
+- The age is asked inside the app, the first time someone goes into a room (every room is live voice with strangers). Under 18: they can look around, but can't join rooms. The room server still lets nobody talk without passing 18+.
+- Under-18s playing games: wanted later, but only with a safe design (for example teen-only rooms), never mixed with adult strangers.
+
 ## Support: decided by Sammy (2026-10-11). Don't ask again.
 
 Two kinds of support, and they never mix:

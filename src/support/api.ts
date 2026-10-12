@@ -101,7 +101,7 @@ export async function notifyWhenHostOn(): Promise<void> {
 
 // --- one-on-one ---
 export class OneOnOneError extends Error {
-  constructor(public code: 'not_available' | 'already_waiting' | 'too_many' | 'payment_needed' | 'other') {
+  constructor(public code: 'not_available' | 'already_waiting' | 'too_many' | 'payment_needed' | 'adults_only' | 'other') {
     super(code);
   }
 }
@@ -119,6 +119,7 @@ export async function requestOneOnOne(hostId: string): Promise<string> {
     const data = await call<{ id: string }>({ action: 'one_on_one_request', hostId });
     return data.id;
   } catch (e) {
+    if (e instanceof Error && e.message === 'adults_only') throw new OneOnOneError('adults_only');
     throw new OneOnOneError(codeOf(e instanceof Error ? e.message : ''));
   }
 }

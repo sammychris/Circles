@@ -1,5 +1,5 @@
 import { forwardRef, useState } from 'react';
-import { TextInput, View, type TextInputProps } from 'react-native';
+import { Pressable, TextInput, View, type TextInputProps } from 'react-native';
 import { border, fonts, radius, rules, size, space, type, useColors } from '../theme';
 import { ErrorLine } from './ErrorLine';
 import { Text } from './Text';
@@ -19,7 +19,8 @@ export const TextField = forwardRef<TextInput, Props>(function TextField(
 ) {
   const colors = useColors();
   const [focused, setFocused] = useState(false);
-  const borderColor = error || invalid ? colors.danger : focused ? colors.text : colors.line;
+  // The edge must be visible against the page (3:1 or more), not only when focused.
+  const borderColor = error || invalid ? colors.danger : focused ? colors.text : colors.textMeta;
 
   return (
     <View style={[{ gap: space[2] }, style]}>
@@ -64,3 +65,20 @@ export const TextField = forwardRef<TextInput, Props>(function TextField(
     </View>
   );
 });
+
+// "Show password" under a password field: a plain switch-like line, so typing mistakes can be seen.
+export function ShowPassword({ shown, onToggle }: { shown: boolean; onToggle: () => void }) {
+  return (
+    <Pressable
+      accessibilityRole="checkbox"
+      accessibilityState={{ checked: shown }}
+      aria-checked={shown}
+      onPress={onToggle}
+      style={{ minHeight: size.minTarget, justifyContent: 'center', alignSelf: 'flex-start' }}
+    >
+      <Text variant="metaStrong" color="textSoft" style={{ textDecorationLine: 'underline' }}>
+        {shown ? 'Hide password' : 'Show password'}
+      </Text>
+    </Pressable>
+  );
+}

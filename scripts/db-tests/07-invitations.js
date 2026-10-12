@@ -9,6 +9,8 @@ module.exports = async ({ as, fails, check, assert, db }) => {
       'insert into public.profiles (id, nickname) values ($1, $2) on conflict (id) do update set nickname = excluded.nickname',
       [users[name], `Inv_${name}`],
     );
+    // Adults: joining a group needs the 18+ answer.
+    await db.query("insert into public.birth_dates (id, date_of_birth) values ($1, date '1990-01-01')", [users[name]]);
   }
   const save = (a, b) => db.query('insert into public.saves (saver_id, saved_id) values ($1, $2) on conflict do nothing', [a, b]);
   // Ada and Bayo saved each other; Ada saved Chi but Chi didn't save her back.

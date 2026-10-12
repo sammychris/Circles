@@ -40,7 +40,7 @@ Claude clicked through the whole app in Chrome at phone size (Playwright, two te
 - **The Table:** show every option in every room, greyed out (light grey) with a reason when it can't be used, instead of hiding it. Support rooms stay notes only (CLAUDE.md, Never list).
 - **A drawing pad** for Learn rooms (the same pad Draw and Guess needs).
 - **Photos:** Sammy wants a "slider". Ask what he means (a swipeable slideshow?) and what didn't work when he tried photos.
-- **The age question:** Sammy wants it removed from sign-up and asked only for special rooms. Claude pushed back (CLAUDE.md: nobody speaks before passing 18+; voice with strangers is the risk; Google Play checks it) and suggested one "I'm 18 or older" tick box on Welcome instead of the date screen. **Waiting for Sammy's decision.**
+- ~~**The age question.**~~ Decided and built (2026-10-12): removed from sign-up, asked before the first room. See CIRCLES_INTENT.md › Sign-up and age.
 
 Everything up to here is built, reviewed by `circles-reviewer`, and pushed to
 `claude/gallant-faraday-7s2l1w`, and carried on in `claude/dreamy-meitner-mjoykp`. None of it has been tested on phones yet.

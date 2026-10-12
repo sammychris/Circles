@@ -243,14 +243,20 @@ export function ExploreScreen({ me, onEnter, onStart, onOpenGroup }: Props) {
           )}
         </View>
 
-        {weekly.length > 0 ? (
+        {schedule.groups ? (
           <View style={{ paddingHorizontal: space.gutter, paddingTop: space[6], gap: space[3] }}>
             <Text variant="heading" accessibilityRole="header">
               Every week
             </Text>
-            <ShowSome items={weekly} noun="weekly groups" render={(g) => (
-              <GroupCard key={g.id} group={g} onPress={() => onOpenGroup(g)} />
-            )} />
+            {weekly.length === 0 ? (
+              <Text variant="body" color="textSoft">
+                No weekly groups yet. Start one from People › Groups.
+              </Text>
+            ) : (
+              <ShowSome items={weekly} noun="weekly groups" render={(g) => (
+                <GroupCard key={g.id} group={g} onPress={() => onOpenGroup(g)} />
+              )} />
+            )}
           </View>
         ) : null}
       </ScrollView>

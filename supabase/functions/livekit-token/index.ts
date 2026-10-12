@@ -8,6 +8,7 @@
 //   { action: 'one_on_one_request', hostId }          asks a host for one-on-one, and alerts the host's phone
 //   { action: 'delete_account' }                      deletes the person's own account and everything tied to it
 //   { action: 'login', nickname, password }           logs in with a nickname and password (before signing in)
+//   { action: 'signup', nickname, password }          makes an account with a nickname and password (before signing in)
 //   { action: 'set_password', password }              sets or changes this account's password
 //   { action: 'create', door, title, topic?, capacity?, private? }  starts a Talk or Play room (Start something)
 //   { action: 'host', roomId, personId, act, reason? }  a trained host lowers a hand, mutes or removes someone
@@ -310,6 +311,45 @@ Deno.serve(async (req) => {
       return json({ status: failures >= 5 ? 'locked' : 'wrong' });
     }
     if (lock) await admin.from('login_failures').delete().eq('nickname', nickname);
+    return json({ status: 'ok', ...session });
+  }
+
+  // Sign up (before signing in): a nickname and a password, made together in one step so a half-made
+  // account is never left behind. The age is asked later, inside the app, before the first room.
+  if (body.action === 'signup') {
+    const nickname = String(body.nickname ?? '').trim();
+    const password = String(body.password ?? '');
+    if (!/^[A-Za-z0-9_]{2,20}$/.test(nickname) || /[0-9]{7,}/.test(nickname)) return json({ status: 'bad_nickname' });
+    // 72 bytes is the most a password can be (bcrypt), not 72 letters.
+    if (password.length < 8 || new TextEncoder().encode(password).length > 72) return json({ status: 'bad_password' });
+    // New accounts an hour from one network address. Only accounts actually made count, and the limit
+    // is generous because Nigerian mobile networks share addresses. If the count can't be read, refuse.
+    // shortcut: trusts the first x-forwarded-for entry; check it can't be faked before a wide launch.
+    const ip = (req.headers.get('x-forwarded-for') ?? '').split(',')[0].trim().slice(0, 64) || 'unknown';
+    const { count, error: countError } = await admin
+      .from('signup_attempts')
+      .select('id', { count: 'exact', head: true })
+      .eq('ip', ip)
+      .gte('at', new Date(Date.now() - 60 * 60_000).toISOString());
+    if (countError || (count ?? 0) >= 20) return json({ status: 'too_many' });
+    const { data: taken } = await admin.from('profiles').select('id').ilike('nickname', nickname.replace(/_/g, '\\_')).maybeSingle();
+    if (taken) return json({ status: 'taken' });
+    const email = `${crypto.randomUUID()}${LOGIN_ONLY_EMAIL}`;
+    const { data: created, error: createError } = await admin.auth.admin.createUser({ email, password, email_confirm: true });
+    if (createError || !created.user) return json({ error: 'Could not make the account' }, 500);
+    const { error: profileError } = await admin.from('profiles').insert({ id: created.user.id, nickname });
+    if (profileError) {
+      // Taken a moment ago, held for 90 days after someone changed it, or reserved: undo the account.
+      await admin.auth.admin.deleteUser(created.user.id).catch(() => {});
+      const why = profileError.message;
+      if (why.includes('reserved')) return json({ status: 'reserved' });
+      if (why.includes('nickname_taken') || profileError.code === '23505') return json({ status: 'taken' });
+      return json({ error: 'Could not make the account' }, 500);
+    }
+    await admin.from('signup_attempts').insert({ ip });
+    const session = await passwordSession(email, password);
+    // Made, but signing in hit a limit: the app logs in with the same nickname and password instead.
+    if (!session) return json({ status: 'made_log_in' });
     return json({ status: 'ok', ...session });
   }
 

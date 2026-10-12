@@ -69,7 +69,7 @@ export function TalkDoorScreen({ nickname, onBack, onEnter, onStart }: Props) {
           ) : null}
           <View style={{ flexDirection: 'row', justifyContent: 'center', alignItems: 'center', flexWrap: 'wrap', gap: space[1] }}>
             <Text variant="meta" color="textMeta">{`Joining as ${nickname} · mic off ·`}</Text>
-            <Pressable accessibilityRole="link" onPress={() => setRulesOpen(true)} hitSlop={space[3]} style={{ minHeight: size.minTarget, justifyContent: 'center' }}>
+            <Pressable accessibilityRole="button" onPress={() => setRulesOpen(true)} hitSlop={space[3]} style={{ minHeight: size.minTarget, justifyContent: 'center' }}>
               <Text variant="metaStrong" style={{ textDecorationLine: 'underline' }}>
                 Room rules
               </Text>

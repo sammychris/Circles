@@ -1,16 +1,16 @@
 import { useEffect, useState } from 'react';
 import { BackHandler } from 'react-native';
-import { supabase } from '../lib/supabase';
 import { CodeScreen } from './CodeScreen';
-import { EmailScreen, OFFLINE_TEXT, isOffline } from './EmailScreen';
+import { EmailScreen } from './EmailScreen';
 import { LinkPreviewScreen } from './LinkPreviewScreen';
 import { LoginScreen } from './LoginScreen';
+import { SignUpScreen } from './SignUpScreen';
 import { WelcomeScreen } from './WelcomeScreen';
 
-type Stage = { name: 'welcome' } | { name: 'login' } | { name: 'email' } | { name: 'code'; email: string };
+type Stage = { name: 'welcome' } | { name: 'signup' } | { name: 'login' } | { name: 'email' } | { name: 'code'; email: string };
 
-// Signed out. Get started makes a new account straight away (open test: no email needed).
-// Log in uses nickname and password; a forgotten password is reset with the email added to the account.
+// Signed out. Get started opens Sign up (nickname and password); Log in and Sign up link to each other.
+// A forgotten password is reset with the email added to the account. The age is asked inside the app.
 type Props = {
   // A room link someone opened. They see the room first, then sign up and go straight in.
   linkRoom?: { roomId: string; by?: string };
@@ -21,8 +21,6 @@ type Props = {
 export function SignInFlow({ linkRoom, onLinkEnded }: Props) {
   const [stage, setStage] = useState<Stage>({ name: 'welcome' });
   const [email, setEmail] = useState('');
-  const [starting, setStarting] = useState(false);
-  const [error, setError] = useState<string | null>(null);
   // Android back: code → email → Log in → Welcome (not out of the app).
   useEffect(() => {
     if (stage.name === 'welcome') return;
@@ -33,34 +31,17 @@ export function SignInFlow({ linkRoom, onLinkEnded }: Props) {
     return () => sub.remove();
   }, [stage.name]);
 
-  async function start() {
-    setStarting(true);
-    setError(null);
-    const { error: startError } = await supabase.auth.signInAnonymously();
-    setStarting(false);
-    if (startError) {
-      setError(
-        startError.status === 429
-          ? 'A lot of people are joining right now. Wait a few minutes, then try again.'
-          : isOffline(startError.status)
-            ? OFFLINE_TEXT
-            : "We couldn't start your account. Try again.",
-      );
-    }
-    // On success App sees the new account and moves on to the 18+ question.
-  }
-
   if (stage.name === 'welcome' && linkRoom) {
     return (
       <LinkPreviewScreen
         roomId={linkRoom.roomId}
         by={linkRoom.by}
-        starting={starting}
-        error={error}
-        onJoin={() => void start()}
+        starting={false}
+        error={null}
+        onJoin={() => setStage({ name: 'signup' })}
         onFindAnother={() => {
           onLinkEnded?.();
-          void start();
+          setStage({ name: 'signup' });
         }}
         onHaveAccount={() => setStage({ name: 'login' })}
       />
@@ -69,15 +50,24 @@ export function SignInFlow({ linkRoom, onLinkEnded }: Props) {
   if (stage.name === 'welcome') {
     return (
       <WelcomeScreen
-        starting={starting}
-        error={error}
-        onStart={() => void start()}
+        starting={false}
+        error={null}
+        onStart={() => setStage({ name: 'signup' })}
         onHaveAccount={() => setStage({ name: 'login' })}
       />
     );
   }
   if (stage.name === 'login') {
-    return <LoginScreen onBack={() => setStage({ name: 'welcome' })} onForgot={() => setStage({ name: 'email' })} />;
+    return (
+      <LoginScreen
+        onBack={() => setStage({ name: 'welcome' })}
+        onForgot={() => setStage({ name: 'email' })}
+        onSignUp={() => setStage({ name: 'signup' })}
+      />
+    );
+  }
+  if (stage.name === 'signup') {
+    return <SignUpScreen onBack={() => setStage({ name: 'welcome' })} onLogIn={() => setStage({ name: 'login' })} />;
   }
   if (stage.name === 'email') {
     return (

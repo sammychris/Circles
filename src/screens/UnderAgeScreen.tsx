@@ -6,7 +6,7 @@ import { Text } from '../components/Text';
 import { YOUTH_HELPLINE } from '../content/helplines';
 import { radius, size, space, useColors } from '../theme';
 
-// Shown instead of the app to anyone under 18. Kind, never blaming, with somewhere to turn.
+// Shown to anyone under 18 who tries to join a room (rooms are 18+). Kind, never blaming, with somewhere to turn.
 export function UnderAgeScreen({ onClose }: { onClose: () => void }) {
   const colors = useColors();
   return (
@@ -26,12 +26,12 @@ export function UnderAgeScreen({ onClose }: { onClose: () => void }) {
           <Heart size={size.icon} color={colors.helpIcon} strokeWidth={size.iconStroke} />
         </View>
         <Text variant="title" center accessibilityRole="header">
-          Circles is for adults
+          Rooms are for adults
         </Text>
         <Text variant="body" color="textSoft" center>
           {YOUTH_HELPLINE
-            ? "You need to be 18 or older to use Circles. If you're going through something hard, you can still talk to someone:"
-            : "You need to be 18 or older to use Circles. If you're going through something hard, please talk to an adult you trust, like a parent, teacher or family member."}
+            ? "You need to be 18 or older to join rooms. If you're going through something hard, you can still talk to someone:"
+            : "You need to be 18 or older to join rooms. If you're going through something hard, please talk to an adult you trust, like a parent, teacher or family member."}
         </Text>
         {YOUTH_HELPLINE ? (
           <View style={{ backgroundColor: colors.surface, borderRadius: radius.card, padding: space[4] }}>
@@ -42,7 +42,7 @@ export function UnderAgeScreen({ onClose }: { onClose: () => void }) {
         ) : null}
       </View>
       <View style={{ paddingHorizontal: space.gutter, paddingBottom: space[4] }}>
-        <Button label="Close" variant="primary" onPress={onClose} />
+        <Button label="Back to Home" variant="primary" onPress={onClose} />
       </View>
     </SafeAreaView>
   );

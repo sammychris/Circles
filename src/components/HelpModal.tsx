@@ -41,7 +41,8 @@ export function HelpModal({ visible, onClose, inRoom }: { visible: boolean; onCl
   const noNumbers = !CRISIS_LINE && !EMERGENCY_NUMBER;
   return (
     <Modal visible={visible} animationType="slide" onRequestClose={onClose} statusBarTranslucent>
-      <SafeAreaView style={{ flex: 1, backgroundColor: colors.bg }}>
+      {/* Named, so screen readers announce what opened. */}
+      <SafeAreaView style={{ flex: 1, backgroundColor: colors.bg }} accessibilityLabel="Get help: you don't have to carry this alone" aria-label="Get help: you don't have to carry this alone" role="dialog">
         <View style={{ minHeight: size.minTarget, paddingHorizontal: space[3], alignItems: 'flex-end', justifyContent: 'center' }}>
           <Pressable
             accessibilityRole="button"

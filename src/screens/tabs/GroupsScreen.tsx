@@ -267,7 +267,11 @@ export function GroupsScreen({
                   {'After a room, save people you clicked with. If they save you back, they show up here.'}
                 </Text>
                 {/* Needs the web version's address for the link; hidden until it's online. */}
-                {WEB_URL ? <Button label="Invite a friend" variant="primary" onPress={() => void shareCircles()} /> : null}
+                {WEB_URL ? (
+                  <Button label="Invite a friend" variant="primary" onPress={() => void shareCircles()} />
+                ) : (
+                  <Button label="Find a room" variant="primary" onPress={() => onEnter({ kind: 'match', door: 'talk', mood: null })} />
+                )}
               </View>
             ) : (
               <>

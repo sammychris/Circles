@@ -164,3 +164,37 @@ export function NicknameScreen({ onSaved, onBack }: Props) {
     </AuthLayout>
   );
 }
+
+// After signing up: pick a colour, and your initial or a symbol. Skipping keeps the usual colour.
+export function PickLookScreen({ me, onDone }: { me: { id: string; nickname: string }; onDone: () => void }) {
+  const [look, setLook] = useState<Look>({ tint: tintIndex(me.id, avatarTints.length), symbol: null });
+  const [busy, setBusy] = useState(false);
+  const save = async () => {
+    setBusy(true);
+    try {
+      await updateMyProfile(me.nickname, look.tint, look.symbol);
+      rememberLook(me.id, look);
+    } catch {
+      // Not important enough to stop here: it can be set later in Me › Edit.
+    }
+    setBusy(false);
+    onDone();
+  };
+  return (
+    <AuthLayout
+      title="Pick your look"
+      body="A colour, and your initial or a symbol. No photos: people only ever see this and your nickname."
+      footer={
+        <>
+          <Button label="Continue" variant="primary" loading={busy} onPress={() => void save()} />
+          <Button label="Skip for now" variant="quiet" onPress={onDone} />
+        </>
+      }
+    >
+      <View style={{ alignItems: 'center' }}>
+        <Avatar userId={me.id} nickname={me.nickname} look={look} />
+      </View>
+      <AvatarPicker value={look} initial={initialOf(me.nickname)} onChange={setLook} />
+    </AuthLayout>
+  );
+}

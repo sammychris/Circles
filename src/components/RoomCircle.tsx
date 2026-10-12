@@ -119,13 +119,13 @@ function Seat({
           borderRadius: radius.pill,
           borderWidth: border.seatRing,
           borderStyle: 'dashed',
-          borderColor: colors.seatEmpty,
+          borderColor: onEmptyPress ? colors.textMeta : colors.seatEmpty,
           backgroundColor: colors.bg,
           alignItems: 'center',
           justifyContent: 'center',
         }}
       >
-        <Plus size={size.icon} color={colors.seatEmpty} strokeWidth={size.iconStroke} />
+        <Plus size={size.icon} color={onEmptyPress ? colors.textMeta : colors.seatEmpty} strokeWidth={size.iconStroke} />
       </Pressable>
     );
   }

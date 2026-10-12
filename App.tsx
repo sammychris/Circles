@@ -18,7 +18,9 @@ import { PasswordScreen } from './src/screens/PasswordScreen';
 import { AddEmailFlow } from './src/screens/AddEmailFlow';
 import { AgeScreen } from './src/screens/AgeScreen';
 import { ConfigMissingScreen } from './src/screens/ConfigMissingScreen';
-import { NicknameScreen } from './src/screens/NicknameScreen';
+import { NicknameScreen, PickLookScreen } from './src/screens/NicknameScreen';
+import { afterSignUp } from './src/screens/SignUpScreen';
+import { rememberUnderAge, underAgeUntil } from './src/lib/underAge';
 import { RoomScreen } from './src/screens/RoomScreen';
 import { BlockedScreen, EditProfileScreen, HelpContactScreen, ManageAccountScreen, NotificationsScreen } from './src/screens/MePages';
 import { ActivityScreen } from './src/screens/ActivityScreen';
@@ -145,7 +147,10 @@ type Screen =
   | { name: 'blocked' }
   | { name: 'helpContact' }
   | { name: 'manageAccount' }
-  | { name: 'activity' };
+  | { name: 'activity' }
+  | { name: 'age'; then: RoomRequest | 'hostApply' }
+  | { name: 'under18' }
+  | { name: 'look' };
 
 // Joining another room while minimised in one leaves it, so it asks first (Alert does nothing on web).
 function confirmLeaveFor(then: () => void) {
@@ -158,6 +163,11 @@ function confirmLeaveFor(then: () => void) {
     { text: 'Stay', style: 'cancel' },
     { text: 'Leave and join', onPress: then },
   ]);
+}
+
+// Back from a page opened in Rooms or People: People opens on Groups, where it came from.
+function backTo(from: 'explore' | 'groups'): Screen {
+  return from === 'groups' ? { name: 'groups', show: 'groups' } : { name: 'explore' };
 }
 
 // Signed in: date of birth first, then a nickname, then the house. Nobody reaches a room without both.
@@ -175,18 +185,54 @@ function SignedIn({
   onPendingUsed: () => void;
 }) {
   const { state, reload } = useProfile(session.user.id);
-  const [screen, setScreen] = useState<Screen>(recovering ? { name: 'password' } : { name: 'home' });
+  const [screen, setScreen] = useState<Screen>(
+    recovering ? { name: 'password' } : afterSignUp.pickLook ? { name: 'look' } : { name: 'home' },
+  );
+  // Asked once, right after signing up.
+  useEffect(() => {
+    afterSignUp.pickLook = false;
+  }, []);
   // The room you're in. It stays connected while minimised: a small bar above the tabs, so you can
   // browse and still hear everyone. `roomShown` is false while minimised.
   const [active, setActive] = useState<{ request: RoomRequest; visit: number } | null>(null);
   const [roomShown, setRoomShown] = useState(false);
   const [canMinimise, setCanMinimise] = useState(false);
   const insets = useSafeAreaInsets();
+  // The age is asked inside the app, before the first room (Sammy, 2026-10-12): rooms are live voice
+  // with strangers, so 18+ (CLAUDE.md, Never list). The room server checks it too.
+  const dobRef = useRef<string | null>(null);
+  dobRef.current = state.status === 'ready' ? state.profile.dateOfBirth ?? null : null;
+  // Under 18 answered on this phone before (any account): rooms stay closed until their 18th birthday.
+  const underAgeRef = useRef(0);
+  useEffect(() => {
+    void underAgeUntil().then((until) => (underAgeRef.current = until));
+  }, []);
   // Straight in: a link, a reminder, or a room moving you on ("Move me to another room").
   const goToRoom = useCallback((request: RoomRequest) => {
+    const dob = dobRef.current;
+    if (underAgeRef.current > Date.now()) return setScreen({ name: 'under18' });
+    if (!dob) return setScreen({ name: 'age', then: request });
+    if (!isAdult(new Date(dob))) return setScreen({ name: 'under18' });
     setActive({ request, visit: Date.now() });
     setRoomShown(true);
   }, []);
+  // Answered the age question: on into the room, or the kind "rooms are for adults" page.
+  const dobNow = state.status === 'ready' ? state.profile.dateOfBirth : null;
+  useEffect(() => {
+    if (screen.name !== 'age' || !dobNow) return;
+    if (isAdult(new Date(dobNow))) {
+      const then = screen.then;
+      if (then === 'hostApply') {
+        setScreen({ name: 'hostApply', from: 'hosting' });
+        return;
+      }
+      setScreen({ name: 'home' });
+      goToRoom(then);
+    } else {
+      void rememberUnderAge(dobNow).then(() => underAgeUntil().then((until) => (underAgeRef.current = until)));
+      setScreen({ name: 'under18' });
+    }
+  }, [screen, dobNow, goToRoom]);
   // From a page while minimised in a room: joining another leaves this one, so ask first.
   const activeNow = useRef(active);
   activeNow.current = active;
@@ -237,14 +283,8 @@ function SignedIn({
       .finally(() => setBanChecked(true));
   }, []);
 
-  // Opened from a room link: go straight into that room once they have a nickname and passed 18+.
-  const ready =
-    state.status === 'ready' &&
-    !!state.profile.nickname &&
-    !!state.profile.dateOfBirth &&
-    isAdult(new Date(state.profile.dateOfBirth)) &&
-    banChecked &&
-    !ban;
+  // Opened from a room link: go to that room once they have a nickname (the age is asked on the way).
+  const ready = state.status === 'ready' && !!state.profile.nickname && banChecked && !ban;
   // A link opened while in a room, or on the after-room screen, waits until they're back home:
   // nobody is pulled out of a room without choosing to leave.
   const busy = !!active || screen.name === 'after';
@@ -297,8 +337,8 @@ function SignedIn({
       // Minimised on Home: stay in the app, so the room isn't cut off.
       if (screen.name === 'home') return !!active;
       // Back returns to where you came from.
-      if (screen.name === 'start' && screen.from) setScreen({ name: screen.from } as Screen);
-      else if (screen.name === 'group') setScreen({ name: screen.from } as Screen);
+      if (screen.name === 'start' && screen.from) setScreen(backTo(screen.from));
+      else if (screen.name === 'group') setScreen(backTo(screen.from));
       else if (screen.name === 'start')
         setScreen(screen.door === 'learn' ? { name: 'learn', subject: screen.subject ?? '' } : { name: 'door', door: screen.door });
       else if (screen.name === 'learn') setScreen({ name: 'door', door: 'learn' });
@@ -323,14 +363,18 @@ function SignedIn({
     );
   }
 
-  const { nickname, dateOfBirth } = state.profile;
-  if (!dateOfBirth) return <AgeScreen onSaved={() => void reload()} onBack={signOut} />;
-  // Stay signed in, so the same phone can't just try another date. Close leaves the app.
-  if (!isAdult(new Date(dateOfBirth))) return <UnderAgeScreen onClose={() => BackHandler.exitApp()} />;
+  const { nickname } = state.profile;
   if (!nickname) return <NicknameScreen onSaved={() => void reload()} onBack={signOut} />;
   if (ban) return <PausedScreen ban={ban} onLogOut={() => confirmSignOut()} onDelete={confirmDeleteAccount} />;
 
   const me = { id: session.user.id, nickname };
+  // Hosting needs the 18+ answer: asked first, before the long form.
+  const needsAge = (): Screen | null =>
+    underAgeRef.current > Date.now() || (dobRef.current && !isAdult(new Date(dobRef.current)))
+      ? { name: 'under18' }
+      : !dobRef.current
+        ? { name: 'age', then: 'hostApply' }
+        : null;
   const home = () => setScreen({ name: 'home' });
   const enter = openRoom;
 
@@ -431,7 +475,7 @@ function SignedIn({
           <HostToolsScreen
             onBack={() => setScreen({ name: 'me' })}
             onEnter={enter}
-            onApply={() => setScreen({ name: 'hostApply', from: 'hosting' })}
+            onApply={() => (needsAge() ? setScreen(needsAge()!) : setScreen({ name: 'hostApply', from: 'hosting' }))}
           />
         );
       case 'me':
@@ -451,6 +495,13 @@ function SignedIn({
             onManage={() => setScreen({ name: 'manageAccount' })}
           />
         );
+      case 'age':
+        // Stay signed in after an answer, so the same phone can't just try another date.
+        return <AgeScreen onSaved={() => void reload()} onBack={home} />;
+      case 'under18':
+        return <UnderAgeScreen onClose={home} />;
+      case 'look':
+        return <PickLookScreen me={me} onDone={home} />;
       case 'activity':
         return (
           <ActivityScreen
@@ -499,7 +550,7 @@ function SignedIn({
             onBack={() =>
               setScreen(
                 screen.from
-                  ? ({ name: screen.from } as Screen)
+                  ? backTo(screen.from)
                   : screen.door === 'learn'
                     ? { name: 'learn', subject: screen.subject ?? screen.draft?.language ?? '' }
                     : { name: 'door', door: screen.door },
@@ -520,7 +571,7 @@ function SignedIn({
           );
         }
         if (screen.door === 'support') {
-          return <SupportDoorScreen onBack={home} onEnter={enter} onBecomeHost={() => setScreen({ name: 'hostApply', from: 'support' })} />;
+          return <SupportDoorScreen onBack={home} onEnter={enter} onBecomeHost={() => (needsAge() ? setScreen(needsAge()!) : setScreen({ name: 'hostApply', from: 'support' }))} />;
         }
         if (screen.door === 'play') {
           return <PlayDoorScreen onBack={home} onEnter={enter} onStart={() => setScreen({ name: 'start', door: 'play' })} />;
@@ -533,7 +584,7 @@ function SignedIn({
             groupId={screen.groupId}
             first={screen.first}
             backLabel={screen.from === 'explore' ? 'Back to Rooms' : 'Back to People'}
-            onBack={() => setScreen({ name: screen.from } as Screen)}
+            onBack={() => setScreen(backTo(screen.from))}
             onEnter={enter}
           />
         );

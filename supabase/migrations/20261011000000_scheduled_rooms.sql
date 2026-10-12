@@ -336,6 +336,13 @@ begin
   if exists (select 1 from public.group_members where group_id = p_group and user_id = auth.uid()) then
     return;
   end if;
+  -- Groups meet in voice rooms with strangers: 18+ (the age is asked before the first room).
+  if not exists (
+    select 1 from public.birth_dates b
+    where b.id = auth.uid() and b.date_of_birth <= (current_date - interval '18 years')::date
+  ) then
+    raise exception 'adults_only';
+  end if;
   if (select count(*) from public.group_members where group_id = p_group) >= g.capacity then
     raise exception 'group_full';
   end if;

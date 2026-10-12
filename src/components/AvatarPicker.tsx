@@ -25,6 +25,7 @@ export function AvatarPicker({ value, initial, onChange }: { value: Look; initia
                 key={t.bg}
                 accessibilityRole="radio"
                 accessibilityState={{ checked: on }}
+                aria-checked={on}
                 accessibilityLabel={TINT_NAMES[i] ?? `Colour ${i + 1}`}
                 onPress={() => onChange({ ...value, tint: i })}
                 style={{
@@ -56,6 +57,7 @@ export function AvatarPicker({ value, initial, onChange }: { value: Look; initia
                 key={name ?? 'initial'}
                 accessibilityRole="radio"
                 accessibilityState={{ checked: on }}
+                aria-checked={on}
                 accessibilityLabel={name ? `Symbol: ${name}` : 'Your initial'}
                 onPress={() => onChange({ ...value, symbol: name })}
                 style={{
