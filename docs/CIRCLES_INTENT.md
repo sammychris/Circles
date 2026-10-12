@@ -66,11 +66,36 @@ Use existing, proven game code plugged into rooms where possible, instead of bui
 - **Story Chain**: one sentence each, with a twist card mid-round.
 - **On the Same Wave**: one clue, the team debates where it lands on a scale.
 
+### Possible future games (Sammy, 2026-10-12; not built)
+Full detail: `docs/games-design-brief.md` (written for "Cycles", which is Circles). Ideas to choose from after real-user testing, one at a time:
+- **Musical Chairs:** music plays, one fewer seat each round, last one seated wins. 6–8 players. Sammy's first pick.
+- **Raft Rumble:** push each other off a raft; last one standing wins. 6–7.
+- **Who Did It?:** a six-person mystery with a detective and a culprit. Close to Mafia and Find the Impostor, which already exist, so compare before building.
+- **Card Clash Seven:** a 6–7 player card game. Whot already does this for 2–6, so letting Whot take 7 may be enough.
+- **Bluff Table:** claim cards face down; others challenge the bluff. 6–7.
+- **Quickfire Quiz Arena:** everyone answers the same timed questions. (A host-led Quiz already exists on the Table.)
+- **Hot Potato:** pass it before the hidden timer ends. 6–7.
+- **Word Chain Knockout:** each word starts with the last letter of the one before. 6–7.
+- **Memory Grid:** remember the icons, answer questions. 6–7.
+- **Draw & Guess:** also listed under Next above.
+- **Team Puzzle Race:** small teams solve puzzles. 6–7.
+Games already built: Ludo, Whot (2–6), Draughts, Chess in teams, Find the Impostor (3–6), Mafia (5–10).
+
 ### Later
 - Games from partner game makers, once Circles has active rooms, so their game runs inside a room while people play, watch, and talk.
 - Heavier games (football, fighting games, anything graphics-heavy).
 
 ---
+
+## Watch Together: decided by Sammy (2026-10-12)
+
+Watch Together is its own place, not part of the Table. It takes the Friends card's spot on Home (friends live in the People tab). For now its page only says what's coming. **Future features, not built yet:**
+- Watching games (football and other matches), only where we have the broadcasting rights.
+- Watching live broadcasts and events, when licensed.
+- Watching approved videos, with presenter control (one person chooses what plays, everyone sees the same moment, and anyone can catch up to live).
+- Films and creators: screenings and premieres.
+- Its own feed of what's on, over time, as approvals and rights come in.
+Small rooms and mic off until tapped, like everywhere else. The old Table video code is kept to build on.
 
 ## Sign-up and age: decided by Sammy (2026-10-12)
 
