@@ -1,9 +1,13 @@
 import { useCallback, useEffect, useState } from 'react';
-import { Alert, AppState, Pressable, RefreshControl, ScrollView, View } from 'react-native';
+import { Alert, AppState, Pressable, RefreshControl, ScrollView, Share, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { Bell, CalendarClock, Lock } from 'lucide-react-native';
+import { Bell, Lock, Plus } from 'lucide-react-native';
 import { Avatar } from '../../components/Avatar';
 import { Button } from '../../components/Button';
+import { FilterChip } from '../../components/FilterChip';
+import { Sheet } from '../../components/Sheet';
+import { TopIcon } from '../../components/TopIcon';
+import { ShowSome } from '../../components/ShowSome';
 import { InviteSheet } from '../../components/InviteSheet';
 import { WEB_URL } from '../../config';
 import { GroupCard, LoadError, SkeletonRows } from '../../components/Scheduled';
@@ -18,20 +22,18 @@ import { canGoIn, cancelScheduled, setReminder, type Group, type ScheduledRoom }
 import { allowReminders, reminderNote } from '../../lib/reminders';
 import { alertsAllowed, turnOnAlerts } from '../../lib/push';
 import { useSchedule } from '../../rooms/useSchedule';
-import { opacity, radius, size, space, useColors } from '../../theme';
+import { motion, opacity, radius, size, space, useColors } from '../../theme';
 
-// How many faces show in the My people row before "and 4 more".
-const FACES = 6;
-
-// Groups: what's yours (docs/design/pages/tabs.md › Groups): Next up, invitations, your groups, My
-// people, rooms you scheduled and your reminders.
+// People (was Groups; Sammy, 2026-10-11): Next up and invitations on top, then Friends | Groups.
+// Friends are people you saved who saved you back; groups meet every week. It replaces the separate
+// "My people" page, which Home's Friends card used to open.
 export function GroupsScreen({
   me,
   nickname,
   notice,
+  show = 'friends',
   onEnter,
   onExplore,
-  onOpenPeople,
   onStartGroup,
   onOpenGroup,
   onSeenInvitations,
@@ -40,10 +42,10 @@ export function GroupsScreen({
   nickname: string;
   // A note to show once on arrival, e.g. "Ludo night is set for tonight at 8 pm. We'll remind you."
   notice?: string;
+  // Which side opens first.
+  show?: 'friends' | 'groups';
   onEnter: (r: RoomRequest) => void;
   onExplore: () => void;
-  // The full My people list.
-  onOpenPeople: () => void;
   onStartGroup: () => void;
   onOpenGroup: (groupId: string, first?: Group) => void;
   // Opening Groups clears the dot on its tab.
@@ -55,7 +57,18 @@ export function GroupsScreen({
   const [people, setPeople] = useState<PersonRef[] | null>(null);
   const [failed, setFailed] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
+  const [side, setSide] = useState(show);
+  // The + at the top: what you can start from here.
+  const [adding, setAdding] = useState(false);
   const schedule = useSchedule(me.id, true);
+  // Invite a friend: a link to Circles, for someone who isn't a friend here yet.
+  const shareCircles = async () => {
+    try {
+      await Share.share({ message: `Come and talk with me on Circles: ${WEB_URL}` });
+    } catch {
+      // They closed the share sheet.
+    }
+  };
   const [toast, setToast] = useState<string | null>(notice ?? null);
   const now = Date.now();
   // Yours: rooms you set a reminder for, made, or that your groups meet in. Not ones already over.
@@ -66,7 +79,7 @@ export function GroupsScreen({
   const made = (schedule.rooms ?? []).filter((r) => r.mine && !r.groupId && r.startsAt.getTime() > now);
   const reminders = (schedule.rooms ?? []).filter((r) => r.reminded && !r.regular && !r.mine && r.startsAt.getTime() > now);
   const cancel = (room: ScheduledRoom) =>
-    Alert.alert(`Cancel ${room.title}?`, 'It leaves Explore, and nobody gets a reminder for it.', [
+    Alert.alert(`Cancel ${room.title}?`, 'It leaves Rooms, and nobody gets a reminder for it.', [
       { text: 'Keep it', style: 'cancel' },
       {
         text: 'Cancel it',
@@ -175,11 +188,11 @@ export function GroupsScreen({
           />
         }
       >
-        <View style={{ gap: space[4] }}>
-          <Text variant="title" accessibilityRole="header">
-            Groups
+        <View style={{ flexDirection: 'row', alignItems: 'center', gap: space[2] }}>
+          <Text variant="title" accessibilityRole="header" style={{ flex: 1 }}>
+            People
           </Text>
-          <Button label="Start a group" variant="primary" onPress={onStartGroup} />
+          <TopIcon Icon={Plus} label={WEB_URL ? 'New: a group, a room with friends, or an invite' : 'New: a group or a room with friends'} onPress={() => setAdding(true)} />
         </View>
 
         {schedule.failed && !schedule.rooms ? (
@@ -231,194 +244,218 @@ export function GroupsScreen({
           </View>
         ) : null}
 
-        {myGroups.length > 0 ? (
-          <View style={{ gap: space[3] }}>
-            <Text variant="heading" accessibilityRole="header">
-              Your groups
-            </Text>
-            {myGroups.map((g) => (
-              <GroupCard key={g.id} group={g} onPress={() => onOpenGroup(g.id, g)} />
-            ))}
-          </View>
-        ) : null}
-
-        <View style={{ gap: space[3] }}>
-          <Text variant="heading" accessibilityRole="header">
-            My people
-          </Text>
-          <Text variant="body" color="textSoft">
-            People you saved who saved you too. Only the two of you ever see it.
-          </Text>
-          {failed ? (
-            <View style={{ gap: space[2] }}>
-              <Text variant="body" color="textSoft">
-                {"We couldn't load your people. Check that you're online."}
-              </Text>
-              <Button label="Try again" variant="quiet" onPress={() => void load()} />
-            </View>
-          ) : people === null ? (
-            <View style={{ flexDirection: 'row', gap: space[2] }} accessibilityLabel="Loading">
-              {[0, 1, 2].map((i) => (
-                <View
-                  key={i}
-                  style={{ width: size.avatarList, height: size.avatarList, borderRadius: radius.pill, backgroundColor: colors.raised }}
-                />
-              ))}
-            </View>
-          ) : people.length === 0 ? (
-            <Text variant="body" color="textSoft">
-              {"Nobody yet. After a room, save the people you clicked with. If they save you too, they'll show up here."}
-            </Text>
-          ) : (
-            <View
-              accessible
-              accessibilityLabel={`${people
-                .slice(0, FACES)
-                .map((p) => p.nickname)
-                .join(', ')}${people.length > FACES ? `, and ${people.length - FACES} more` : ''}`}
-              style={{ flexDirection: 'row', alignItems: 'center', flexWrap: 'wrap', gap: space[2] }}
-            >
-              {people.slice(0, FACES).map((p) => (
-                <View key={p.id} style={{ alignItems: 'center', gap: space[1], width: size.avatarList + space[4] }}>
-                  <Avatar userId={p.id} nickname={p.nickname} diameter={size.avatarList} />
-                  <Text variant="tiny" color="textSoft" numberOfLines={1}>
-                    {p.nickname}
-                  </Text>
-                </View>
-              ))}
-            </View>
-          )}
-          {people && people.length > FACES ? (
-            <Pressable accessibilityRole="button" onPress={onOpenPeople} style={{ minHeight: size.minTarget, justifyContent: 'center' }}>
-              <Text
-                variant="metaStrong"
-                color="textSoft"
-                style={{ textDecorationLine: 'underline' }}
-              >{`and ${people.length - FACES} more`}</Text>
-            </Pressable>
-          ) : null}
-          <Button
-            label="Start a room with friends"
-            // With nobody to invite (and no link to share), the room would stay empty.
-            disabled={people?.length === 0 && !WEB_URL}
-            onPress={() =>
-              onEnter({ kind: 'create', door: 'talk', title: `${nickname} and friends`, topic: null, capacity: 6, private: true })
-            }
-          />
-          <Text variant="meta" color="textMeta">
-            {people?.length === 0 && !WEB_URL
-              ? 'Save people after a room to invite them.'
-              : 'Only people you invite can join. It opens now, with you in it.'}
-          </Text>
-          {!alertsOn && people && people.length > 0 ? (
-            <View style={{ flexDirection: 'row', alignItems: 'center', gap: space[3] }}>
-              <Bell size={size.icon} color={colors.textSoft} strokeWidth={size.iconStroke} />
-              <Text variant="meta" color="textSoft" style={{ flex: 1 }}>
-                Get an alert when your people invite you.
-              </Text>
-              <Button
-                label="Turn on"
-                onPress={() =>
-                  void turnOnAlerts().then((on) => {
-                    setAlertsOn(on);
-                    if (!on) setToast("Your phone said no. You can allow notifications for Circles in your phone's settings.");
-                  })
-                }
-                style={{ width: size.rowAction }}
-              />
-            </View>
-          ) : null}
-          <View style={{ flexDirection: 'row', alignItems: 'center', gap: space[3] }}>
-            <Lock size={size.icon} color={colors.textMeta} strokeWidth={size.iconStroke} />
-            <Text variant="meta" color="textMeta" style={{ flex: 1 }}>
-              {"Friends never see when you're in a support room."}
-            </Text>
-          </View>
+        <View accessibilityRole="radiogroup" accessibilityLabel="Show" style={{ flexDirection: 'row', gap: space[2] }}>
+          <FilterChip label="Friends" selected={side === 'friends'} onPress={() => setSide('friends')} />
+          <FilterChip label="Groups" selected={side === 'groups'} onPress={() => setSide('groups')} />
         </View>
 
-        {made.length > 0 ? (
-          <View style={{ gap: space[1] }}>
-            <Text variant="heading" accessibilityRole="header">
-              Rooms you scheduled
-            </Text>
-            {made.map((r) => (
-              <View key={r.id} style={{ gap: space[2], paddingVertical: space[3] }}>
-                <View style={{ gap: space[1] }}>
-                  <Text variant="bodyStrong" numberOfLines={1}>
-                    {r.title}
-                  </Text>
-                  <Text variant="meta" color="textMeta">
-                    {`${dayAndTime(r.startsAt)}. ${r.going} going${r.private ? '. Invite only' : ''}`}
-                  </Text>
-                </View>
-                <View style={{ flexDirection: 'row', gap: space[3] }}>
+        {side === 'friends' ? (
+          <View style={{ gap: space[4] }}>
+            {failed ? (
+              <View style={{ gap: space[2] }}>
+                <Text variant="body" color="textSoft">
+                  {"We couldn't load your friends. Check that you're online."}
+                </Text>
+                <Button label="Try again" variant="quiet" onPress={() => void load()} />
+              </View>
+            ) : people === null ? (
+              <SkeletonRows />
+            ) : people.length === 0 ? (
+              <View style={{ gap: space[2] }}>
+                <Text variant="heading">No friends yet</Text>
+                <Text variant="body" color="textSoft">
+                  {'After a room, save people you clicked with. If they save you back, they show up here.'}
+                </Text>
+                {/* Needs the web version's address for the link; hidden until it's online. */}
+                {WEB_URL ? <Button label="Invite a friend" variant="primary" onPress={() => void shareCircles()} /> : null}
+              </View>
+            ) : (
+              <>
+                <View style={{ gap: space[2] }}>
                   <Button
-                    label="Invite"
-                    onPress={() => setInviting({ target: { scheduledId: r.id }, title: r.title })}
-                    style={{ flex: 1 }}
+                    label="Start a room with friends"
+                    variant="primary"
+                    onPress={() =>
+                      onEnter({ kind: 'create', door: 'talk', title: `${nickname} and friends`, topic: null, capacity: 6, private: true })
+                    }
                   />
-                  <Button label="Cancel" variant="quiet" onPress={() => cancel(r)} style={{ flex: 1 }} />
-                </View>
-              </View>
-            ))}
-          </View>
-        ) : null}
-
-        {reminders.length > 0 ? (
-          <View style={{ gap: space[1] }}>
-            <Text variant="heading" accessibilityRole="header">
-              Your reminders
-            </Text>
-            {reminders.map((r) => (
-              <View key={r.id} style={{ flexDirection: 'row', alignItems: 'center', gap: space[3], minHeight: size.minTarget + space[2] }}>
-                <View style={{ flex: 1, gap: space[1] }}>
-                  <Text variant="bodyStrong" numberOfLines={1}>
-                    {r.title}
-                  </Text>
-                  <Text variant="meta" color="textMeta">
-                    {dayAndTime(r.startsAt)}
+                  <Text variant="meta" color="textMeta" center>
+                    Only people you invite can join. It opens now, with you in it.
                   </Text>
                 </View>
-                <Pressable
-                  accessibilityRole="button"
-                  accessibilityLabel={`Remove the reminder for ${r.title} at ${clockWords(r.startsAt)}`}
-                  onPress={() => void toggle(r)}
-                  style={({ pressed }) => ({
-                    width: size.minTarget,
-                    height: size.minTarget,
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    opacity: pressed ? opacity.pressed : 1,
-                  })}
-                >
-                  <Bell size={size.icon} color={colors.text} fill={colors.text} strokeWidth={size.iconStroke} />
-                </Pressable>
+                <View>
+                  <ShowSome
+                    items={people}
+                    noun="friends"
+                    render={(p) => (
+                      <View key={p.id} style={{ flexDirection: 'row', alignItems: 'center', gap: space[3], minHeight: size.minTarget + space[2] }}>
+                        <Avatar userId={p.id} nickname={p.nickname} diameter={size.avatarList} />
+                        <Text variant="bodyStrong">{p.nickname}</Text>
+                      </View>
+                    )}
+                  />
+                </View>
+                {!alertsOn ? (
+                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: space[3] }}>
+                    <Bell size={size.icon} color={colors.textSoft} strokeWidth={size.iconStroke} />
+                    <Text variant="meta" color="textSoft" style={{ flex: 1 }}>
+                      Get an alert when your friends invite you.
+                    </Text>
+                    <Button
+                      label="Turn on"
+                      onPress={() =>
+                        void turnOnAlerts().then((on) => {
+                          setAlertsOn(on);
+                          if (!on) setToast("Your phone said no. You can allow notifications for Circles in your phone's settings.");
+                        })
+                      }
+                      style={{ width: size.rowAction }}
+                    />
+                  </View>
+                ) : null}
+                {/* Once there are friends to not see it; the same name as the Home support card. */}
+                <View style={{ flexDirection: 'row', alignItems: 'center', gap: space[3] }}>
+                  <Lock size={size.icon} color={colors.textMeta} strokeWidth={size.iconStroke} />
+                  <Text variant="meta" color="textMeta" style={{ flex: 1 }}>
+                    {'Only you and each friend see that you\'re friends. They never see when you\'re in a "Need someone to talk to?" room.'}
+                  </Text>
+                </View>
+              </>
+            )}
+          </View>
+        ) : (
+          <View style={{ gap: space[5] }}>
+            {schedule.groups && myGroups.length === 0 ? (
+              <View style={{ gap: space[2] }}>
+                <Text variant="heading">No groups yet</Text>
+                <Text variant="body" color="textSoft">
+                  Small circles that meet every week. You get a reminder before each meetup.
+                </Text>
+                <Button label="Create a group" variant="primary" onPress={onStartGroup} />
+                {/* Finding groups lives in Rooms › Every week; this only points there. */}
+                <Button label="Find groups in Rooms" variant="secondary" onPress={onExplore} />
               </View>
-            ))}
-          </View>
-        ) : null}
+            ) : null}
 
-        {schedule.rooms &&
-        schedule.groups &&
-        myGroups.length === 0 &&
-        reminders.length === 0 &&
-        made.length === 0 &&
-        invites.length === 0 &&
-        !nextUp ? (
-          <View style={{ gap: space[3] }}>
-            <View style={{ flexDirection: 'row', alignItems: 'center', gap: space[3] }}>
-              <CalendarClock size={size.icon} color={colors.textSoft} strokeWidth={size.iconStroke} />
-              <Text variant="body" color="textSoft" style={{ flex: 1 }}>
-                Your groups and reminders will show here.
-              </Text>
-            </View>
-            <Button label="Explore groups" onPress={onExplore} />
+            {myGroups.length > 0 ? (
+              <View style={{ gap: space[3] }}>
+                <Text variant="heading" accessibilityRole="header">
+                  Your groups
+                </Text>
+                <ShowSome items={myGroups} noun="groups" render={(g) => (
+                  <GroupCard key={g.id} group={g} onPress={() => onOpenGroup(g.id, g)} />
+                )} />
+              </View>
+            ) : null}
+
+            {made.length > 0 ? (
+              <View style={{ gap: space[1] }}>
+                <Text variant="heading" accessibilityRole="header">
+                  Rooms you scheduled
+                </Text>
+                <ShowSome items={made} noun="scheduled rooms" render={(r) => (
+                  <View key={r.id} style={{ gap: space[2], paddingVertical: space[3] }}>
+                    <View style={{ gap: space[1] }}>
+                      <Text variant="bodyStrong" numberOfLines={1}>
+                        {r.title}
+                      </Text>
+                      <Text variant="meta" color="textMeta">
+                        {`${dayAndTime(r.startsAt)}. ${r.going} going${r.private ? '. Invite only' : ''}`}
+                      </Text>
+                    </View>
+                    <View style={{ flexDirection: 'row', gap: space[3] }}>
+                      <Button
+                        label="Invite"
+                        onPress={() => setInviting({ target: { scheduledId: r.id }, title: r.title })}
+                        style={{ flex: 1 }}
+                      />
+                      <Button label="Cancel" variant="quiet" onPress={() => cancel(r)} style={{ flex: 1 }} />
+                    </View>
+                  </View>
+                )} />
+              </View>
+            ) : null}
+
+            {reminders.length > 0 ? (
+              <View style={{ gap: space[1] }}>
+                <Text variant="heading" accessibilityRole="header">
+                  Your reminders
+                </Text>
+                <ShowSome items={reminders} noun="reminders" render={(r) => (
+                  <View key={r.id} style={{ flexDirection: 'row', alignItems: 'center', gap: space[3], minHeight: size.minTarget + space[2] }}>
+                    <View style={{ flex: 1, gap: space[1] }}>
+                      <Text variant="bodyStrong" numberOfLines={1}>
+                        {r.title}
+                      </Text>
+                      <Text variant="meta" color="textMeta">
+                        {dayAndTime(r.startsAt)}
+                      </Text>
+                    </View>
+                    <Pressable
+                      accessibilityRole="button"
+                      accessibilityLabel={`Remove the reminder for ${r.title} at ${clockWords(r.startsAt)}`}
+                      onPress={() => void toggle(r)}
+                      style={({ pressed }) => ({
+                        width: size.minTarget,
+                        height: size.minTarget,
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        opacity: pressed ? opacity.pressed : 1,
+                      })}
+                    >
+                      <Bell size={size.icon} color={colors.text} fill={colors.text} strokeWidth={size.iconStroke} />
+                    </Pressable>
+                  </View>
+                )} />
+              </View>
+            ) : null}
+            {myGroups.length > 0 ? (
+              <View style={{ gap: space[2] }}>
+                <Button label="Create a group" variant="secondary" onPress={onStartGroup} />
+                <Button label="Find groups in Rooms" variant="quiet" onPress={onExplore} />
+              </View>
+            ) : null}
           </View>
-        ) : null}
+        )}
       </ScrollView>
       <View style={{ position: 'absolute', left: 0, right: 0, bottom: space[4] }} pointerEvents="none">
         <Toast message={toast} onDone={() => setToast(null)} />
       </View>
+      <Sheet visible={adding} onClose={() => setAdding(false)}>
+        <Text variant="title" accessibilityRole="header">
+          New
+        </Text>
+        <View style={{ gap: space[3] }}>
+          <Button
+            label="Create a group"
+            onPress={() => {
+              setAdding(false);
+              onStartGroup();
+            }}
+          />
+          {people && people.length > 0 ? (
+            <Button
+              label="Start a room with friends"
+              onPress={() => {
+                setAdding(false);
+                onEnter({ kind: 'create', door: 'talk', title: `${nickname} and friends`, topic: null, capacity: 6, private: true });
+              }}
+            />
+          ) : null}
+          {/* Needs the web version's address for the link; hidden until it's online. */}
+          {WEB_URL ? (
+            <Button
+              label="Invite a friend to Circles"
+              onPress={() => {
+                setAdding(false);
+                // After the sheet has closed: iPhones won't open the share panel over a closing one.
+                setTimeout(() => void shareCircles(), motion.slow);
+              }}
+            />
+          ) : null}
+          <Button label="Cancel" variant="quiet" onPress={() => setAdding(false)} />
+        </View>
+      </Sheet>
       <InviteSheet
         visible={!!inviting}
         target={inviting?.target ?? null}

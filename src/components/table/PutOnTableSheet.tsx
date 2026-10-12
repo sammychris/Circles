@@ -15,8 +15,8 @@ export type TableChoice = TableKind | 'ludo' | 'impostor' | GameId;
 
 type Icon = ComponentType<{ size: number; color: string; strokeWidth: number }>;
 
-const GAME_ICON: Record<GameId, Icon> = { draughts: Grid3x3, chess: Crown, whot: Spade, mafia: VenetianMask };
-const GAME_TINT: Record<GameId, { fg: string; bg: string }> = {
+export const GAME_ICON: Record<GameId, Icon> = { draughts: Grid3x3, chess: Crown, whot: Spade, mafia: VenetianMask };
+export const GAME_TINT: Record<GameId, { fg: string; bg: string }> = {
   draughts: moodColors.down,
   chess: moodColors.advice,
   whot: moodColors.bored,

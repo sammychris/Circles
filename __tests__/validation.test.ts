@@ -5,8 +5,15 @@ import {
   isValidEmail,
   nicknameProblem,
   parseDateOfBirth,
+  realEmail,
   toIsoDate,
 } from '../src/lib/validation';
+
+test('the login-only email is never shown as an email', () => {
+  expect(realEmail('3f2a@users.circles.invalid')).toBeNull();
+  expect(realEmail('ada@gmail.com')).toBe('ada@gmail.com');
+  expect(realEmail(undefined)).toBeNull();
+});
 
 const today = new Date(Date.UTC(2026, 9, 8)); // 8 October 2026
 

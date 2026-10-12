@@ -70,3 +70,12 @@ Speaking order for storytelling and debates. Current speaker highlighted, gentle
 - Never in `support` rooms.
 - Up to 6 people in game rooms.
 - No in-game purchases, no adverts inside rooms.
+
+
+**Let's play (Sammy, 2026-10-11):** "Play now" with "Joins any open game"; one "Games" list in a single row style (icon, name, what you do and players, chevron): Find the Impostor "Spot who's bluffing · 3–6 players", Ludo "Classic board game in teams · 2 or more". Tapping a game matches you into a game room and the room starts that game by itself once it's live with enough people and the table is free (the wish stays on the phone; the room server doesn't know it). "Open now" only when there are rooms. "Host a room" (secondary button) with "Name it, invite friends or anyone, now or later".
+
+**All games on Let's play (Sammy, 2026-10-11):** the list shows every game, easiest first: Ludo, Whot, Draughts, Find the Impostor, Chess in teams, Mafia, each with what you do and its player count. Any of them can be tapped to go straight in (the same auto-start as above). There's no "N tables open" per game: the room server doesn't know which game a room is playing.
+
+**Order (2026-10-11):** Play now, then Open now (only when rooms are open; the first 3, then "See all N open rooms" / "Show fewer"), then Games, then Host a room. Open now sits high because matching skips rooms people started, so this list is the only way into them.
+
+**In a game room, waiting (Sammy, 2026-10-11):** the title says the game ("Ludo room", or "Game room" before one is chosen) instead of "Let's play"; the circle's centre says "Waiting for players · 1 of 6" and nothing else repeats it; **Invite friends** is the main button; tapping an open + seat invites too; Raise hand is greyed out when you're alone; "Turn on sound" (was "Tap to hear the room") only shows when someone else is in; the table button is **Games** with a dice in game rooms; Leave is red; Mic paused can be tapped and says why. Muting lets go of the microphone (`stopMicTrackOnMute`). Report stays in the top bar (report-and-block.md). Not built yet: Minimise.

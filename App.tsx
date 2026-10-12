@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { ActivityIndicator, Alert, AppState, BackHandler, Linking, Platform, View } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
-import { SafeAreaProvider } from 'react-native-safe-area-context';
+import { SafeAreaProvider, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useFonts } from 'expo-font';
 // One file per weight, so only the three weights Circles uses are bundled (not all eighteen).
 import { Nunito_400Regular } from '@expo-google-fonts/nunito/400Regular';
@@ -13,18 +13,22 @@ import { Text } from './src/components/Text';
 import { missingConfig } from './src/config';
 import { supabase } from './src/lib/supabase';
 import { useProfile } from './src/lib/useProfile';
-import { isAdult } from './src/lib/validation';
+import { isAdult, realEmail } from './src/lib/validation';
+import { PasswordScreen } from './src/screens/PasswordScreen';
 import { AddEmailFlow } from './src/screens/AddEmailFlow';
 import { AgeScreen } from './src/screens/AgeScreen';
 import { ConfigMissingScreen } from './src/screens/ConfigMissingScreen';
 import { NicknameScreen } from './src/screens/NicknameScreen';
 import { RoomScreen } from './src/screens/RoomScreen';
+import { BlockedScreen, EditProfileScreen, HelpContactScreen, ManageAccountScreen, NotificationsScreen } from './src/screens/MePages';
+import { ActivityScreen } from './src/screens/ActivityScreen';
+import { HostApplyScreen } from './src/screens/HostApplyScreen';
+import { HostToolsScreen } from './src/screens/HostToolsScreen';
 import { AfterRoomScreen } from './src/screens/AfterRoomScreen';
 import { PausedScreen } from './src/screens/PausedScreen';
 import { HomeScreen, type DoorName } from './src/screens/home/HomeScreen';
 import { LearnScreen } from './src/screens/home/LearnScreen';
 import { MeScreen } from './src/screens/home/MeScreen';
-import { PeopleScreen } from './src/screens/home/PeopleScreen';
 import { PlayDoorScreen } from './src/screens/home/PlayDoorScreen';
 import { SupportDoorScreen } from './src/screens/home/SupportDoorScreen';
 import { StartScreen, type StartWhen } from './src/screens/StartScreen';
@@ -73,38 +77,45 @@ function signOut() {
     .finally(() => void supabase.auth.signOut());
 }
 
-function confirmDeleteAccount() {
-  Alert.alert('Delete your account?', 'Your nickname and everything tied to your account will be deleted. This can’t be undone.', [
-    { text: 'Keep my account', style: 'cancel' },
-    {
-      text: 'Delete',
-      style: 'destructive',
-      onPress: () => {
-        void deleteMyAccount()
-          .then(signOut)
-          .catch(() => Alert.alert("We couldn't delete it", "Check that you're online, then try again."));
-      },
-    },
+// Asks before doing something; Alert does nothing in a browser, so the web uses the browser's own box.
+function askFirst(title: string, body: string, ok: string, onOk: () => void, cancel = 'Cancel') {
+  if (Platform.OS === 'web') {
+    if (typeof window !== 'undefined' && window.confirm(`${title}
+
+${body}`)) onOk();
+    return;
+  }
+  Alert.alert(title, body, [
+    { text: cancel, style: 'cancel' },
+    { text: ok, style: 'destructive', onPress: onOk },
   ]);
 }
 
-// Without an email, logging out loses the account for good, so ask first. `fromMe`: the warning can
-// point to Add your email, which is right there.
-function confirmSignOut(hasEmail: boolean, fromMe = false) {
-  if (hasEmail) {
-    signOut();
+// A plain message with one button.
+function tell(title: string, body: string) {
+  if (Platform.OS === 'web') {
+    if (typeof window !== 'undefined') window.alert(`${title}\n\n${body}`);
     return;
   }
-  Alert.alert(
-    'Log out?',
-    fromMe
-      ? "You won't be able to get this account or nickname back after you log out. To keep it, tap Stay, then Add your email."
-      : "You won't be able to get this account or nickname back after you log out.",
-    [
-      { text: 'Stay', style: 'cancel' },
-      { text: 'Log out', style: 'destructive', onPress: signOut },
-    ],
+  Alert.alert(title, body);
+}
+
+function confirmDeleteAccount() {
+  askFirst(
+    'Delete your account?',
+    'Your nickname, friends and everything tied to your account will be deleted. This can’t be undone.',
+    'Delete',
+    () =>
+      void deleteMyAccount()
+        .then(signOut)
+        .catch(() => tell("We couldn't delete it", "Check that you're online, then try again.")),
+    'Keep my account',
   );
+}
+
+// Always asks (docs/me-page-spec.md). You log back in with your nickname and password.
+function confirmSignOut(nickname?: string) {
+  askFirst(nickname ? `Log out of ${nickname}?` : 'Log out?', 'You can log back in with your nickname and password.', 'Log out', signOut);
 }
 
 type Screen =
@@ -112,9 +123,10 @@ type Screen =
   | { name: 'door'; door: DoorName }
   | { name: 'me'; notice?: string }
   | { name: 'explore' }
-  | { name: 'groups'; notice?: string }
+  | { name: 'groups'; notice?: string; show?: 'friends' | 'groups' }
   | { name: 'group'; groupId: string; first?: Group; from: 'explore' | 'groups' }
   | { name: 'addEmail' }
+  | { name: 'password' }
   | {
       name: 'start';
       door: 'talk' | 'play' | 'learn';
@@ -125,28 +137,71 @@ type Screen =
       when?: StartWhen;
     }
   | { name: 'learn'; subject: string }
-  | { name: 'room'; request: RoomRequest; visit: number }
-  | { name: 'after'; summary: RoomSummary };
+  | { name: 'after'; summary: RoomSummary; oneOnOneId?: string }
+  | { name: 'hostApply'; from: 'support' | 'hosting' }
+  | { name: 'hosting' }
+  | { name: 'editProfile' }
+  | { name: 'notifications' }
+  | { name: 'blocked' }
+  | { name: 'helpContact' }
+  | { name: 'manageAccount' }
+  | { name: 'activity' };
+
+// Joining another room while minimised in one leaves it, so it asks first (Alert does nothing on web).
+function confirmLeaveFor(then: () => void) {
+  const title = 'Leave this room and join another?';
+  if (Platform.OS === 'web') {
+    if (typeof window !== 'undefined' && window.confirm(title)) then();
+    return;
+  }
+  Alert.alert(title, undefined, [
+    { text: 'Stay', style: 'cancel' },
+    { text: 'Leave and join', onPress: then },
+  ]);
+}
 
 // Signed in: date of birth first, then a nickname, then the house. Nobody reaches a room without both.
 function SignedIn({
   session,
+  recovering,
   pendingRequest,
   onPendingUsed,
 }: {
   session: Session;
+  // Signed in from a password reset email: ask for the new password first.
+  recovering: boolean;
   // A room to open as soon as the person is ready (from a room link).
   pendingRequest: RoomRequest | null;
   onPendingUsed: () => void;
 }) {
   const { state, reload } = useProfile(session.user.id);
-  const [screen, setScreen] = useState<Screen>({ name: 'home' });
+  const [screen, setScreen] = useState<Screen>(recovering ? { name: 'password' } : { name: 'home' });
+  // The room you're in. It stays connected while minimised: a small bar above the tabs, so you can
+  // browse and still hear everyone. `roomShown` is false while minimised.
+  const [active, setActive] = useState<{ request: RoomRequest; visit: number } | null>(null);
+  const [roomShown, setRoomShown] = useState(false);
+  const [canMinimise, setCanMinimise] = useState(false);
+  const insets = useSafeAreaInsets();
+  // Straight in: a link, a reminder, or a room moving you on ("Move me to another room").
+  const goToRoom = useCallback((request: RoomRequest) => {
+    setActive({ request, visit: Date.now() });
+    setRoomShown(true);
+  }, []);
+  // From a page while minimised in a room: joining another leaves this one, so ask first.
+  const activeNow = useRef(active);
+  activeNow.current = active;
+  const openRoom = useCallback(
+    (request: RoomRequest) => {
+      if (!activeNow.current) return goToRoom(request);
+      confirmLeaveFor(() => goToRoom(request));
+    },
+    [goToRoom],
+  );
   const [ban, setBan] = useState<Ban | null>(null);
   // A room link waits until we know whether the account is paused.
   const [banChecked, setBanChecked] = useState(false);
   // A reminder tapped on the lock screen: its room opens once the person is ready, like a link.
   const [reminderRequest, setReminderRequest] = useState<RoomRequest | null>(null);
-  const hasEmail = !!session.user.email;
   const colors = useColors();
   // Each main page registers how to scroll itself to the top, for a second tap on its tab.
   const scrollers = useRef(new Map<Tab, () => void>());
@@ -167,10 +222,10 @@ function SignedIn({
       onReminderTap(
         (scheduledId, startsAt) => {
           // Before it opens (the reminder comes 15 minutes early): Groups, where Next up shows Go in when it's time.
-          if (startsAt && !canGoIn(startsAt)) setScreen((now) => (now.name === 'room' || now.name === 'after' ? now : { name: 'groups' }));
+          if (startsAt && !canGoIn(startsAt)) setScreen((now) => (now.name === 'after' ? now : { name: 'groups', show: 'groups' }));
           else setReminderRequest({ kind: 'scheduled', scheduledId });
         },
-        () => setScreen((now) => (now.name === 'room' || now.name === 'after' ? now : { name: 'groups' })),
+        () => setScreen((now) => (now.name === 'after' ? now : { name: 'groups', show: 'groups' })),
       ),
     [],
   );
@@ -192,12 +247,12 @@ function SignedIn({
     !ban;
   // A link opened while in a room, or on the after-room screen, waits until they're back home:
   // nobody is pulled out of a room without choosing to leave.
-  const busy = screen.name === 'room' || screen.name === 'after';
+  const busy = !!active || screen.name === 'after';
   useEffect(() => {
     if (!ready || busy || !pendingRequest) return;
-    setScreen({ name: 'room', request: pendingRequest, visit: Date.now() });
+    goToRoom(pendingRequest);
     onPendingUsed();
-  }, [ready, busy, pendingRequest, onPendingUsed]);
+  }, [ready, busy, pendingRequest, onPendingUsed, goToRoom]);
   // Once ready: this phone's address for invitation alerts, if notifications are already allowed.
   useEffect(() => {
     if (!ready) return;
@@ -227,27 +282,33 @@ function SignedIn({
 
   useEffect(() => {
     if (!ready || busy || !reminderRequest) return;
-    setScreen({ name: 'room', request: reminderRequest, visit: Date.now() });
+    goToRoom(reminderRequest);
     setReminderRequest(null);
-  }, [ready, busy, reminderRequest]);
+  }, [ready, busy, reminderRequest, goToRoom]);
 
-  // Android back button: back to Home from any page. In a room it does nothing, so voice isn't lost by accident.
+  // Android back button: back to Home from any page. In a room it minimises, so voice isn't lost by accident.
   useEffect(() => {
     const sub = BackHandler.addEventListener('hardwareBackPress', () => {
-      if (screen.name === 'home') return false;
-      if (screen.name === 'room') return true;
+      // In a room: minimise while connected; on its other screens (ended, no host…) do nothing, as before.
+      if (roomShown && active) {
+        if (canMinimise) setRoomShown(false);
+        return true;
+      }
+      // Minimised on Home: stay in the app, so the room isn't cut off.
+      if (screen.name === 'home') return !!active;
       // Back returns to where you came from.
       if (screen.name === 'start' && screen.from) setScreen({ name: screen.from } as Screen);
       else if (screen.name === 'group') setScreen({ name: screen.from } as Screen);
       else if (screen.name === 'start')
         setScreen(screen.door === 'learn' ? { name: 'learn', subject: screen.subject ?? '' } : { name: 'door', door: screen.door });
       else if (screen.name === 'learn') setScreen({ name: 'door', door: 'learn' });
-      else if (screen.name === 'addEmail') setScreen({ name: 'me' });
+      else if (['addEmail', 'password', 'hosting', 'editProfile', 'notifications', 'blocked', 'helpContact', 'manageAccount'].includes(screen.name)) setScreen({ name: 'me' });
+      else if (screen.name === 'hostApply') setScreen(screen.from === 'support' ? { name: 'door', door: 'support' } : { name: 'hosting' });
       else setScreen({ name: 'home' });
       return true;
     });
     return () => sub.remove();
-  }, [screen]);
+  }, [screen, roomShown, active, canMinimise]);
 
   if (state.status === 'loading') return <Centered />;
   if (state.status === 'error') {
@@ -257,7 +318,7 @@ function SignedIn({
           We couldn't load your account. Check that you're online.
         </Text>
         <Button label="Try again" onPress={() => void reload()} />
-        <Button label="Log out" variant="quiet" onPress={() => confirmSignOut(hasEmail)} />
+        <Button label="Log out" variant="quiet" onPress={() => confirmSignOut()} />
       </Centered>
     );
   }
@@ -267,85 +328,154 @@ function SignedIn({
   // Stay signed in, so the same phone can't just try another date. Close leaves the app.
   if (!isAdult(new Date(dateOfBirth))) return <UnderAgeScreen onClose={() => BackHandler.exitApp()} />;
   if (!nickname) return <NicknameScreen onSaved={() => void reload()} onBack={signOut} />;
-  if (ban) return <PausedScreen ban={ban} onLogOut={() => confirmSignOut(hasEmail)} onDelete={confirmDeleteAccount} />;
+  if (ban) return <PausedScreen ban={ban} onLogOut={() => confirmSignOut()} onDelete={confirmDeleteAccount} />;
 
   const me = { id: session.user.id, nickname };
   const home = () => setScreen({ name: 'home' });
-  const enter = (request: RoomRequest) => setScreen({ name: 'room', request, visit: Date.now() });
+  const enter = openRoom;
 
   // The bottom bar (docs/design/pages/tabs.md): on the four main pages and the pages opened from
   // them; hidden in rooms, after a room, Start something and adding an email.
   const tab: Tab | null =
-    screen.name === 'home' || screen.name === 'door' || screen.name === 'learn'
+    screen.name === 'home' || screen.name === 'door' || screen.name === 'learn' || screen.name === 'activity'
       ? 'home'
       : screen.name === 'explore' || screen.name === 'groups' || screen.name === 'me'
         ? screen.name
         : screen.name === 'group'
           ? screen.from
-          : null;
-  const page = renderPage();
-  if (!tab) return page;
+          : ['hosting', 'notifications', 'blocked', 'helpContact', 'manageAccount'].includes(screen.name)
+            ? 'me'
+            : null;
+  const roomOpen = !!active && roomShown;
+  // Same three places every time (page, room, tabs), so the room is never rebuilt, and its voice never
+  // dropped, when it's minimised or opened again.
   return (
     <TabsProvider value={tabs}>
       <View style={{ flex: 1, backgroundColor: colors.bg }}>
-        <View style={{ flex: 1 }}>{page}</View>
-        <TabBar
-          current={tab}
-          me={me}
-          groupsDot={groupsDot}
-          onSelect={(t) => setScreen({ name: t } as Screen)}
-          onReselect={(t) => {
-            // Tapping Home again from a door page goes back to Home itself.
-            if (t === 'home' && screen.name !== 'home') home();
-            else scrollers.current.get(t)?.();
-          }}
-        />
+        {roomOpen ? null : <View style={{ flex: 1 }}>{renderPage()}</View>}
+        {active ? (
+          // Minimised with no tab bar under it (Start, after a room…): clear of the phone's gesture bar.
+          <View style={roomOpen ? { flex: 1 } : { paddingBottom: tab ? 0 : insets.bottom }}>
+            <RoomScreen
+              key={active.visit}
+              me={me}
+              request={active.request}
+              minimised={!roomOpen}
+              onMinimise={() => setRoomShown(false)}
+              onExpand={() => setRoomShown(true)}
+              onCanMinimise={setCanMinimise}
+              onLeft={(summary) => {
+                const request = active.request;
+                setActive(null);
+                setRoomShown(false);
+                // For Home's "Go back in" and "For you", kept on this phone (never support rooms).
+                if (summary) void rememberVisit(me.id, summary.room);
+                if (summary) setScreen({ name: 'after', summary, oneOnOneId: request.kind === 'join' ? request.oneOnOneId : undefined });
+                // A room that never started: back to the form, with what they typed still there.
+                else if (request.kind === 'create') setScreen({ name: 'start', door: request.door, draft: request });
+                else home();
+                void myBan()
+                  .then(setBan)
+                  .catch(() => {});
+              }}
+              onMove={goToRoom}
+            />
+          </View>
+        ) : null}
+        {tab && !roomOpen ? (
+          <TabBar
+            current={tab}
+            me={me}
+            groupsDot={groupsDot}
+            onSelect={(t) => setScreen({ name: t } as Screen)}
+            onReselect={(t) => {
+              // Tapping Home again from a door page goes back to Home itself.
+              if (t === 'home' && screen.name !== 'home') home();
+              else scrollers.current.get(t)?.();
+            }}
+          />
+        ) : null}
       </View>
     </TabsProvider>
   );
 
   function renderPage() {
     switch (screen.name) {
-      case 'room':
+      case 'after':
+        return <AfterRoomScreen me={me} summary={screen.summary} oneOnOneId={screen.oneOnOneId} onDone={home} />;
+      case 'hostApply':
         return (
-          <RoomScreen
-            key={screen.visit}
-            me={me}
-            request={screen.request}
-            onLeft={(summary) => {
-              const request = screen.request;
-              // For Home's "Go back in" and "For you", kept on this phone (never support rooms).
-              if (summary) void rememberVisit(me.id, summary.room);
-              if (summary) setScreen({ name: 'after', summary });
-              // A room that never started: back to the form, with what they typed still there.
-              else if (request.kind === 'create') setScreen({ name: 'start', door: request.door, draft: request });
-              else home();
-              void myBan()
-                .then(setBan)
-                .catch(() => {});
-            }}
-            onMove={enter}
+          <HostApplyScreen
+            onClose={() => setScreen(screen.from === 'support' ? { name: 'door', door: 'support' } : { name: 'hosting' })}
           />
         );
-      case 'after':
-        return <AfterRoomScreen me={me} summary={screen.summary} onDone={home} />;
+      case 'editProfile':
+        return (
+          <EditProfileScreen
+            me={me}
+            onBack={() => setScreen({ name: 'me' })}
+            onSaved={() => {
+              void reload();
+              setScreen({ name: 'me', notice: 'Saved.' });
+            }}
+          />
+        );
+      case 'notifications':
+        return <NotificationsScreen me={me} onBack={() => setScreen({ name: 'me' })} />;
+      case 'blocked':
+        return <BlockedScreen me={me} onBack={() => setScreen({ name: 'me' })} />;
+      case 'helpContact':
+        return <HelpContactScreen onBack={() => setScreen({ name: 'me' })} />;
+      case 'hosting':
+        return (
+          <HostToolsScreen
+            onBack={() => setScreen({ name: 'me' })}
+            onEnter={enter}
+            onApply={() => setScreen({ name: 'hostApply', from: 'hosting' })}
+          />
+        );
       case 'me':
         return (
           <MeScreen
             me={me}
-            email={session.user.email ?? null}
+            email={realEmail(session.user.email)}
             notice={screen.notice}
-            onOpenPeople={() => setScreen({ name: 'door', door: 'people' })}
+            onEdit={() => setScreen({ name: 'editProfile' })}
+            onNotifications={() => setScreen({ name: 'notifications' })}
+            onBlocked={() => setScreen({ name: 'blocked' })}
+            onHelpContact={() => setScreen({ name: 'helpContact' })}
+            onHosting={() => setScreen({ name: 'hosting' })}
             onAddEmail={() => setScreen({ name: 'addEmail' })}
-            onLogOut={() => confirmSignOut(hasEmail, true)}
-            onDelete={confirmDeleteAccount}
+            onPassword={() => setScreen({ name: 'password' })}
+            onLogOut={() => confirmSignOut(me.nickname)}
+            onManage={() => setScreen({ name: 'manageAccount' })}
           />
         );
+      case 'activity':
+        return (
+          <ActivityScreen
+            me={me}
+            onBack={home}
+            onPeople={() => setScreen({ name: 'groups', show: 'groups' })}
+            onFriends={() => setScreen({ name: 'groups', show: 'friends' })}
+            onHosting={() => setScreen({ name: 'hosting' })}
+          />
+        );
+      case 'manageAccount':
+        return <ManageAccountScreen onBack={() => setScreen({ name: 'me' })} onDelete={confirmDeleteAccount} />;
       case 'addEmail':
         return (
           <AddEmailFlow
             onClose={() => setScreen({ name: 'me' })}
             onAdded={() => setScreen({ name: 'me', notice: 'Email added. Your account is safe.' })}
+          />
+        );
+      case 'password':
+        return (
+          <PasswordScreen
+            title={recovering ? 'Make a new password' : 'Your password'}
+            onClose={() => setScreen({ name: 'me' })}
+            onSaved={() => setScreen({ name: 'me', notice: 'Password saved.' })}
           />
         );
       case 'learn':
@@ -365,7 +495,7 @@ function SignedIn({
             draft={screen.draft}
             chooseDoor={!!screen.from}
             when={screen.when}
-            onScheduled={(notice) => setScreen({ name: 'groups', notice })}
+            onScheduled={(notice) => setScreen({ name: 'groups', notice, show: 'groups' })}
             onBack={() =>
               setScreen(
                 screen.from
@@ -389,11 +519,12 @@ function SignedIn({
             />
           );
         }
-        if (screen.door === 'support') return <SupportDoorScreen onBack={home} onEnter={enter} />;
+        if (screen.door === 'support') {
+          return <SupportDoorScreen onBack={home} onEnter={enter} onBecomeHost={() => setScreen({ name: 'hostApply', from: 'support' })} />;
+        }
         if (screen.door === 'play') {
           return <PlayDoorScreen onBack={home} onEnter={enter} onStart={() => setScreen({ name: 'start', door: 'play' })} />;
         }
-        if (screen.door === 'people') return <PeopleScreen nickname={me.nickname} onBack={home} onEnter={enter} />;
         return <LearnScreen onBack={home} onEnter={enter} onOpenSubject={(subject) => setScreen({ name: 'learn', subject })} />;
       case 'group':
         return (
@@ -401,7 +532,7 @@ function SignedIn({
             me={me}
             groupId={screen.groupId}
             first={screen.first}
-            backLabel={screen.from === 'explore' ? 'Back to Explore' : 'Back to Groups'}
+            backLabel={screen.from === 'explore' ? 'Back to Rooms' : 'Back to People'}
             onBack={() => setScreen({ name: screen.from } as Screen)}
             onEnter={enter}
           />
@@ -425,16 +556,16 @@ function SignedIn({
       case 'groups':
         return (
           <GroupsScreen
-            key={screen.notice ?? 'groups'}
+            key={`${screen.notice ?? ''}${screen.show ?? ''}`}
             me={me}
             nickname={me.nickname}
             notice={screen.notice}
+            show={screen.show}
             onStartGroup={() => setScreen({ name: 'start', door: 'talk', from: 'groups', when: 'weekly' })}
             onOpenGroup={(groupId, first) => setScreen({ name: 'group', groupId, first, from: 'groups' })}
             onSeenInvitations={clearGroupsDot}
             onEnter={enter}
             onExplore={() => setScreen({ name: 'explore' })}
-            onOpenPeople={() => setScreen({ name: 'door', door: 'people' })}
           />
         );
       default:
@@ -442,9 +573,11 @@ function SignedIn({
           <>
             <HomeScreen
               me={me}
-              onOpen={(door) => setScreen({ name: 'door', door })}
+              // Friends is a side of the People tab, not a page of its own.
+              onOpen={(door) => setScreen(door === 'people' ? { name: 'groups', show: 'friends' } : { name: 'door', door })}
               onEnter={enter}
               onExplore={() => setScreen({ name: 'explore' })}
+              onActivity={() => setScreen({ name: 'activity' })}
             />
           </>
         );
@@ -456,6 +589,7 @@ export default function App() {
   const [fontsLoaded] = useFonts({ Nunito_400Regular, Nunito_700Bold, Nunito_800ExtraBold });
   const [session, setSession] = useState<Session | null>(null);
   const [sessionChecked, setSessionChecked] = useState(false);
+  const [recovering, setRecovering] = useState(false);
   const missing = missingConfig();
   // A room link or legal page this app was opened with (web address, or circles:// on phones).
   const [link, setLink] = useState<LinkTarget>(() =>
@@ -488,7 +622,11 @@ export default function App() {
       setSession(data.session);
       setSessionChecked(true);
     });
-    const { data } = supabase.auth.onAuthStateChange((_event, next) => setSession(next));
+    const { data } = supabase.auth.onAuthStateChange((event, next) => {
+      setSession(next);
+      if (event === 'PASSWORD_RECOVERY') setRecovering(true);
+      if (event === 'SIGNED_OUT') setRecovering(false);
+    });
     return () => data.subscription.unsubscribe();
   }, [missing.length]);
 
@@ -510,6 +648,7 @@ export default function App() {
       <SignedIn
         key={session.user.id}
         session={session}
+        recovering={recovering}
         pendingRequest={
           link.roomId ? { kind: 'join', roomId: link.roomId } : linkEnded ? { kind: 'match', door: 'talk', mood: null } : null
         }

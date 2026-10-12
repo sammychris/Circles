@@ -86,7 +86,9 @@ async function syncNow(userId: string, rooms: ScheduledRoom[]): Promise<void> {
     if (!granted) return;
     const ids = await loadIds(userId);
     const now = Date.now();
-    const wanted = rooms.filter((r) => (r.reminded || r.regular) && r.startsAt.getTime() - BEFORE_MS > now);
+    // Me › Notifications › Room reminders off: none on this phone.
+    const on = await remindersOn(userId);
+    const wanted = on ? rooms.filter((r) => (r.reminded || r.regular) && r.startsAt.getTime() - BEFORE_MS > now) : [];
     const keep = new Set(wanted.map((r) => r.id));
     for (const [roomId, notificationId] of Object.entries(ids)) {
       if (!keep.has(roomId)) {
@@ -112,6 +114,25 @@ async function syncNow(userId: string, rooms: ScheduledRoom[]): Promise<void> {
     await saveIds(userId, ids);
   } catch {
     // A reminder that can't be set is only a missed nudge; the room is still listed.
+  }
+}
+
+// Room reminders on or off, kept on this phone (reminders are set by the phone itself).
+// Per account, so the next person to log in on this phone starts with reminders on.
+const REMINDERS_OFF = (userId: string) => `circles.remindersOff.${userId}`;
+export async function remindersOn(userId: string): Promise<boolean> {
+  try {
+    return (await AsyncStorage.getItem(REMINDERS_OFF(userId))) !== '1';
+  } catch {
+    return true;
+  }
+}
+export async function setRemindersOn(userId: string, on: boolean): Promise<void> {
+  try {
+    if (on) await AsyncStorage.removeItem(REMINDERS_OFF(userId));
+    else await AsyncStorage.setItem(REMINDERS_OFF(userId), '1');
+  } catch {
+    // Stays as it was.
   }
 }
 

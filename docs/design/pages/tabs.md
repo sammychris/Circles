@@ -1,5 +1,7 @@
 # Bottom bar and the four main pages: Home, Explore, Groups, Me
 
+**Renamed (Sammy, 2026-10-11):** the Explore tab is labelled **Rooms**. The code still calls it `explore`.
+
 **Kind:** navigation + 4 screens · **Release:** after game mode · **Decided by:** Sammy, 2026-10-08
 **Replaces:** "No tab bar" (`CIRCLES_DESIGN_DIRECTION.md` › 9 Navigation, and › Bottom navigation).
 **Builds on these existing designs (reuse them, don't redraw them):**
@@ -131,3 +133,5 @@ Grouped lists, in this order:
 - **Order:** focus order follows the screen.
 - **Large text:** the tab labels still fit at 130% text size (the label may shrink to one word).
 - **Loading, empty, error and offline:** every list has all four states, worded as above. Never a blank page.
+
+**People tab (Sammy, 2026-10-11):** the Groups tab is labelled **People** (the code still calls it `groups`). Next up and Invitations on top, then **Friends | Groups**. Friends: "No friends yet" + one line (+ Invite a friend once the web link exists), or Start a room with friends (primary), the friends list (3, then See all), alerts row, and the privacy note naming the "Need someone to talk to?" room. Groups: "No groups yet" + "Small circles that meet every week…" + Create a group (primary) and Find groups in Rooms, or Your groups, Rooms you scheduled, Your reminders, then Create a group (secondary). Home's Friends card and Me open the Friends side; the separate My people page is gone. Not built: who's online / "In a room · Join" for friends.

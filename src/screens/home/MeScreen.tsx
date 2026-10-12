@@ -1,7 +1,22 @@
-import { useCallback, useEffect, useState, type ComponentType, type ReactNode } from 'react';
+import { useEffect, useState, type ComponentType, type ReactNode } from 'react';
 import { Pressable, ScrollView, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { BookOpen, ChevronRight, FileText, LifeBuoy, LogOut, Mail, ScrollText, Shield, Users } from 'lucide-react-native';
+import {
+  Ban,
+  Bell,
+  BookOpen,
+  ChevronRight,
+  FileText,
+  HeartHandshake,
+  KeyRound,
+  LifeBuoy,
+  Mail,
+  MessageCircleQuestion,
+  ScrollText,
+  Settings,
+  Shield,
+  Smartphone,
+} from 'lucide-react-native';
 import { Avatar } from '../../components/Avatar';
 import { Button } from '../../components/Button';
 import { SwitchRow } from '../../components/Choice';
@@ -13,11 +28,11 @@ import { Toast } from '../../components/Toast';
 import { EMAIL_ENABLED } from '../../config';
 import { PRIVACY, TERMS, type LegalDoc } from '../../content/legal';
 import { appVersionLine } from '../../lib/appVersion';
-import { myConnections } from '../../lib/people';
-import { listBlocked, unblockPerson, type Blocked } from '../../lib/safety';
+import { listBlocked } from '../../lib/safety';
 import { useSoundSetting } from '../../lib/sounds';
 import { useScreenEdges, useTabScroll } from '../../navigation/TabBar';
-import { border, opacity, size, space, useColors } from '../../theme';
+import { myHostStatus, type HostStatus } from '../../support/api';
+import { opacity, radius, size, space, useColors } from '../../theme';
 
 type Icon = ComponentType<{ size: number; color: string; strokeWidth: number }>;
 
@@ -25,10 +40,17 @@ type Props = {
   me: { id: string; nickname: string };
   // The email on this account, or null. Only ever shown to its owner, here.
   email: string | null;
+  onEdit: () => void;
   onAddEmail: () => void;
-  onOpenPeople: () => void;
+  onPassword: () => void;
+  onNotifications: () => void;
+  onBlocked: () => void;
+  onHelpContact: () => void;
+  // Becoming a host, or a host's tools.
+  onHosting: () => void;
   onLogOut: () => void;
-  onDelete: () => void;
+  // Manage account, where Delete my account lives (one step in, docs/me-page-spec.md).
+  onManage: () => void;
   // A note to show once on arrival, e.g. "Email added. Your account is safe."
   notice?: string;
 };
@@ -44,89 +66,69 @@ function Group({ title, children }: { title: string; children: ReactNode }) {
   );
 }
 
-function Row({
-  Icon,
-  title,
-  line,
-  onPress,
-  trailing,
-}: {
-  Icon: Icon;
-  title: string;
-  line?: string;
-  onPress?: () => void;
-  trailing?: ReactNode;
-}) {
+// One line per row: icon, label, then a value and an arrow when it opens a page. No arrow on actions.
+function Row({ Icon, title, value, onPress, dim }: { Icon: Icon; title: string; value?: string; onPress?: () => void; dim?: boolean }) {
   const colors = useColors();
   return (
     <Pressable
       accessibilityRole={onPress ? 'button' : undefined}
-      accessibilityLabel={line ? `${title}. ${line}` : title}
+      accessibilityLabel={value ? `${title}, ${value}` : title}
+      accessibilityState={dim ? { disabled: true } : undefined}
       disabled={!onPress}
       onPress={onPress}
       style={({ pressed }) => ({
-        minHeight: size.minTarget + space[1],
+        minHeight: size.buttonPrimary,
         flexDirection: 'row',
         alignItems: 'center',
         gap: space[3],
-        opacity: pressed ? opacity.pressed : 1,
+        opacity: dim ? opacity.disabled : pressed ? opacity.pressed : 1,
       })}
     >
       <Icon size={size.icon} color={colors.textSoft} strokeWidth={size.iconStroke} />
-      <View style={{ flex: 1, gap: space[1] }}>
-        <Text variant="bodyStrong">{title}</Text>
-        {line ? (
-          <Text variant="meta" color="textSoft">
-            {line}
-          </Text>
-        ) : null}
-      </View>
-      {trailing ?? (onPress ? <ChevronRight size={size.icon} color={colors.textMeta} strokeWidth={size.iconStroke} /> : null)}
+      <Text variant="bodyStrong" style={{ flex: 1 }} numberOfLines={1}>
+        {title}
+      </Text>
+      {value ? (
+        <Text variant="meta" color="textSoft" numberOfLines={1} style={{ maxWidth: '50%' }}>
+          {value}
+        </Text>
+      ) : null}
+      {onPress ? <ChevronRight size={size.icon} color={colors.textMeta} strokeWidth={size.iconStroke} /> : null}
     </Pressable>
   );
 }
 
-// Me: you and your settings (docs/design/pages/tabs.md › Me). Only your nickname is ever shown to others.
-export function MeScreen({ me, email, onAddEmail, onOpenPeople, onLogOut, onDelete, notice }: Props) {
+// Me: who you are to others, and your settings, in one compact list (docs/me-page-spec.md).
+export function MeScreen({ me, email, onEdit, onAddEmail, onPassword, onNotifications, onBlocked, onHelpContact, onHosting, onLogOut, onManage, notice }: Props) {
   const colors = useColors();
   const edges = useScreenEdges();
   const scroll = useTabScroll('me');
-  const [blocked, setBlocked] = useState<Blocked[] | null>(null);
-  const [failed, setFailed] = useState(false);
   const [toast, setToast] = useState<string | null>(notice ?? null);
   const [doc, setDoc] = useState<LegalDoc | null>(null);
   const [helpOpen, setHelpOpen] = useState(false);
   const [rulesOpen, setRulesOpen] = useState(false);
   const [soundOn, setSoundOn] = useSoundSetting();
-  const [friends, setFriends] = useState<number | null>(null);
-
-  const load = useCallback(async () => {
-    try {
-      setBlocked(await listBlocked());
-      setFailed(false);
-    } catch {
-      setFailed(true);
-    }
-    try {
-      setFriends((await myConnections()).length);
-    } catch {
-      setFriends(null);
-    }
-  }, []);
+  const [blocked, setBlocked] = useState<number | null>(null);
+  const [host, setHost] = useState<HostStatus | null>(null);
+  // The update time is for testers; a tap on the version shows it.
+  const [showUpdate, setShowUpdate] = useState(false);
 
   useEffect(() => {
-    void load();
-  }, [load]);
+    void listBlocked()
+      .then((b) => setBlocked(b.length))
+      .catch(() => setBlocked(null));
+    void myHostStatus()
+      .then(setHost)
+      .catch(() => {});
+  }, []);
 
-  async function unblock(person: Blocked) {
-    try {
-      await unblockPerson(me.id, person.id);
-      setBlocked((list) => (list ?? []).filter((b) => b.id !== person.id));
-      setToast(`${person.nickname} is unblocked.`);
-    } catch {
-      setToast("That didn't work. Check your connection.");
-    }
-  }
+  const hosting = host?.isHost
+    ? { title: 'Host tools', line: 'Rooms, one-on-one and your card' }
+    : host?.application?.status === 'pending'
+      ? { title: 'Host application', line: 'Waiting for review' }
+      : host?.application?.status === 'needs_changes'
+        ? { title: 'Host application', line: 'Needs changes' }
+        : { title: 'Want to help others?', line: 'Become a host' };
 
   return (
     <SafeAreaView edges={edges} style={{ flex: 1, backgroundColor: colors.bg }}>
@@ -134,102 +136,91 @@ export function MeScreen({ me, email, onAddEmail, onOpenPeople, onLogOut, onDele
         ref={scroll}
         contentContainerStyle={{ paddingHorizontal: space.gutter, paddingTop: space[4], paddingBottom: space[7], gap: space[6] }}
       >
+        <Text variant="title" accessibilityRole="header">
+          Me
+        </Text>
         <View style={{ flexDirection: 'row', alignItems: 'center', gap: space[4] }}>
           <Avatar userId={me.id} nickname={me.nickname} diameter={size.avatarRoom} />
           <View style={{ flex: 1, gap: space[1] }}>
-            <Text variant="title" accessibilityRole="header" numberOfLines={1}>
+            <Text variant="heading" numberOfLines={1}>
               {me.nickname}
             </Text>
             <Text variant="meta" color="textSoft">
-              Your nickname is the only thing people see about you.
+              Only your nickname and look are visible to others.
             </Text>
           </View>
+          <Button label="Edit" onPress={onEdit} style={{ width: size.rowAction }} />
         </View>
 
-        <Group title="Your people">
-          <Row
-            Icon={Users}
-            title={friends === null ? 'Saved each other' : `Saved each other: ${friends}`}
-            line="Only the two of you ever see it"
-            onPress={onOpenPeople}
-          />
-        </Group>
+        <Pressable
+          accessibilityRole="button"
+          accessibilityLabel={`${hosting.title}. ${hosting.line}`}
+          onPress={onHosting}
+          style={({ pressed }) => ({
+            flexDirection: 'row',
+            alignItems: 'center',
+            gap: space[3],
+            padding: space[4],
+            borderRadius: radius.card,
+            backgroundColor: colors.surface,
+            opacity: pressed ? opacity.pressed : 1,
+          })}
+        >
+          <HeartHandshake size={size.icon} color={colors.emberText} strokeWidth={size.iconStroke} />
+          <View style={{ flex: 1, gap: space[1] }}>
+            <Text variant="bodyStrong">{hosting.title}</Text>
+            <Text variant="meta" color="textSoft">
+              {hosting.line}
+            </Text>
+          </View>
+          <ChevronRight size={size.icon} color={colors.textMeta} strokeWidth={size.iconStroke} />
+        </Pressable>
 
         <Group title="Account">
-          {EMAIL_ENABLED ? (
-            email ? (
-              <Row
-                Icon={Mail}
-                title="Your email"
-                line={email}
-                trailing={<Button label="Change" onPress={onAddEmail} style={{ width: size.rowAction }} />}
-              />
-            ) : (
-              <Row Icon={Mail} title="Add your email" line="Keeps your account if you change phones" onPress={onAddEmail} />
-            )
-          ) : null}
-          <Row Icon={LogOut} title="Log out" onPress={onLogOut} />
+          {/* Ready for phone checks: the number will never be shown to anyone. */}
+          <Row Icon={Smartphone} title="Phone number" value="Coming soon" dim />
+          {EMAIL_ENABLED ? <Row Icon={Mail} title="Email" value={email ?? 'Add'} onPress={onAddEmail} /> : null}
+          <Row Icon={KeyRound} title="Password" onPress={onPassword} />
+          <Row Icon={Settings} title="Manage account" onPress={onManage} />
         </Group>
 
-        <Group title="Sound">
-          <SwitchRow title="Game sounds" line="Quiet sounds for dice, moves and your turn" value={soundOn} onChange={setSoundOn} />
+        <Group title="Preferences">
+          <Row Icon={Bell} title="Notifications" onPress={onNotifications} />
+          <SwitchRow title="Game sounds" value={soundOn} onChange={setSoundOn} />
         </Group>
 
-        <Group title="Privacy">
-          <Row Icon={Shield} title="Support rooms are never shown to anyone" />
-          <Text variant="metaStrong" color="textSoft" style={{ marginTop: space[2] }}>
-            Blocked people
-          </Text>
-          {failed ? (
-            <View style={{ gap: space[2] }}>
-              <Text variant="body" color="textSoft">
-                {"We couldn't load this. Check that you're online."}
-              </Text>
-              <Button label="Try again" variant="quiet" onPress={() => void load()} />
-            </View>
-          ) : blocked === null ? null : blocked.length === 0 ? (
-            <Text variant="body" color="textSoft">
-              {"You haven't blocked anyone."}
+        <Group title="Privacy and safety">
+          <Row Icon={Ban} title="Blocked people" value={blocked === null ? undefined : String(blocked)} onPress={onBlocked} />
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: space[3], paddingTop: space[2] }}>
+            <Shield size={size.iconMeta} color={colors.textMeta} strokeWidth={size.iconStroke} />
+            <Text variant="meta" color="textMeta" style={{ flex: 1 }}>
+              Support rooms are never shown to anyone, including friends.
             </Text>
-          ) : (
-            blocked.map((person, i) => (
-              <View
-                key={person.id}
-                style={{
-                  flexDirection: 'row',
-                  alignItems: 'center',
-                  gap: space[3],
-                  paddingVertical: space[3],
-                  borderTopWidth: i === 0 ? 0 : border.hairline,
-                  borderTopColor: colors.divider,
-                }}
-              >
-                <Avatar userId={person.id} nickname={person.nickname} diameter={size.avatarList} />
-                <Text variant="bodyStrong" style={{ flex: 1 }} numberOfLines={1}>
-                  {person.nickname}
-                </Text>
-                <Button label="Unblock" onPress={() => void unblock(person)} style={{ width: size.rowAction }} />
-              </View>
-            ))
-          )}
+          </View>
         </Group>
 
-        <Group title="Help and safety">
-          <Row Icon={LifeBuoy} title="Help" line="If you or someone else needs help now" onPress={() => setHelpOpen(true)} />
+        <Group title="Help">
+          <Row Icon={LifeBuoy} title="Get help now" onPress={() => setHelpOpen(true)} />
+          <Row Icon={MessageCircleQuestion} title="Help & contact" onPress={onHelpContact} />
           <Row Icon={BookOpen} title="Room rules" onPress={() => setRulesOpen(true)} />
-          <Row Icon={FileText} title="Privacy Policy" onPress={() => setDoc(PRIVACY)} />
+        </Group>
+
+        <Group title="About">
+          <Row Icon={FileText} title="Privacy policy" onPress={() => setDoc(PRIVACY)} />
           <Row Icon={ScrollText} title="Terms" onPress={() => setDoc(TERMS)} />
         </Group>
 
-        <Text variant="meta" color="textMeta">
-          {appVersionLine()}
-        </Text>
-
-        <Pressable accessibilityRole="button" onPress={onDelete} style={{ minHeight: size.minTarget, justifyContent: 'center' }}>
-          <Text variant="bodyStrong" color="danger">
-            Delete my account
-          </Text>
-        </Pressable>
+        <View style={{ gap: space[2] }}>
+          {/* An action, not a page: no arrow. It asks first. */}
+          <Pressable accessibilityRole="button" onPress={onLogOut} style={{ minHeight: size.minTarget, justifyContent: 'center' }}>
+            <Text variant="bodyStrong">Log out</Text>
+          </Pressable>
+          <Pressable accessibilityRole="button" onPress={() => setShowUpdate(!showUpdate)} style={{ minHeight: size.minTarget, justifyContent: 'center' }}>
+            <Text variant="meta" color="textMeta">
+              {showUpdate ? appVersionLine() : appVersionLine().split(',')[0]}
+            </Text>
+          </Pressable>
+        </View>
       </ScrollView>
       <View style={{ position: 'absolute', left: 0, right: 0, bottom: space[4] }} pointerEvents="none">
         <Toast message={toast} onDone={() => setToast(null)} />

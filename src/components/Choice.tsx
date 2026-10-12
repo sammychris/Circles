@@ -102,6 +102,7 @@ export function SwitchRow({
           width: size.switchWidth,
           height: size.switchHeight,
           borderRadius: radius.pill,
+          // On: the light track; off: dark grey. The knob's side says it too, never colour alone.
           backgroundColor: value ? colors.text : colors.raised,
           padding: space[1],
           alignItems: value ? 'flex-end' : 'flex-start',

@@ -13,7 +13,7 @@ const RESEND_SECONDS = 60;
 
 type Props = { purpose: EmailPurpose; email: string; onBack: () => void; onDone?: () => void };
 
-// Signing in: after a correct code Supabase signs the person in and App moves on by itself.
+// Resetting a password: after a correct code Supabase signs the person in, and App asks for a new password.
 // Adding an email: after a correct code the email is saved to this account, then onDone.
 export function CodeScreen({ purpose, email, onBack, onDone }: Props) {
   const [code, setCode] = useState('');
@@ -39,7 +39,7 @@ export function CodeScreen({ purpose, email, onBack, onDone }: Props) {
     const { error: verifyError } = await supabase.auth.verifyOtp({
       email,
       token: value,
-      type: purpose === 'add' ? 'email_change' : 'email',
+      type: purpose === 'add' ? 'email_change' : 'recovery',
     });
     setBusy(false);
     if (verifyError) {
@@ -74,7 +74,7 @@ export function CodeScreen({ purpose, email, onBack, onDone }: Props) {
     <AuthLayout
       title="Check your email"
       body={
-        purpose === 'signIn'
+        purpose === 'reset'
           ? `If ${email} has a Circles account, we sent it a code. It can take a minute to arrive. Check your spam folder too.`
           : `If ${email} isn't already on another Circles account, we sent it a code. It can take a minute to arrive. Check your spam folder too.`
       }

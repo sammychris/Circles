@@ -8,12 +8,12 @@ Top to bottom (see `docs/screens/01-home.png`):
 1. Greeting ("Good evening, Sammy") on the left; bell (notifications, unread dot) and your avatar (opens Me) on the right, 44 px each.
 2. Question: **"What brings you in tonight?"** (`display`). Change the time word by time of day: tonight / today / this morning.
 3. **Live line** under the question: live dot + "38 people are in rooms right now" (`meta`).
-4. **Support line** (32 px below): full width, 80 tall, the same `surface` as the doors with a soft ember glow behind the icon (`radial-gradient(circle at 38px 50%, rgba(244,161,78,0.20) 0, rgba(244,161,78,0.07) 64px, transparent 160px)`). Filled heart in a 44 px `emberSoft` circle, `emberText`; "Need someone to talk to?" (`bodyStrong`); "Come in. It's quiet and kind." (`meta`, `textSoft`); chevron. Always first under the question. Never moved, hidden or shrunk.
+4. **Support line** (32 px below): full width, 80 tall, the same `surface` as the doors with a soft ember glow behind the icon (`radial-gradient(circle at 38px 50%, rgba(244,161,78,0.20) 0, rgba(244,161,78,0.07) 64px, transparent 160px)`). Filled heart in a 44 px `emberSoft` circle, `emberText`; "Need someone to talk to?" (`bodyStrong`); "Real people who listen. Quiet and kind." (`meta`, `textSoft`); chevron. Always first under the question. Never moved, hidden or shrunk.
 5. **Four doors** (12 px below), 2 × 2 grid, 120 tall tiles, `surface`, 16 padding: a 40 px tinted icon square (radius 12, 20 px icon) at the top; title (`heading`) and one line (`meta`, never wraps) at the bottom:
-   - I'm bored: dice, laugh yellow, "Play while you talk"
-   - I want to talk: chat bubble, sky blue, "Topics and moods"
-   - Learn together: book, sage, "Languages, skills"
-   - My people: two circles, rose, "2 friends on now" (or "Friends and groups" when nobody is on)
+   - Games: dice, laugh yellow, "Play with others"
+   - Talk: chat bubble, sky blue, "Join a conversation"
+   - Learn: book, sage, "Languages and skills"
+   - Friends: two circles, rose, "People you know"
 6. **Coming up** (32 px below): up to 2 rows. Date in a 48 px `surface` square; reminder as an outline/filled bell icon, no ring.
 Nothing is pinned to the bottom of Home except the room bar when you're in a room.
 No ember button on Home. Each door page has its own.
@@ -69,3 +69,10 @@ No ember button on Home. Each door page has its own.
 
 ## Data
 Door enum: support, play, talk, learn, people. Every room and group stores its door and kind (see CIRCLES_DESIGN_DIRECTION.md › Rules by kind of room).
+
+
+**Home wording (Sammy, 2026-10-11):** tiles are one plain word each (Games, Talk, Learn, Friends) with a subtitle of about 20 characters at most, on one line; no greeting line; under the question, "Live voice rooms with real people. Talk, play or learn together."; the live count with its dot is always shown (green dot; at zero: "0 people live right now. Be the first in."); every tile has a chevron; at the bottom, a one-line "how it works" and the same "In crisis right now? Get help" link as the support page.
+
+**Talk page (Sammy's talk-page spec, 2026-10-11):** title "Talk", line "Meet new people on voice."; mood chips Any (default) · Just talk · Have a laugh · Get advice (tap the chosen one again for Any), which filter Open now (free seats only, fullest first) and set what the button looks for; the button says "Find a room", or "Start a room" with "Others who want to … will join you." when nothing matching is open; empty line "No rooms open right now."; "Create a room" (secondary) with "Pick a topic, invite friends"; footer "Joining as <nickname> · mic off · Room rules". Talk means voice, Chat means text messages.
+
+**Support page (support-section-spec.md, 2026-10-11, front end only):** subtitle "Kind people and a trained host. No judging, no rush."; an "In crisis? Get help now" button (secondary style, opens the same help sheet) right under it, above everything else; a "Support rooms" label with the status at body size ("No host is on right now. Rooms always have a trained host, so please check back a little later."), no "tap Get help below"; "Join and listen first. Your mic starts off." under Come in; "Want to help others? Becoming a host is coming soon." at the bottom. Everything else in the spec (room list with hosts, Notify me, host applications, one-on-one, payments) is waiting for Sammy's decisions.

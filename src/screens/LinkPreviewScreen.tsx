@@ -1,4 +1,3 @@
-import { EMAIL_ENABLED } from '../config';
 import { useEffect, useState } from 'react';
 import { Linking, Platform, ScrollView, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -143,9 +142,7 @@ export function LinkPreviewScreen({ roomId, by, starting, error, onJoin, onFindA
                 ? 'No download. Answer one question, then pick a nickname. 18+ only.'
                 : 'Answer one question, then pick a nickname. 18+ only.'}
             </Text>
-            {EMAIL_ENABLED && onHaveAccount ? (
-              <Button label="I already have an account" variant="quiet" disabled={starting} onPress={onHaveAccount} />
-            ) : null}
+            {onHaveAccount ? <Button label="Log in" variant="quiet" disabled={starting} onPress={onHaveAccount} /> : null}
           </>
         )}
         {androidWeb && open && !full ? (

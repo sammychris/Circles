@@ -709,6 +709,40 @@ Now that Firebase is set up (part 20), an invitation also shows as an alert: **"
 
 ---
 
+## 22. Log in with nickname and password (2026-10-11)
+
+Sammy's decision: people log in with their **nickname and password**. Email is optional and is only for resetting a forgotten password.
+- **Sign up:** Get started, then the date of birth, then one screen with **Nickname** and **Password** (at least 8 characters).
+- **Log in:** Welcome › **Log in** › nickname and password. Capital letters in the nickname don't matter.
+- **Forgot your password?** (on Log in): type the email you added, get a code, then make a new password.
+- **Me:** **Password** (set or change it), and **Add your email** (for resetting a forgotten password).
+- **People who signed up before this** have no password yet: Me › **Password** sets one. If they already added an email, they can also use Forgot your password.
+- **5 wrong passwords** lock that nickname for 15 minutes. The message never says whether a nickname exists.
+- **How it works:** Supabase only allows passwords on accounts with an email, so an account without one gets a hidden, login-only address (`…@users.circles.invalid`) that never receives mail and is never shown. The room server finds the account from the nickname, so nobody can find out someone's email.
+
+**What you need to do**
+1. ~~**Database**~~ and 2. ~~**Room server**~~: done by Claude with the Supabase command-line tool (`npx supabase db push`, `npx supabase functions deploy livekit-token --use-api`). The folder is linked to the project `tikcuoyauriohbtapspr`, and the 9 earlier database updates are marked as already run, so from now on you never paste SQL or code into Supabase.
+3. **The reset email.** In Supabase, open **Authentication**, then **Emails** (Templates), then **Reset Password**. Replace the message with:
+   `Your Circles code is {{ .Token }}. Type it in the app to make a new password. If you didn't ask for it, ignore this email.`
+   Click **Save**.
+4. **Turn off Secure email change.** In Supabase, open **Authentication**, then **Sign In / Providers**, then **Email**. Turn **Secure email change** off and click **Save**. With it on, adding an email would also need a code from the hidden login-only address, which never arrives.
+5. Tell Claude. Sign-up, log in, wrong passwords, the 15-minute lock and changing the password are already tested in the browser against the live project (2026-10-11). Still to test: Add your email and Forgot your password, which need steps 3 and 4 and a real inbox.
+6. **App update** (after that):
+   ```
+   npx eas-cli update --channel preview --environment development --message "Log in with nickname and password"
+   ```
+
+**Later:** every log in goes through the room server, so Supabase sees them all coming from one address. Before a wide launch, raise **Authentication › Rate Limits › sign-ins** (it's 30 per 5 minutes by default).
+
+**Phone checklist**
+- [ ] New account: Get started, birth date, nickname and password. Home opens.
+- [ ] Me › Log out. Welcome › Log in with the same nickname (try different capitals) and password. You're back, with the same nickname.
+- [ ] Log in with a wrong password: "That nickname and password don't match."
+- [ ] Me › Add your email (get the code). Log out. Log in › Forgot your password? › that email › code › new password. Log out and log in with the new password.
+- [ ] An older test account: Me › Password, set one. Log out and log in with it.
+
+---
+
 ## What you need to do now (for parts 6 to 12)
 
 1. **Database:** in Supabase, open SQL Editor, then New query. On GitHub, open `supabase/migrations/20261010000000_open_test_extras.sql`, click **Copy raw file**, paste it, then click **Run**. It should say **Success**. It's safe to run again even if you ran an older copy.

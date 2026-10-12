@@ -1,8 +1,9 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { Pressable, RefreshControl, ScrollView, View } from 'react-native';
+import { RefreshControl, ScrollView, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { Check } from 'lucide-react-native';
 import { Button } from '../../components/Button';
+import { ShowSome } from '../../components/ShowSome';
+import { FilterChip } from '../../components/FilterChip';
 import { RoomRow } from '../../components/RoomRow';
 import { GroupCard, LoadError, ScheduledRow, SkeletonRows } from '../../components/Scheduled';
 import { Text } from '../../components/Text';
@@ -13,7 +14,7 @@ import { matchesFilter, sortLive, type Filter } from '../../rooms/explore';
 import { tonight, type Group, type ScheduledRoom } from '../../rooms/schedule';
 import { useSchedule } from '../../rooms/useSchedule';
 import { TOPICS } from '../../rooms/start';
-import { border, fonts, opacity, radius, size, space, useColors } from '../../theme';
+import { radius, size, space, useColors } from '../../theme';
 
 // Explore: what's happening in Circles (docs/design/pages/tabs.md › Explore): Live now, Tonight and
 // Every week. Support rooms are never listed here: the support door on Home is their only way in (the
@@ -26,37 +27,6 @@ const DOOR_FILTERS: { id: Filter; label: string }[] = [
   { id: 'learn', label: 'Learn' },
 ];
 const FILTERS = [...DOOR_FILTERS, ...TOPICS.map((t) => ({ id: `topic:${t.id}`, label: t.label }))];
-const SHOW = 5;
-
-function FilterChip({ label, selected, onPress }: { label: string; selected: boolean; onPress: () => void }) {
-  const colors = useColors();
-  return (
-    <Pressable
-      accessibilityRole="radio"
-      accessibilityState={{ checked: selected }}
-      accessibilityLabel={label}
-      onPress={onPress}
-      style={({ pressed }) => ({
-        minHeight: size.minTarget,
-        paddingHorizontal: space[4],
-        borderRadius: radius.pill,
-        backgroundColor: selected ? colors.raised : colors.surface,
-        borderWidth: border.selected,
-        borderColor: selected ? colors.selectedBorder : 'transparent',
-        flexDirection: 'row',
-        alignItems: 'center',
-        gap: space[1],
-        opacity: pressed ? opacity.pressed : 1,
-      })}
-    >
-      {/* Never colour alone: the selected chip also has a check. */}
-      {selected ? <Check size={size.iconMeta} color={colors.text} strokeWidth={size.iconStroke} /> : null}
-      <Text variant="metaStrong" style={selected ? { fontFamily: fonts.extraBold } : undefined}>
-        {label}
-      </Text>
-    </Pressable>
-  );
-}
 
 // onStart: Start something behind the door being looked at (Talk for All and topics); `later` opens it
 // set for a time.
@@ -76,7 +46,6 @@ export function ExploreScreen({ me, onEnter, onStart, onOpenGroup }: Props) {
   const [offline, setOffline] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
   const [filter, setFilter] = useState<Filter>('all');
-  const [all, setAll] = useState(false);
   const [retrying, setRetrying] = useState(false);
   const loaded = useRef(false);
   const schedule = useSchedule(me.id, true);
@@ -136,7 +105,7 @@ export function ExploreScreen({ me, onEnter, onStart, onOpenGroup }: Props) {
       >
         <View style={{ paddingHorizontal: space.gutter, paddingTop: space[4], gap: space[1] }}>
           <Text variant="title" accessibilityRole="header">
-            Explore
+            Rooms
           </Text>
           <Text variant="body" color="textSoft">
             {"What's happening in Circles"}
@@ -158,7 +127,6 @@ export function ExploreScreen({ me, onEnter, onStart, onOpenGroup }: Props) {
                 selected={filter === f.id}
                 onPress={() => {
                   setFilter(f.id);
-                  setAll(false);
                 }}
               />
             ))}
@@ -232,17 +200,20 @@ export function ExploreScreen({ me, onEnter, onStart, onOpenGroup }: Props) {
             </View>
           ) : (
             <View>
-              {(all ? shown : shown.slice(0, SHOW)).map((r) => (
-                <RoomRow
-                  key={r.id}
-                  room={r}
-                  disabled={offline}
-                  onJoin={() => onEnter({ kind: 'join', roomId: r.id, ...(r.door === 'learn' ? {} : { door: r.door }) })}
-                />
-              ))}
-              {!all && shown.length > SHOW ? (
-                <Button label={`See all ${shown.length}`} variant="quiet" onPress={() => setAll(true)} />
-              ) : null}
+              {/* A new filter starts short again. */}
+              <ShowSome
+                key={filter}
+                items={shown}
+                noun="live rooms"
+                render={(r) => (
+                  <RoomRow
+                    key={r.id}
+                    room={r}
+                    disabled={offline}
+                    onJoin={() => onEnter({ kind: 'join', roomId: r.id, ...(r.door === 'learn' ? {} : { door: r.door }) })}
+                  />
+                )}
+              />
             </View>
           )}
         </View>
@@ -264,9 +235,9 @@ export function ExploreScreen({ me, onEnter, onStart, onOpenGroup }: Props) {
             </View>
           ) : (
             <View>
-              {soon.map((r) => (
+              <ShowSome items={soon} noun="rooms tonight" render={(r) => (
                 <ScheduledRow key={r.id} room={r} disabled={offline} onToggle={() => void toggle(r)} onGoIn={() => goIn(r)} />
-              ))}
+              )} />
               <Button label="Schedule a room" variant="quiet" onPress={() => onStart(startDoor, true)} />
             </View>
           )}
@@ -277,9 +248,9 @@ export function ExploreScreen({ me, onEnter, onStart, onOpenGroup }: Props) {
             <Text variant="heading" accessibilityRole="header">
               Every week
             </Text>
-            {weekly.map((g) => (
+            <ShowSome items={weekly} noun="weekly groups" render={(g) => (
               <GroupCard key={g.id} group={g} onPress={() => onOpenGroup(g)} />
-            ))}
+            )} />
           </View>
         ) : null}
       </ScrollView>

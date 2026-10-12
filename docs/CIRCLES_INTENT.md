@@ -72,6 +72,18 @@ Use existing, proven game code plugged into rooms where possible, instead of bui
 
 ---
 
+## Support: decided by Sammy (2026-10-11). Don't ask again.
+
+Two kinds of support, and they never mix:
+
+1. **Support rooms (normal sessions): always free. Never ask anyone for money here.** A host plus at least 2 other people (3 in all) before anyone can talk, so nobody is ever alone with one stranger.
+2. **One-on-one (optional, never a must):** someone who is down can ask for private time with **one vetted, trusted person**:
+   - a **trusted host**: has hosted live support rooms 5 to 10 times and is trustworthy (well rated, no upheld reports), or
+   - a **professional** (for example a doctor or counsellor), whose real details are shown, not hidden.
+   One-on-one can be **free or paid**. Paid means the person sets a price for the time (for example per 30 minutes), always shown and agreed before the session starts. Some give free sessions so people have the option.
+
+Full details: `docs/support-section-spec.md`.
+
 ## Already decided (details in the Circles plan doc)
 
 - Free peer rooms: 6–7 people, everyone talks, nobody broadcasts.

@@ -1,70 +1,22 @@
 import { useCallback, useEffect, useState } from 'react';
-import { Pressable, View } from 'react-native';
-import { Check } from 'lucide-react-native';
+import { Pressable, ScrollView, View } from 'react-native';
 import { Button } from '../../components/Button';
+import { ShowSome } from '../../components/ShowSome';
 import { DoorLayout } from '../../components/DoorLayout';
+import { FilterChip } from '../../components/FilterChip';
 import { RoomRulesSheet } from '../../components/RoomRulesSheet';
 import { RoomRow } from '../../components/RoomRow';
 import { Text } from '../../components/Text';
 import { listOpenRooms, type Mood, type OpenRoom, type RoomRequest } from '../../rooms/api';
 import { MOOD_STYLE } from '../../rooms/moods';
-import { border, fonts, opacity, radius, size, space, useColors } from '../../theme';
+import { radius, size, space, useColors } from '../../theme';
 
 const MOODS: Mood[] = ['chat', 'laugh', 'advice'];
 
-function MoodTile({ mood, selected, onPress }: { mood: Mood; selected: boolean; onPress: () => void }) {
-  const colors = useColors();
-  const style = MOOD_STYLE[mood];
-  return (
-    <Pressable
-      accessibilityRole="radio"
-      accessibilityState={{ checked: selected }}
-      accessibilityLabel={style.label}
-      onPress={onPress}
-      style={({ pressed }) => ({
-        flex: 1,
-        minHeight: size.moodTile,
-        borderRadius: radius.card,
-        padding: space[3],
-        backgroundColor: selected ? colors.raised : colors.surface,
-        borderWidth: border.selected,
-        borderColor: selected ? colors.selectedBorder : 'transparent',
-        alignItems: 'center',
-        justifyContent: 'center',
-        gap: space[2],
-        opacity: pressed ? opacity.pressed : 1,
-      })}
-    >
-      <style.Icon size={size.icon} color={style.fg} strokeWidth={size.iconStroke} />
-      <Text variant="bodyStrong" center style={selected ? { fontFamily: fonts.extraBold } : undefined}>
-        {style.label}
-      </Text>
-      {selected ? (
-        <View
-          style={{
-            position: 'absolute',
-            top: -space[2],
-            right: -space[2],
-            width: size.icon + space[2],
-            height: size.icon + space[2],
-            borderRadius: radius.pill,
-            backgroundColor: colors.text,
-            borderWidth: space[1],
-            borderColor: colors.bg,
-            alignItems: 'center',
-            justifyContent: 'center',
-          }}
-        >
-          <Check size={size.iconMeta - space[1]} color={colors.bg} strokeWidth={size.iconStroke} />
-        </View>
-      ) : null}
-    </Pressable>
-  );
-}
-
 type Props = { nickname: string; onBack: () => void; onEnter: (request: RoomRequest) => void; onStart: () => void };
 
-// "I want to talk": an optional mood, Find my room, and the rooms open now (docs/screens/04, live.md).
+// Talk: meet new people on voice (Sammy's talk-page spec, 2026-10-11). Mood chips with Any by default
+// filter the open rooms and set what Find a room looks for; Create a room is the secondary way in.
 export function TalkDoorScreen({ nickname, onBack, onEnter, onStart }: Props) {
   const colors = useColors();
   const [mood, setMood] = useState<Mood | null>(null);
@@ -88,12 +40,18 @@ export function TalkDoorScreen({ nickname, onBack, onEnter, onStart }: Props) {
     return () => clearInterval(timer);
   }, [load]);
 
-  const totalPeople = (rooms ?? []).reduce((n, r) => n + r.here, 0);
+  // Only rooms with a free seat, for the chosen mood; fullest first, so people meet people.
+  const shown = (rooms ?? [])
+    .filter((r) => r.here < r.capacity && (mood === null || r.mood === mood))
+    .sort((x, y) => y.here - x.here);
+  // Nothing to join: the button says what will really happen.
+  const starting = rooms !== null && shown.length === 0;
+  const moodLabel = mood ? MOOD_STYLE[mood].label.toLowerCase() : null;
 
   return (
     <DoorLayout
-      title="What kind of chat?"
-      line="Optional. Skip it and we'll find a friendly room."
+      title="Talk"
+      line="Meet new people on voice."
       onBack={onBack}
       refreshing={refreshing}
       onRefresh={async () => {
@@ -103,10 +61,15 @@ export function TalkDoorScreen({ nickname, onBack, onEnter, onStart }: Props) {
       }}
       footer={
         <>
-          <Button label="Find my room" variant="primary" onPress={() => onEnter({ kind: 'match', door: 'talk', mood })} />
+          <Button label={starting ? 'Start a room' : 'Find a room'} variant="primary" onPress={() => onEnter({ kind: 'match', door: 'talk', mood })} />
+          {starting ? (
+            <Text variant="meta" color="textMeta" center>
+              {moodLabel ? `Others who want to ${moodLabel} will join you.` : 'Others looking to talk will join you.'}
+            </Text>
+          ) : null}
           <View style={{ flexDirection: 'row', justifyContent: 'center', alignItems: 'center', flexWrap: 'wrap', gap: space[1] }}>
-            <Text variant="meta" color="textMeta">{`You'll join as ${nickname}, with your mic off.`}</Text>
-            <Pressable accessibilityRole="link" onPress={() => setRulesOpen(true)} hitSlop={space[3]}>
+            <Text variant="meta" color="textMeta">{`Joining as ${nickname} · mic off ·`}</Text>
+            <Pressable accessibilityRole="link" onPress={() => setRulesOpen(true)} hitSlop={space[3]} style={{ minHeight: size.minTarget, justifyContent: 'center' }}>
               <Text variant="metaStrong" style={{ textDecorationLine: 'underline' }}>
                 Room rules
               </Text>
@@ -115,44 +78,59 @@ export function TalkDoorScreen({ nickname, onBack, onEnter, onStart }: Props) {
         </>
       }
     >
-      <View accessibilityRole="radiogroup" style={{ flexDirection: 'row', gap: space[3] }}>
+      <ScrollView
+        horizontal
+        showsHorizontalScrollIndicator={false}
+        accessibilityRole="radiogroup"
+        accessibilityLabel="Mood"
+        contentContainerStyle={{ gap: space[2] }}
+      >
+        <FilterChip label="Any" selected={mood === null} onPress={() => setMood(null)} />
         {MOODS.map((m) => (
-          <MoodTile key={m} mood={m} selected={mood === m} onPress={() => setMood(mood === m ? null : m)} />
+          <FilterChip
+            key={m}
+            label={MOOD_STYLE[m].label}
+            Icon={MOOD_STYLE[m].Icon}
+            iconColor={MOOD_STYLE[m].fg}
+            selected={mood === m}
+            // Tapping the chosen one again goes back to Any.
+            onPress={() => setMood(mood === m ? null : m)}
+          />
         ))}
-      </View>
+      </ScrollView>
 
       <View style={{ gap: space[2] }}>
         <Text variant="heading">Open now</Text>
-        {rooms && rooms.length > 0 ? (
-          <View style={{ flexDirection: 'row', alignItems: 'center', gap: space[2] }}>
-            <View style={{ width: space[2], height: space[2], borderRadius: radius.pill, backgroundColor: colors.live }} />
-            <Text variant="meta" color="textSoft">
-              {`${totalPeople} ${totalPeople === 1 ? 'person' : 'people'} talking in ${rooms.length} ${rooms.length === 1 ? 'room' : 'rooms'}`}
-            </Text>
-          </View>
-        ) : null}
-
         {rooms === null && !failed ? (
-          <View style={{ gap: space[3] }}>
+          <View accessible accessibilityLabel="Loading rooms" style={{ gap: space[3] }}>
             {[0, 1, 2].map((i) => (
               <View key={i} style={{ height: size.avatarList, borderRadius: radius.small, backgroundColor: colors.raised }} />
             ))}
           </View>
         ) : null}
         {failed && rooms === null ? (
+          <View style={{ gap: space[1] }}>
+            <Text variant="body" color="textSoft">
+              {"Couldn't load rooms."}
+            </Text>
+            <Button label="Try again" variant="quiet" onPress={() => void load()} />
+          </View>
+        ) : null}
+        {starting ? (
           <Text variant="body" color="textSoft">
-            We couldn't load the rooms. Check that you're online, then pull down to try again.
+            {moodLabel && (rooms ?? []).length > 0 ? `No “${MOOD_STYLE[mood!].label}” rooms open right now.` : 'No rooms open right now.'}
           </Text>
         ) : null}
-        {rooms && rooms.length === 0 ? (
-          <Text variant="body" color="textSoft">
-            It's quiet right now. Tap Find my room and you'll be the first one in.
-          </Text>
-        ) : null}
-        {(rooms ?? []).map((room) => (
+        <ShowSome items={shown} noun="open rooms" render={(room) => (
           <RoomRow key={room.id} room={room} onJoin={() => onEnter({ kind: 'join', roomId: room.id })} />
-        ))}
-        <Button label="Start a talk room" variant="quiet" onPress={onStart} />
+        )} />
+      </View>
+
+      <View style={{ gap: space[2] }}>
+        <Button label="Create a room" variant="secondary" onPress={onStart} />
+        <Text variant="meta" color="textMeta" center>
+          Pick a topic, invite friends
+        </Text>
       </View>
       <RoomRulesSheet visible={rulesOpen} onClose={() => setRulesOpen(false)} />
     </DoorLayout>

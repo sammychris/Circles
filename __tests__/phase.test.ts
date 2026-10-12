@@ -42,3 +42,19 @@ describe('countdown', () => {
     expect(clock(9)).toBe('0:09');
   });
 });
+
+describe('one-on-one (CIRCLES_INTENT.md › Support)', () => {
+  const one = { isSupport: true, hostPresent: true, oneOnOne: true };
+  it('goes live with the host and one person, and pauses when one leaves', () => {
+    expect(roomPhase({ ...one, count: 1, everLive: false })).toBe('waiting');
+    expect(roomPhase({ ...one, count: 2, everLive: false })).toBe('live');
+    expect(roomPhase({ ...one, count: 1, everLive: true })).toBe('countdown');
+  });
+  it('never without the host', () => {
+    expect(roomPhase({ ...one, hostPresent: false, count: 2, everLive: false })).toBe('waiting');
+  });
+  it('leaves group support rooms at 3', () => {
+    expect(minPeopleFor(true, false)).toBe(3);
+    expect(minPeopleFor(true, true)).toBe(2);
+  });
+});

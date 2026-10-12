@@ -18,8 +18,8 @@ export function friendlyAuthError(status: number | undefined): string {
   return "We couldn't send the code. Try again in a moment.";
 }
 
-// signIn: someone who added an email before, signing back in. add: saving an email to this account.
-export type EmailPurpose = 'signIn' | 'add';
+// reset: a forgotten password, using the email added to the account. add: saving an email to this account.
+export type EmailPurpose = 'reset' | 'add';
 
 type Props = {
   purpose: EmailPurpose;
@@ -30,7 +30,7 @@ type Props = {
 
 export async function sendEmailCode(purpose: EmailPurpose, email: string) {
   if (purpose === 'add') return (await supabase.auth.updateUser({ email })).error;
-  return (await supabase.auth.signInWithOtp({ email, options: { shouldCreateUser: false } })).error;
+  return (await supabase.auth.resetPasswordForEmail(email)).error;
 }
 
 export function EmailScreen({ purpose, initialEmail, onBack, onCodeSent }: Props) {
@@ -50,7 +50,7 @@ export function EmailScreen({ purpose, initialEmail, onBack, onCodeSent }: Props
     setBusy(false);
     if (sendError) {
       if (sendError.status === 422) {
-        // No account with that email (signing in), or it's already on another account (adding). Either
+        // No account with that email (resetting), or it's already on another account (adding). Either
         // way, carry on as if we sent a code, so nobody can test which emails use Circles.
         onCodeSent(clean);
       } else {
@@ -63,11 +63,11 @@ export function EmailScreen({ purpose, initialEmail, onBack, onCodeSent }: Props
 
   return (
     <AuthLayout
-      title={purpose === 'add' ? 'Add your email' : "What's your email?"}
+      title={purpose === 'add' ? 'Add your email' : 'Reset your password'}
       body={
         purpose === 'add'
-          ? "If you change or lose your phone, you can sign back in and keep your nickname. Nobody else ever sees your email."
-          : "Use the email you added to your account. We'll send you a code. Nobody else ever sees your email."
+          ? "If you forget your password, we'll send a code here so you can make a new one. Nobody else ever sees your email."
+          : "Type the email you added to your account. We'll send you a code. Nobody else ever sees your email."
       }
       onBack={onBack}
       footer={<Button label="Send me a code" variant="primary" loading={busy} onPress={() => void sendCode()} />}

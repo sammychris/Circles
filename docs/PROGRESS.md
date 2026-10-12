@@ -4,6 +4,21 @@ Claude Code updates this file at the end of every build step. Newest entries at 
 
 ## Current step
 
+**2026-10-12, tops of pages (Sammy's rule):** main tabs = big title left, icons right (Home: bell › Activity; People: + › Create a group / Start a room with friends / Invite; Me: "Me" title); inner pages = back then title; rooms = ⌄ · room name · ⋯ (info, Invite, Room rules, Get help) · Report flag (kept one tap away). Activity lists one-on-one requests, invitations, reminders in the next day and new friendships (never who saved whom; `my_new_friends`, migration 20261017, live). Reviewed by `circles-reviewer`, fixes in.
+
+**2026-10-12, Me page rebuilt (docs/me-page-spec.md), live in the database and room server**, reviewed by `circles-reviewer` (fixes in). Edit (nickname once a week, look = colour + initial or symbol, never a photo; an old nickname can't be taken by anyone else for 90 days), Host entry card, Phone number (Coming soon), Notifications (invitations, room reminders, one-on-one requests), Blocked people page, Get help now vs Help & contact (FAQ + write to the team), Log out and Delete always ask (web too). Sign-up gained "Pick your look". The birth-date 18+ step is unchanged until Sammy decides on a tick box. Switches keep the design direction's colours (one orange per screen).
+
+**2026-10-12, Support (hosts and one-on-one) built and live in the database and room server**, reviewed twice by `circles-reviewer` (no privacy, money or access problems; its fixes are in). 178 app tests and 75 database checks pass. Not yet tested on phones. Sammy's steps and what's left: `docs/NEXT.md` › 00.
+
+**2026-10-11, screen fixes from Sammy's critiques (front end only, nothing in the database or room server), reviewed by `circles-reviewer`, not yet tested on phones:**
+- Home: intro line, live count always shown with its green dot, cards Games / Talk / Learn / Friends, arrows on every card, a "how it works" line and the "In crisis right now? Get help" link (same HelpModal as the support page). The Explore tab is now called **Rooms**.
+- Learn: Practise plus greyed Quiz / Challenge / Debate "Soon"; categories Nigerian languages / Other languages / Skills; 18 greyed "Coming soon" subjects (`SOON` in `src/rooms/learn.ts`). Subject page: level at the top, "Host your own group", "Classes with teachers are coming soon."
+- Let's play: all 6 games listed and tappable (the room starts the tapped game once it can; the wish stays on the phone), Open now under Play now (first 3, then See all), Host a room button.
+- Game room: "Ludo room" / "Game room" title, one waiting message in the circle, Invite friends as the main button, + seats invite, red Leave, Games button, tappable Mic paused, muting releases the microphone (`stopMicTrackOnMute`).
+- **Minimise:** ⌄ in the room (and Android back) shrinks it to a bar above the tabs; voice stays on; tap the bar to go back in. Joining another room from there asks first. The room opens again by itself when it needs you (ended, removed, closing countdown).
+- Details per page: the dated notes at the end of `docs/design/pages/doors.md`, `learn.md`, `play.md` and `tabs.md`.
+- To test on a phone: the mic light going off when muted, and whether the first words after unmuting get cut off.
+
 **Room sizes, game mode, scores, optional email, the bottom bar, scheduled rooms with weekly groups and phone reminders, and in-app invitations (NEXT.md items 1 to 5) are built and reviewed, not yet tested on phones. Game mode and reminders need one new app build. Invitation alerts on the lock screen are built too and need that same new build (Firebase is set up). Everything still waits for Sammy's Supabase updates (migrations `20261011000000_scheduled_rooms.sql`, `20261012000000_invitations.sql` and `20261013000000_push_tokens.sql`), the new build, and the phone test. The to-do list is in `docs/NEXT.md`. Read it next.**
 
 Every choice made so far, and Sammy's click-by-click steps, are in `docs/BUILD_NOTES.md`.
@@ -103,6 +118,10 @@ Setup notes:
 - Supabase: anonymous sign-ins on (for test people only), SQL from `supabase/migrations/` run, function `livekit-token` deployed, secrets `LIVEKIT_URL`, `LIVEKIT_API_KEY`, `LIVEKIT_API_SECRET` set.
 - Expo: project `@sammychris/circles`. The three public values (`EXPO_PUBLIC_SUPABASE_URL`, `EXPO_PUBLIC_SUPABASE_ANON_KEY`, `EXPO_PUBLIC_LIVEKIT_URL`) are stored in EAS for the `development` environment. Build with `npx eas-cli build --profile preview --platform android`.
 - The `preview` build runs on its own; the `development` build needs Sammy's computer on the same Wi-Fi, so use `preview` for phone tests.
+
+## Log in with nickname and password (2026-10-11)
+
+Sammy's decision after testing the live build: log in is **nickname and password**. Email is optional and only resets a forgotten password. Sign-up: birth date, then one screen with nickname and password. Welcome › **Log in**; Log in › **Forgot your password?** (email code, then a new password). Me › **Password** and **Add your email**. The room server's `login` action finds the account by nickname and locks a nickname for 15 minutes after 5 wrong passwords (table `login_failures`); `set_password` gives accounts without an email a hidden login-only address (`@users.circles.invalid`). Built, type-checked and tested (173 app tests, 64 database checks); new screens checked in the browser. Database update and room server pushed with the Supabase CLI (folder linked to `tikcuoyauriohbtapspr`). Tested in the browser against the live project: sign up, log out, log in (any capitals), wrong password, change password, 15-minute lock. Setting a password signs the account out everywhere (Supabase does this), so `set_password` returns a fresh sign-in. **Waiting for Sammy:** the Reset Password email template and Secure email change off (`docs/BUILD_NOTES.md` part 22), then test Add your email and Forgot your password, then the app update. The email-code log in below is replaced.
 
 ## Email (switched back on, 2026-10-08)
 

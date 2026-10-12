@@ -10,7 +10,6 @@ import { ErrorLine } from '../components/ErrorLine';
 import { LegalModal } from '../components/LegalModal';
 import { PRIVACY, TERMS, type LegalDoc } from '../content/legal';
 import { Text } from '../components/Text';
-import { EMAIL_ENABLED } from '../config';
 import { seatPoints } from '../lib/seats';
 import { radius, roomGlowScale, size, space, speaking, useColors } from '../theme';
 
@@ -107,9 +106,7 @@ export function WelcomeScreen({ onStart, onHaveAccount, starting, error }: Props
       <View style={{ paddingHorizontal: space.gutter, paddingBottom: space[4], gap: space[3] }}>
         {error ? <ErrorLine message={error} /> : null}
         <Button label="Get started" variant="primary" loading={starting} onPress={onStart} />
-        {EMAIL_ENABLED ? (
-          <Button label="I already have an account" variant="quiet" disabled={starting} onPress={onHaveAccount} />
-        ) : null}
+        <Button label="Log in" variant="quiet" disabled={starting} onPress={onHaveAccount} />
         <View style={{ flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'center', alignItems: 'center', columnGap: space[1] }}>
           <Text variant="meta" color="textMeta">
             By continuing you agree to our

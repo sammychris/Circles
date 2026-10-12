@@ -51,7 +51,7 @@ export function InviteSheet({ visible, target, title, onClose, onSent, onShareLi
     setError(null);
     try {
       await sendInvitations(chosen, target);
-      onSent(chosen.length === 1 ? 'Invitation sent. They’ll find it in Groups.' : 'Invitations sent. They’ll find them in Groups.');
+      onSent(chosen.length === 1 ? 'Invitation sent. They’ll find it in People.' : 'Invitations sent. They’ll find them in People.');
     } catch (e) {
       setError(
         e instanceof TooManyRoomsError
